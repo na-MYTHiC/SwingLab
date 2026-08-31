@@ -86,7 +86,7 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
             finishes{' '}
             <strong>
               {num(Math.abs(profile.carryError.median), 0)} yds{' '}
-              {profile.carryError.median >= 0 ? 'past' : 'short'}
+              {profile.carryError.median >= 0 ? 'past' : 'short of'}
             </strong>{' '}
             the flag and {num(Math.abs(d.centreSide), 0)} yds{' '}
             {d.centreSide >= 0 ? 'right' : 'left'} of it. The ring covers about 95% of your shots.
