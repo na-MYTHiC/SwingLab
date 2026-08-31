@@ -1,6 +1,6 @@
 import type { Shot } from '../schema.js';
 import { clubFamily } from '../clubs.js';
-import { mad, median, pluck } from './robust.js';
+import { percentile, pluck } from './robust.js';
 
 /**
  * Mishit and implausible-value detection.
@@ -72,28 +72,43 @@ export function markMishits(shots: Shot[], opts: { madFloor?: number } = {}): vo
     // Below this, group statistics are not stable enough to judge an outlier.
     if (group.length < 5) continue;
 
-    flagLowTail(group, (s) => s.smashFactor, 2.5, opts.madFloor ?? 0.02);
-    flagLowTail(group, (s) => s.carry, 2.5, opts.madFloor ?? 3);
+    flagLowTail(group, (s) => s.smashFactor, opts.madFloor ?? 0.02);
+    flagLowTail(group, (s) => s.carry, opts.madFloor ?? 3);
   }
 }
 
+/**
+ * Flag the low tail using Tukey's lower fence rather than a MAD multiple.
+ *
+ * Smash factor and carry are not symmetric. A golfer's good strikes cluster
+ * near their ceiling while bad ones trail off below it, so the distribution
+ * has a long low tail by nature. A symmetric spread measure reads that tail
+ * as ordinary width and then flags a slice of it on every session — which
+ * produced a 20% "mishit rate" for a player who was striking it perfectly
+ * well, and a confident 2.6-shots-a-round claim off the back of it.
+ *
+ * The quartile fence is built for skewed data: it measures spread from the
+ * middle half only, so a long tail widens the fence instead of being counted
+ * as normal variation. `floor` keeps a very tight group from producing a
+ * fence so narrow that ordinary shots fall outside it.
+ */
 function flagLowTail(
   group: Shot[],
   get: (s: Shot) => number | null,
-  madMultiple: number,
-  madFloor: number,
+  floor: number,
 ): void {
   const values = pluck(group, get);
   if (values.length < 5) return;
 
-  const med = median(values);
-  const spread = Math.max(mad(values, med), madFloor);
-  const cutoff = med - madMultiple * spread;
+  const q1 = percentile(values, 0.25);
+  const q3 = percentile(values, 0.75);
+  const iqr = Math.max(q3 - q1, floor);
+  const fence = q1 - 1.5 * iqr;
 
   for (const shot of group) {
     const v = get(shot);
     if (v === null || !Number.isFinite(v)) continue;
-    if (v < cutoff && !shot.flags.includes('mishit')) shot.flags.push('mishit');
+    if (v < fence && !shot.flags.includes('mishit')) shot.flags.push('mishit');
   }
 }
 

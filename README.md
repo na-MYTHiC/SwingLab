@@ -158,6 +158,29 @@ which is the failure the version display exists to make visible.
 
 To cut a release, bump the version in `apps/app/package.json` and push.
 
+## Sample data
+
+`samples/` holds generated TrackMan exports so the app can be exercised
+without owning a launch monitor. Each one deliberately triggers a different
+path:
+
+| File | What it exercises |
+| --- | --- |
+| `1-range-slicer.csv` | Range session: open face to path, toe strike, driver hit downward |
+| `2-combine.csv` | Combine: consistently short of every flag, weakest at 160 yards |
+| `3-test-center-wedges.csv` | Test Center: a wedge ladder with loose distance control |
+| `4-clean-session.csv` | Nothing much wrong — proves the app stays quiet instead of inventing a fault |
+| `5-` to `8-trend-week*.csv` | Four weekly sessions with a real improvement, for the Trends view |
+
+Import all four `trend-week` files to see Trends; it needs at least three
+sessions with the same club before it will say anything.
+
+Regenerate with `node tools/make-samples.mjs`. The generator is deterministic
+and keeps the physics self-consistent — face to path really is face minus
+path, smash really is ball speed over club speed — because a fixture with
+impossible numbers in it will eventually be used to "prove" a rule works when
+it does not.
+
 ## Development
 
 ```bash

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { prioritise } from './causes.js';
 import { impactOf } from './impact.js';
+import { estimateStrokesAvailable } from './index.js';
 import type { Finding } from './types.js';
 import type { Club } from '../schema.js';
 
@@ -156,5 +157,44 @@ describe('strike before direction is a hard constraint', () => {
     // The low-point cluster moves ahead of the face finding as one unit.
     expect(ids.indexOf('low-point-behind-ball')).toBeLessThan(ids.indexOf('face-inconsistent'));
     expect(ids.indexOf('low-smash-factor')).toBe(ids.indexOf('low-point-behind-ball') + 1);
+  });
+});
+
+describe('total strokes available', () => {
+  it('does not add symptoms on top of the cause that explains them', () => {
+    const withSymptoms = prioritise([
+      finding('strike-scattered', '7i'),
+      finding('low-smash-factor', '7i'),
+      finding('carry-inconsistent', '7i'),
+    ]);
+    const alone = prioritise([finding('strike-scattered', '7i')]);
+    expect(estimateStrokesAvailable(withSymptoms)).toBeCloseTo(
+      estimateStrokesAvailable(alone),
+      5,
+    );
+  });
+
+  it('treats the same fault on several clubs as largely one problem', () => {
+    // One wandering strike across four clubs is one thing to fix, not four.
+    const oneClub = prioritise([finding('strike-scattered', '7i')]);
+    const fourClubs = prioritise([
+      finding('strike-scattered', '7i'),
+      finding('strike-scattered', '8i'),
+      finding('strike-scattered', '9i'),
+      finding('strike-scattered', 'PW'),
+    ]);
+    const single = estimateStrokesAvailable(oneClub);
+    const many = estimateStrokesAvailable(fourClubs);
+    expect(many).toBeGreaterThan(single);
+    expect(many).toBeLessThan(single * 2.5);
+  });
+
+  it('keeps genuinely different faults additive', () => {
+    const total = estimateStrokesAvailable(
+      prioritise([finding('target-short-bias', null), finding('gap-oversized', '8i')]),
+    );
+    const bias = estimateStrokesAvailable(prioritise([finding('target-short-bias', null)]));
+    const gap = estimateStrokesAvailable(prioritise([finding('gap-oversized', '8i')]));
+    expect(total).toBeCloseTo(bias + gap, 5);
   });
 });

@@ -10,7 +10,7 @@ import {
   type ShotSession,
   type Trend,
 } from '@swinglab/core';
-import { loadAll, remove, save, type StoredSession } from './storage.js';
+import { clearAll, loadAll, remove, save, type StoredSession } from './storage.js';
 import { isDesktop, watchExportFolder } from './desktop.js';
 import { applyTheme, loadTheme, type Theme } from './theme.js';
 import { buildStamp, VERSION } from './version.js';
@@ -92,6 +92,28 @@ export default function App() {
     [ingestRaw],
   );
 
+  /**
+   * Delete one session, keeping a sensible selection.
+   *
+   * No confirmation dialog: imports are cheap to redo, the file is still on
+   * disk, and a prompt on every delete makes clearing out test data tedious.
+   */
+  const deleteSession = useCallback(
+    (id: string) => {
+      const next = remove(id);
+      setStored(next);
+      setActiveId((current) => (current === id ? (next[0]?.session.id ?? null) : current));
+    },
+    [],
+  );
+
+  const handleClearAll = useCallback(() => {
+    setStored(clearAll());
+    setActiveId(null);
+    setWarnings([]);
+    setError(null);
+  }, []);
+
   const startWatching = useCallback(async () => {
     const stop = await watchExportFolder((files) => ingestRaw(files));
     if (stop) {
@@ -153,26 +175,36 @@ export default function App() {
       {stored.length > 0 && (
         <nav className="sessions" aria-label="Sessions">
           {stored.map((s) => (
-            <button
+            <span
               key={s.session.id}
-              className={s.session.id === activeId ? 'chip chip-on' : 'chip'}
-              onClick={() => setActiveId(s.session.id)}
+              className={s.session.id === activeId ? 'chip-wrap chip-on' : 'chip-wrap'}
             >
-              {shortDate(s.session.startedAt)}
-              <em>{s.session.kind}</em>
-              <span>{s.session.shots.length}</span>
-            </button>
+              <button className="chip" onClick={() => setActiveId(s.session.id)}>
+                {shortDate(s.session.startedAt)}
+                <em>{s.session.kind}</em>
+                <span>{s.session.shots.length}</span>
+              </button>
+              <button
+                className="chip-x"
+                aria-label={`Delete the ${shortDate(s.session.startedAt)} session`}
+                title="Delete this session"
+                onClick={() => deleteSession(s.session.id)}
+              >
+                ×
+              </button>
+            </span>
           ))}
+          {stored.length > 1 && (
+            <button className="chip-clear" onClick={handleClearAll}>
+              Clear all
+            </button>
+          )}
         </nav>
       )}
 
       {report && active ? (
         <main>
-          <SessionSummary report={report} onDelete={() => {
-            const next = remove(active.id);
-            setStored(next);
-            setActiveId(next[0]?.session.id ?? null);
-          }} />
+          <SessionSummary report={report} onDelete={() => deleteSession(active.id)} />
 
           <nav className="tabs" role="tablist">
             {TABS.map((t) => (

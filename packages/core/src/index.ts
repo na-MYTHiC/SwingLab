@@ -35,6 +35,7 @@ export { impactOf, rankByImpact, type Impact, type FixSpeed } from './diagnose/i
 export { prioritise, CAUSAL_LINKS, type Prioritised, type CausalLink } from './diagnose/causes.js';
 export {
   findingKey,
+  estimateStrokesAvailable,
   diagnoseSession,
   diagnoseShots,
   buildPracticePlan,

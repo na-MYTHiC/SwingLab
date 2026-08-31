@@ -64,4 +64,14 @@ export function remove(sessionId: string): StoredSession[] {
   return next;
 }
 
+/** Remove every stored session. Used by the "clear all" control. */
+export function clearAll(): StoredSession[] {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Nothing stored, or storage is blocked — either way there is nothing left.
+  }
+  return [];
+}
+
 export type { StoredSession };

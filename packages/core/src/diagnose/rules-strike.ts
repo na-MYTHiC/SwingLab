@@ -231,9 +231,17 @@ export const impactLocationRule: Rule = {
 /** How often the player mishits badly enough to lose the shot. */
 export const mishitRateRule: Rule = {
   id: 'mishit-rate',
-  minShots: 10,
+  /*
+   * A rate needs a denominator worth dividing by.
+   *
+   * At a dozen shots, two mishits versus one is the difference between "17%,
+   * a major problem" and "8%, nothing to see" — and which one you get is
+   * mostly luck. Twenty is the point where the number starts describing the
+   * player rather than the sample.
+   */
+  minShots: 20,
   run({ profile }): Finding[] {
-    if (profile.shotCount < 10) return [];
+    if (profile.shotCount < 20) return [];
     if (clubFamily(profile.club) === 'putter') return [];
     if (profile.mishitRate < 0.15) return [];
 

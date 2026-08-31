@@ -80,3 +80,34 @@ describe('mishit detection', () => {
     expect(wedges.every((s) => !s.flags.includes('mishit'))).toBe(true);
   });
 });
+
+describe('skewed data does not manufacture mishits', () => {
+  it('leaves a naturally left-skewed smash distribution alone', () => {
+    /*
+     * Real smash factor is not symmetric: good strikes cluster near the
+     * ceiling and bad ones trail below it. A symmetric spread measure reads
+     * that tail as ordinary width and then flags a slice of it every time,
+     * which produced a 17% "mishit rate" for a player striking it fine.
+     */
+    const smashes = [
+      1.34, 1.34, 1.33, 1.33, 1.33, 1.32, 1.32, 1.32, 1.31, 1.31,
+      1.30, 1.29, 1.28, 1.27, 1.25,
+    ];
+    const shots = smashes.map((smashFactor, i) =>
+      shot({ sequence: i + 1, smashFactor, carry: 160 - (1.34 - smashFactor) * 200 }),
+    );
+    markImplausible(shots);
+    markMishits(shots);
+    expect(shots.filter((s) => s.flags.includes('mishit'))).toHaveLength(0);
+  });
+
+  it('still catches a shot that is genuinely off the bottom of the pattern', () => {
+    const shots = [
+      ...Array.from({ length: 14 }, (_, i) => shot({ sequence: i + 1 })),
+      shot({ sequence: 15, smashFactor: 1.02, carry: 112 }),
+    ];
+    markImplausible(shots);
+    markMishits(shots);
+    expect(shots[14]?.flags).toContain('mishit');
+  });
+});

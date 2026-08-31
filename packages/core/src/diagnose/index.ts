@@ -38,6 +38,43 @@ const PER_CLUB_RULES: Rule[] = [
   carryConsistencyRule,
 ];
 
+/**
+ * Total strokes on the table, without double counting.
+ *
+ * A naive sum is badly wrong in two directions at once. Symptoms would be
+ * counted alongside the root causes that already explain them, and the same
+ * swing fault showing up on four clubs would be counted four times — a test
+ * session with a scattered strike across the bag totalled 21.5 shots a round,
+ * which is not a number anyone should be shown.
+ *
+ * So: symptoms are excluded, since their cost is already carried by the cause.
+ * And among root causes, findings of the *same kind* on different clubs are
+ * treated as one problem seen from several angles: the largest counts in
+ * full, and each additional one adds only a fraction, because fixing a
+ * wandering strike fixes it for every club at once rather than one club at a
+ * time.
+ */
+export function estimateStrokesAvailable(priorities: Prioritised[]): number {
+  const roots = priorities.filter((p) => p.explainedBy === null);
+
+  const byKind = new Map<string, number[]>();
+  for (const entry of roots) {
+    const list = byKind.get(entry.finding.id) ?? [];
+    list.push(entry.impact.courseStrokes);
+    byKind.set(entry.finding.id, list);
+  }
+
+  let total = 0;
+  for (const costs of byKind.values()) {
+    costs.sort((a, b) => b - a);
+    costs.forEach((cost, i) => {
+      // The first club counts fully; further clubs are largely the same fault.
+      total += i === 0 ? cost : cost * 0.35;
+    });
+  }
+  return total;
+}
+
 /** Findings are unique per rule *and* club, so both belong in the key. */
 export function findingKey(finding: Finding): string {
   return `${finding.id}::${finding.club ?? 'bag'}`;
@@ -152,12 +189,7 @@ export function diagnoseSession(
     findings: ranked,
     impacts,
     priorities,
-    // Each fault costs what it costs; leverage decides order, not the total.
-    // Summing leverage here would count downstream faults twice.
-    strokesAvailable: ranked.reduce(
-      (sum, f) => sum + (impacts.get(findingKey(f))?.courseStrokes ?? 0),
-      0,
-    ),
+    strokesAvailable: estimateStrokesAvailable(priorities),
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
     practice: prescribePractice(rootFindings, profiles),
   };
