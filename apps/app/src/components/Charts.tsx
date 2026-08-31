@@ -22,6 +22,18 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
     return <p className="chart-empty">Not enough shots with a carry and side reading to plot.</p>;
   }
 
+  /*
+   * A club played to several targets needs a different picture.
+   *
+   * In a Combine the same wedge goes to 60 and 70 yards, so plotting absolute
+   * carry draws a pattern 30 yards deep and captions it as scatter — a chart
+   * that makes a player look wildly inconsistent for following the protocol.
+   * Where a target exists, the honest depth is the error against it.
+   */
+  const multiTarget = profile.distinctTargets > 1 && profile.carryError.n >= 3;
+  const depthSpread = multiTarget ? 4 * profile.carryError.mad : d.depth;
+  const depthCentre = multiTarget ? profile.carryError.median : d.centreCarry;
+
   const width = 320;
   const height = 380;
   const padX = 34;
@@ -30,9 +42,9 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
   // Scale to the pattern with headroom, and never narrower than ±15 yards so
   // a tight pattern does not get magnified into looking scattered.
   const halfWidth = Math.max(15, d.width / 2 + 6);
-  const depth = Math.max(20, d.depth + 12);
-  const nearCarry = d.centreCarry - depth / 2;
-  const farCarry = d.centreCarry + depth / 2;
+  const depth = Math.max(20, depthSpread + 12);
+  const nearCarry = depthCentre - depth / 2;
+  const farCarry = depthCentre + depth / 2;
 
   const x = (side: number) =>
     padX + ((side + halfWidth) / (halfWidth * 2)) * (width - padX * 2);
@@ -47,7 +59,7 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
           className="axis-line"
           strokeDasharray="3 4"
         />
-        {[nearCarry, d.centreCarry, farCarry].map((carry, i) => (
+        {[nearCarry, depthCentre, farCarry].map((carry, i) => (
           <g key={i}>
             <line x1={padX} y1={y(carry)} x2={width - padX} y2={y(carry)} className="grid-line" />
             <text x={4} y={y(carry) + 4} className="axis-text">
@@ -59,18 +71,36 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
         {/* Two-sigma pattern: roughly where 95% of shots land. */}
         <ellipse
           cx={x(d.centreSide)}
-          cy={y(d.centreCarry)}
+          cy={y(depthCentre)}
           rx={Math.max(6, (d.width / 2 / halfWidth) * ((width - padX * 2) / 2))}
-          ry={Math.max(6, (d.depth / 2 / (farCarry - nearCarry)) * (height - padY * 2))}
+          ry={Math.max(6, (depthSpread / 2 / (farCarry - nearCarry)) * (height - padY * 2))}
           className="ellipse"
         />
-        <circle cx={x(d.centreSide)} cy={y(d.centreCarry)} r={4} className="centre-dot" />
+        <circle cx={x(d.centreSide)} cy={y(depthCentre)} r={4} className="centre-dot" />
       </svg>
       <figcaption>
-        Typical shot finishes <strong>{num(Math.abs(d.centreSide), 0)} yds{' '}
-        {d.centreSide >= 0 ? 'right' : 'left'}</strong> at{' '}
-        <strong>{num(d.centreCarry, 0)} yds</strong> carry. The ring covers about 95% of your shots
-        — {num(d.width, 0)} yds wide, {num(d.depth, 0)} yds deep.
+        {multiTarget ? (
+          <>
+            Played to <strong>{profile.distinctTargets} different targets</strong>, so this shows
+            carry <em>relative to each target</em> rather than absolute distance. Typical shot
+            finishes{' '}
+            <strong>
+              {num(Math.abs(profile.carryError.median), 0)} yds{' '}
+              {profile.carryError.median >= 0 ? 'past' : 'short'}
+            </strong>{' '}
+            the flag and {num(Math.abs(d.centreSide), 0)} yds{' '}
+            {d.centreSide >= 0 ? 'right' : 'left'} of it. The ring covers about 95% of your shots.
+          </>
+        ) : (
+          <>
+            Typical shot finishes{' '}
+            <strong>
+              {num(Math.abs(d.centreSide), 0)} yds {d.centreSide >= 0 ? 'right' : 'left'}
+            </strong>{' '}
+            at <strong>{num(d.centreCarry, 0)} yds</strong> carry. The ring covers about 95% of your
+            shots — {num(d.width, 0)} yds wide, {num(d.depth, 0)} yds deep.
+          </>
+        )}
       </figcaption>
     </figure>
   );

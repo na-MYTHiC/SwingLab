@@ -47,6 +47,15 @@ export interface ClubProfile {
   spinAxis: Summary;
 
   carry: Summary;
+  /**
+   * Signed carry error against the shot's own target, in yards.
+   *
+   * The meaningful distance number whenever a club was played to more than
+   * one target. Raw carry spread across a Combine's 60- and 70-yard targets
+   * describes the protocol; the error against each target describes the
+   * player.
+   */
+  carryError: Summary;
   total: Summary;
   side: Summary;
   curve: Summary;
@@ -84,6 +93,11 @@ export function buildClubProfile(club: Club, shots: Shot[]): ClubProfile {
 
   const carry = s((x) => x.carry);
   const side = s((x) => x.side);
+  const carryError = summarise(
+    rep
+      .filter((shot) => shot.carry !== null && shot.targetDistance !== null)
+      .map((shot) => (shot.carry as number) - (shot.targetDistance as number)),
+  );
 
   return {
     club,
@@ -112,6 +126,7 @@ export function buildClubProfile(club: Club, shots: Shot[]): ClubProfile {
     spinAxis: s((x) => x.spinAxis),
 
     carry,
+    carryError,
     total: s((x) => x.total),
     side,
     curve: s((x) => x.curve),
