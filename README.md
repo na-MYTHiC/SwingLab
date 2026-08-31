@@ -143,6 +143,21 @@ apps/desktop/              Tauri shell — watches the TPS export folder
 fixtures/                  Sample TrackMan exports (imperial and metric)
 ```
 
+## Version and updates
+
+The header chip shows the version; the footer shows `v<version> · <commit> ·
+built <date>`. Both are injected by Vite from `apps/app/package.json` at build
+time rather than typed into the markup, so they cannot drift from the code.
+
+The service worker is registered with the version in its URL and keys its
+cache to it, so a release changes the worker's URL, the browser installs it,
+and the page reloads once the new worker takes over. Navigations are
+network-first; only content-hashed assets are served cache-first. Serving the
+HTML entry point from cache is exactly how a PWA pins itself to an old build,
+which is the failure the version display exists to make visible.
+
+To cut a release, bump the version in `apps/app/package.json` and push.
+
 ## Development
 
 ```bash
