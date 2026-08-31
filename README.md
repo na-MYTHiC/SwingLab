@@ -10,9 +10,38 @@ API bills — see [Why it is free](#why-it-is-free).
 
 | Piece | State |
 | --- | --- |
-| `packages/core` — schema, ingest, diagnosis engine | **Built and tested**, 63 tests passing |
+| `packages/core` — schema, ingest, diagnosis, impact, practice | **Built and tested**, 106 tests passing |
 | `apps/app` — React PWA (browser, mobile, installable) | **Built and verified** in a headless browser |
 | `apps/desktop` — Tauri shell + folder watcher | **Scaffolded, not compiled** — needs platform webview dev packages |
+
+The app shows its version and build stamp in the header and footer (`v1.0.0 ·
+<commit> · built <date>`), injected at build time rather than typed in, and
+the service worker is keyed to that version so a deploy cannot leave you
+looking at a cached older build.
+
+## What it does
+
+**Reads every kind of TrackMan session.** Range, Target Practice, Test Center,
+Combine, Performance Center, the games, course play and putting. The activity
+is detected at ingest, because the same numbers mean different things in
+different modes — carry spread across a Combine's ten targets is the protocol,
+not a fault.
+
+**Ranks findings by what fixing them is worth,** not by how bad the number
+looks. Each finding carries an estimated cost in shots per round *and* in
+points on a scored test, weighted by how fast the fix pays off. Estimates are
+labelled as estimates.
+
+**Follows the causal chain.** A wandering strike lowers smash factor, widens
+carry and tilts spin axis — four findings, one fault. Root causes are credited
+with what they unlock, symptoms are nested underneath them, and practice is
+built from root causes only, so a session never works the same fault three
+times under three names. Strike still precedes direction on the same club as a
+hard constraint.
+
+**Prescribes practice in the actual modes.** Every block names the TrackMan
+mode, where to find it, the setup steps, and what a good result looks like —
+with target distances taken from your own carries.
 
 ---
 
