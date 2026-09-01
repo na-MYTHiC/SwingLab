@@ -86,17 +86,17 @@
  * distance is a desk rather than an arm's length.
  */
 :root {
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 22px;
-  --sp-6: 30px;
-  --sp-7: 44px;
+  --sp-1: 3px;
+  --sp-2: 7px;
+  --sp-3: 10px;
+  --sp-4: 14px;
+  --sp-5: 19px;
+  --sp-6: 26px;
+  --sp-7: 36px;
 
-  --gutter: 16px;   /* page edge to content */
-  --card-pad: 16px; /* every card, no exceptions */
-  --gap: 12px;      /* between sibling cards */
+  --gutter: 14px;   /* page edge to content */
+  --card-pad: 14px; /* every card, no exceptions */
+  --gap: 10px;      /* between sibling cards */
 
   --fs-2xs: 11px;   /* uppercase micro-labels */
   --fs-xs: 12.5px;  /* captions, footnotes */
@@ -112,9 +112,9 @@
 
 @media (min-width: 720px) {
   :root {
-    --gutter: 24px;
-    --card-pad: 20px;
-    --gap: 14px;
+    --gutter: 22px;
+    --card-pad: 18px;
+    --gap: 12px;
   }
 }
 
@@ -138,7 +138,7 @@ body {
   margin: 0 auto;
   /* Bottom padding clears the fixed nav bar plus the home indicator. */
   padding: max(var(--sp-2), env(safe-area-inset-top)) var(--gutter)
-           calc(var(--sp-7) + 44px + env(safe-area-inset-bottom));
+           calc(var(--sp-6) + 46px + env(safe-area-inset-bottom));
 }
 
 /*
@@ -422,35 +422,6 @@ select { font-size: var(--fs-sm); }
   color: var(--text-dim);
 }
 
-/* ------------------------------------------------------------------- cta */
-
-/*
- * The one place a filled button appears. It is the single action on a screen
- * of readouts, so it is allowed to be the only thing that looks pressable.
- */
-.cta {
-  width: 100%;
-  min-height: var(--tap);
-  margin-top: var(--sp-4);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--bg);
-  background: var(--brand);
-  border-color: var(--brand);
-  border-radius: var(--radius-sm);
-}
-.cta:hover { background: color-mix(in srgb, var(--brand) 85%, white); border-color: transparent; }
-
-.link-btn {
-  min-height: var(--tap);
-  padding: 0 var(--sp-4);
-  background: none;
-  border-color: var(--line);
-  color: var(--text-dim);
-  font-size: var(--fs-sm);
-}
-.link-btn:hover { color: var(--text); }
-
 /* --------------------------------------------------------------- next up */
 
 .next-up {
@@ -472,9 +443,6 @@ select { font-size: var(--fs-sm); }
 }
 .next-up p { margin: 0; font-size: var(--fs-sm); color: var(--text-dim); }
 .next-up p strong { color: var(--text); }
-.next-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.next-actions .cta { flex: 1 1 200px; width: auto; }
-.next-actions .link-btn { margin-top: var(--sp-4); flex: 0 1 auto; }
 
 /* -------------------------------------------------------------- priority */
 
@@ -1216,6 +1184,20 @@ tbody tr:hover { background: var(--surface-2); }
  * furthest point from reach on a phone.
  */
 
+/*
+ * Words only, no icons.
+ *
+ * Five glyphs invented for "Session", "Fix" and "Trends" carried no meaning
+ * anybody could read without the label underneath, so they were costing a
+ * line of height to say nothing. Dropping them makes the bar a single row of
+ * text and roughly twenty pixels shorter.
+ *
+ * The bottom padding is generous on purpose. Android draws a gesture bar over
+ * the bottom of the viewport and does not always report it through
+ * safe-area-inset-bottom, so a nav padded only by the inset gets its labels
+ * clipped on exactly the devices that need them most. The floor of 10px is
+ * that insurance; where the inset is reported, it adds to it.
+ */
 .bottom-nav {
   position: fixed;
   left: 0; right: 0; bottom: 0;
@@ -1223,8 +1205,8 @@ tbody tr:hover { background: var(--surface-2); }
   display: flex;
   justify-content: center;
   gap: 2px;
-  padding: var(--sp-1) var(--sp-2) calc(var(--sp-1) + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  padding: 5px var(--sp-2) calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-top: 1px solid var(--line);
@@ -1234,28 +1216,25 @@ tbody tr:hover { background: var(--surface-2); }
   position: relative;
   flex: 1;
   max-width: 132px;
-  min-height: var(--tap);
+  min-height: 36px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: var(--sp-1) 2px;
+  padding: var(--sp-2) 2px;
   border: none;
   background: none;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--text-faint);
   transition: color .15s, background .15s;
 }
 .nav-item:hover { color: var(--text-dim); background: var(--surface-2); }
-.nav-on, .nav-on:hover { color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.nav-on, .nav-on:hover { color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); }
 
-.nav-icon { font-size: 16px; line-height: 1; }
-.nav-label { font-size: var(--fs-2xs); letter-spacing: .01em; }
+.nav-label { font-size: var(--fs-sm); font-weight: 550; letter-spacing: .005em; }
 
 .nav-dot {
   position: absolute;
-  top: 5px; right: 20px;
+  top: 3px; right: 12px;
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--good);

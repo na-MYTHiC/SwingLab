@@ -30,9 +30,9 @@ import {
   speedAdjustedEfficiencyRule,
 } from './rules-delivery.js';
 import {
-  classifyStrikes, clubConsistency, potential, sessionProgression, shapeBreakdown,
-  type ClubConsistency, type Potential, type Progression, type ShapeBreakdown,
-  type StrikeBreakdown,
+  baselineFor, classifyStrikes, clubConsistency, potential, sessionProgression, shapeBreakdown,
+  type ClubConsistency, type PlayerBaseline, type Potential, type Progression,
+  type ShapeBreakdown, type StrikeBreakdown,
 } from '../analysis/index.js';
 import type { Finding, Rule } from './types.js';
 import { impactOf, type Impact } from './impact.js';
@@ -105,11 +105,28 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
  * Built for the most-hit club only. A page of targets for a club hit three
  * times is noise, and the comparison is only as good as the median behind it.
  */
-function buildOptimals(profile: ClubProfile | null): SessionReport['optimals'] {
+function buildOptimals(
+  profile: ClubProfile | null,
+  baseline: PlayerBaseline | null,
+): SessionReport['optimals'] {
   if (!profile || profile.clubSpeed.n < 5 || !Number.isFinite(profile.clubSpeed.median)) {
     return null;
   }
-  const optimals = personalOptimals(profile.club, profile.clubSpeed.median);
+
+  /*
+   * Targets come from the player's *rolling* club speed, not today's.
+   *
+   * Club speed swings three or four mph between ordinary sessions with
+   * warmth, fatigue and effort. Rebuilding the targets from one afternoon
+   * means they move under the player every time they import, and a spin
+   * number can appear to come on target because the swing was slower rather
+   * than because the delivery improved. A baseline over the recent sessions
+   * holds still enough to aim at while still moving when speed genuinely
+   * changes.
+   */
+  const base = baselineFor(baseline, profile.club);
+  const speed = base && base.sessions >= 2 ? base.clubSpeed : profile.clubSpeed.median;
+  const optimals = personalOptimals(profile.club, speed);
   if (!optimals) return null;
 
   const actual: Record<string, number> = {
@@ -125,6 +142,9 @@ function buildOptimals(profile: ClubProfile | null): SessionReport['optimals'] {
     club: profile.club,
     clubSpeed: optimals.clubSpeed,
     tourClubSpeed: optimals.tourClubSpeed,
+    speedBasis: base && base.sessions >= 2
+      ? { sessions: base.sessions, sessionSpeed: profile.clubSpeed.median }
+      : null,
     comparisons: optimals.windows.map((w) =>
       compareToOptimal(w, actual[w.metric] ?? Number.NaN),
     ),
@@ -232,8 +252,14 @@ export interface SessionReport {
    */
   optimals: {
     club: Club;
+    /** The speed the targets were built for — rolling, where history allows. */
     clubSpeed: number;
     tourClubSpeed: number;
+    /**
+     * Set when the targets came from a multi-session baseline rather than
+     * this session alone, so the UI can say so and show today's speed too.
+     */
+    speedBasis: { sessions: number; sessionSpeed: number } | null;
     comparisons: OptimalComparison[];
   } | null;
 }
@@ -249,6 +275,12 @@ export interface PracticeItem {
 export interface DiagnoseOptions {
   /** Which bay slot the practice plan should fill. Defaults to one hour. */
   practiceDuration?: PracticeDuration;
+  /**
+   * The player's rolling averages across recent sessions. Supplying it makes
+   * the optimal targets stable between imports; without it they are derived
+   * from this session alone, which is noticeably noisier.
+   */
+  baseline?: PlayerBaseline | null;
   /**
    * Hide findings the sample is too small to support. On by default —
    * a confident-sounding diagnosis from four shots is the fastest way to
@@ -269,7 +301,9 @@ export function diagnoseSession(
   session: ShotSession,
   opts: DiagnoseOptions = {},
 ): SessionReport {
-  const { hideLowConfidence = true, maxDrills = 4, practiceDuration = 60 } = opts;
+  const {
+    hideLowConfidence = true, maxDrills = 4, practiceDuration = 60, baseline = null,
+  } = opts;
 
   markImplausible(session.shots);
   markUnusable(session.shots);
@@ -333,7 +367,7 @@ export function diagnoseSession(
     progression: sessionProgression(session.shots),
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
-    optimals: buildOptimals(mainProfile),
+    optimals: buildOptimals(mainProfile, baseline),
     discardedCount: discarded(session.shots).length,
     score: null,
     achievements: [],

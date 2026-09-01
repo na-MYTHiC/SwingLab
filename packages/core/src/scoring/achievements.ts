@@ -1,3 +1,4 @@
+import { tourWidthFor } from '../benchmarks/skill.js';
 import type { SessionReport } from '../diagnose/index.js';
 
 /**
@@ -79,16 +80,23 @@ const DEFINITIONS: Definition[] = [
   },
   {
     id: 'tight-pattern',
-    name: 'Green In Regulation',
-    requirement: 'Pattern narrower than 30 yards — the width of a green',
-    meaning: 'A green is about thirty yards across. Inside this, you are aiming at flags rather than at the middle and hoping.',
+    name: 'Tour Width',
+    requirement: 'Pattern as tight as tour standard for that carry distance',
+    meaning: 'Tour players hold about a fifth of their carry distance in width — roughly 31 yards on a 170-yard shot. Inside that you are aiming at flags rather than at the middle and hoping.',
     tier: 'gold',
     measure: (r) => {
+      /*
+       * Relative to the shot, not a fixed thirty yards. Thirty yards is
+       * excellent for a driver and poor for a wedge, and on a 170-yard iron it
+       * is *tighter than tour* — so the old absolute version was a milestone
+       * nobody could reach, dressed up as an achievable one.
+       */
       const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
       const width = main?.dispersion?.width;
+      const carry = main?.carry.median;
       if (width === undefined || !Number.isFinite(width)) return null;
-      // Progress rises as the pattern narrows towards 30 yards.
-      return Math.min(1, 30 / width);
+      if (carry === undefined || !Number.isFinite(carry) || carry <= 0) return null;
+      return Math.min(1, tourWidthFor(carry) / width);
     },
   },
   {

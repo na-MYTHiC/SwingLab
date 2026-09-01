@@ -2,7 +2,6 @@ import type {
   Prioritised, SessionReport, Prescription, ClubProfile, Shot, ShotSession, Trend,
   PracticeDuration,
 } from '@swinglab/core';
-import type { Tab } from '../App.js';
 import { DispersionChart, TrendChart } from './Charts.js';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
 import { minutes, num, shots, speedLabel } from '../format.js';
@@ -19,12 +18,7 @@ import { minutes, num, shots, speedLabel } from '../format.js';
  * identical weight is a list to read; one card that dominates, two that
  * support it and the rest folded away is an instruction.
  */
-export function PriorityView({
-  report, onGoTo,
-}: {
-  report: SessionReport;
-  onGoTo: (tab: Tab) => void;
-}) {
+export function PriorityView({ report }: { report: SessionReport }) {
   if (report.findings.length === 0) {
     return (
       <div className="empty-state">
@@ -71,7 +65,6 @@ export function PriorityView({
             rank={1}
             lead
             symptoms={symptomsOf(first)}
-            onGoTo={onGoTo}
           />
         </>
       )}
@@ -89,7 +82,6 @@ export function PriorityView({
                 entry={root}
                 rank={i + 2}
                 symptoms={symptomsOf(root)}
-                onGoTo={onGoTo}
               />
             ))}
           </ol>
@@ -108,7 +100,6 @@ export function PriorityView({
                 entry={root}
                 rank={i + supporting.length + 2}
                 symptoms={symptomsOf(root)}
-                onGoTo={onGoTo}
               />
             ))}
           </ol>
@@ -119,13 +110,12 @@ export function PriorityView({
 }
 
 function PriorityCard({
-  entry, rank, symptoms, lead = false, onGoTo,
+  entry, rank, symptoms, lead = false,
 }: {
   entry: Prioritised;
   rank: number;
   symptoms: Prioritised[];
   lead?: boolean;
-  onGoTo: (tab: Tab) => void;
 }) {
   const { finding, impact, leverageStrokes } = entry;
   const unlocks = leverageStrokes - impact.courseStrokes;
@@ -192,11 +182,6 @@ function PriorityCard({
         </details>
       )}
 
-      {lead && (
-        <button className="cta" onClick={() => onGoTo('practice')}>
-          Build my next session around this →
-        </button>
-      )}
     </Wrapper>
   );
 }

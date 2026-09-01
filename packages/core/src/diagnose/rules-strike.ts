@@ -102,7 +102,7 @@ export const attackAngleRule: Rule = {
             { label: 'Low point', value: round(profile.lowPointDistance.median, 1), unit: 'in' },
             { label: 'Shots', value: a.n, unit: '' },
           ],
-          drills: ['towel-behind-ball', 'tee-forward-low-point'],
+          drills: ['shaft-lean-irons', 'tee-forward-low-point', 'towel-behind-ball'],
         },
       ];
     }
@@ -160,7 +160,7 @@ export const lowPointRule: Rule = {
           { label: 'Low point', value: round(lp.median, 1), unit: 'in' },
           { label: 'Shots', value: lp.n, unit: '' },
         ],
-        drills: ['tee-forward-low-point', 'step-change-tempo'],
+        drills: ['tee-forward-low-point', 'towel-behind-ball', 'tempo-ratio'],
       });
     }
 
@@ -201,7 +201,7 @@ export const impactLocationRule: Rule = {
           { label: 'Smash factor', value: round(profile.smashFactor.median, 2), unit: '' },
           { label: 'Shots', value: off.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'gate-path'],
+        drills: ['foot-spray-strike', 'toe-heel-gate'],
       });
     }
 
@@ -220,7 +220,7 @@ export const impactLocationRule: Rule = {
           { label: 'Strike spread', value: round(off.mad, 1), unit: 'mm', reference: 9 },
           { label: 'Shots', value: off.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'step-change-tempo'],
+        drills: ['foot-spray-strike', 'tempo-ratio', 'toe-heel-gate'],
       });
     }
 
@@ -261,7 +261,7 @@ export const mishitRateRule: Rule = {
           { label: 'Mishits', value: profile.mishitCount, unit: '' },
           { label: 'Shots', value: profile.shotCount, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'random-practice-block'],
+        drills: ['foot-spray-strike', 'toe-heel-gate', 'tempo-ratio'],
       },
     ];
   },

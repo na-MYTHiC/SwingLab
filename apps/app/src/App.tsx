@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  buildBaseline,
   buildTrends,
   compareSessions,
   practiceStreak,
@@ -11,6 +12,7 @@ import {
   type IngestWarning,
   type SessionReport,
   type ShotSession,
+  type PlayerBaseline,
   type PracticeDuration,
   type Trend,
 } from '@swinglab/core';
@@ -29,12 +31,12 @@ export type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
  * what is wrong, what do I do about it — then the reference material. The
  * first three are the session loop; Clubs and Trends get looked up, not read.
  */
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'overview', label: 'Session', icon: '◎' },
-  { id: 'priority', label: 'Fix', icon: '▲' },
-  { id: 'practice', label: 'Practice', icon: '◷' },
-  { id: 'clubs', label: 'Clubs', icon: '▦' },
-  { id: 'trends', label: 'Trends', icon: '◈' },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Session' },
+  { id: 'priority', label: 'Fix' },
+  { id: 'practice', label: 'Practice' },
+  { id: 'clubs', label: 'Clubs' },
+  { id: 'trends', label: 'Trends' },
 ];
 
 export default function App() {
@@ -71,9 +73,23 @@ export default function App() {
 
   const cloned = useMemo(() => (active ? cloneSession(active) : null), [active]);
 
+  /*
+   * The player's rolling averages, so the optimal targets hold still.
+   *
+   * Club speed moves three or four mph between two ordinary sessions with
+   * warmth and effort, and rebuilding the targets from one afternoon means
+   * they shift under the player on every import. Capped at the session being
+   * viewed so that opening an older session shows the targets that applied
+   * then, rather than judging March against a swing measured in September.
+   */
+  const baseline = useMemo<PlayerBaseline>(
+    () => buildBaseline(stored.map((s) => s.session), { upTo: active?.startedAt ?? null }),
+    [stored, active],
+  );
+
   const report = useMemo<SessionReport | null>(
-    () => (cloned ? diagnoseSession(cloned, { practiceDuration }) : null),
-    [cloned, practiceDuration],
+    () => (cloned ? diagnoseSession(cloned, { practiceDuration, baseline }) : null),
+    [cloned, practiceDuration, baseline],
   );
 
   /*
@@ -252,10 +268,9 @@ export default function App() {
                 session={cloned}
                 comparison={comparison}
                 streak={streak}
-                onGoTo={setTab}
               />
             )}
-            {tab === 'priority' && <PriorityView report={report} onGoTo={setTab} />}
+            {tab === 'priority' && <PriorityView report={report} />}
             {tab === 'practice' && (
               <PracticeView
                 report={report}
@@ -291,7 +306,6 @@ export default function App() {
               className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
               onClick={() => setTab(t.id)}
             >
-              <span className="nav-icon" aria-hidden="true">{t.icon}</span>
               <span className="nav-label">{t.label}</span>
               {t.id === 'trends' && trends.some((x) => x.significant) && (
                 <span className="nav-dot" />

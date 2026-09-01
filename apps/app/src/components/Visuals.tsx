@@ -207,6 +207,11 @@ export function OptimalBands({
       <p className="panel-sub">
         Interpolated between the men's and women's tour averages at your{' '}
         {optimals.clubSpeed.toFixed(0)} mph — yours, not tour's.
+        {optimals.speedBasis
+          ? ` Averaged over your last ${optimals.speedBasis.sessions} sessions, so the targets `
+            + `hold still between visits; today you swung it `
+            + `${optimals.speedBasis.sessionSpeed.toFixed(0)}.`
+          : ' From this session alone — import a few more and these settle down.'}
       </p>
       <ul className="opt-list">
         {optimals.comparisons.map((c) => (

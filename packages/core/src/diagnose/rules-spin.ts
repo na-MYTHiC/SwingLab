@@ -116,7 +116,7 @@ export const carryConsistencyRule: Rule = {
           { label: 'Longest', value: round(c.max, 0), unit: 'yds' },
           { label: 'Shots', value: c.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'tee-forward-low-point', 'random-practice-block'],
+        drills: ['call-the-number', 'ladder-gapping', 'one-flight'],
       },
     ];
   },

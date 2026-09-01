@@ -1,6 +1,5 @@
 import type { SessionComparison, SessionReport, ShotSession, Streak } from '@swinglab/core';
 import { useState } from 'react';
-import type { Tab } from '../App.js';
 import {
   AchievementPanel, HandicapPanel, ProgressionPanel, ScorePanel, ShapePanel, StreakBadge,
   StrikePanel,
@@ -19,13 +18,12 @@ import { shots } from '../format.js';
  * pushed below the things that are read every single time.
  */
 export function OverviewView({
-  report, session, comparison, streak, onGoTo,
+  report, session, comparison, streak,
 }: {
   report: SessionReport;
   session: ShotSession;
   comparison: SessionComparison | null;
   streak: Streak;
-  onGoTo: (tab: Tab) => void;
 }) {
   const [sharing, setSharing] = useState(false);
   const main = report.profiles.length
@@ -46,7 +44,7 @@ export function OverviewView({
               onClick={async () => {
                 setSharing(true);
                 try {
-                  await shareCard(report, session.startedAt);
+                  await shareCard(report, session.startedAt, session.shots);
                 } finally {
                   setSharing(false);
                 }
@@ -60,26 +58,19 @@ export function OverviewView({
       )}
 
       {/*
-        The bridge between the two halves of the app. Without it the score is
-        a verdict with no next move, and the work of ranking the findings is
-        sitting behind a tab the player has no particular reason to open.
+        Names the highest-leverage fault so the score is not a verdict with no
+        next move. It does not link anywhere: the bottom bar is how you move
+        between views, and a button that duplicates it is one more thing to
+        read on a screen that is trying to be scannable.
       */}
       {top && (
         <section className="card next-up">
-          <span className="next-eyebrow">Next up</span>
+          <span className="next-eyebrow">Work on this next</span>
           <h3>{top.finding.title}</h3>
           <p>
             Worth about <strong>{shots(top.leverageStrokes)} shots a round</strong> and the highest
-            leverage thing in this session.
+            leverage thing in this session. Fix has the detail; Practice has the plan.
           </p>
-          <div className="next-actions">
-            <button className="cta" onClick={() => onGoTo('practice')}>
-              See the practice plan →
-            </button>
-            <button className="link-btn" onClick={() => onGoTo('priority')}>
-              All findings
-            </button>
-          </div>
         </section>
       )}
 

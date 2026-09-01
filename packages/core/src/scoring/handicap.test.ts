@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { estimateHandicap } from './handicap.js';
+import { dispersionScore } from '../benchmarks/skill.js';
 import type { ClubProfile } from '../stats/dispersion.js';
 import type { StrikeBreakdown } from '../analysis/strike.js';
 
@@ -31,35 +32,57 @@ const strike = (quality: number): StrikeBreakdown => ({
 });
 
 describe('handicap from ball-striking', () => {
-  it('puts tour-level dispersion at scratch', () => {
-    // Published benchmark: tour holds about ±9 yards with a 7-iron at 175.
-    const h = estimateHandicap(profile({ sideMad: 9 }), strike(0.95));
+  it('puts tour-level dispersion at a plus handicap', () => {
+    // Tour proximity from 150-175 yards is 27 ft 10 in, which works out at a
+    // per-axis sigma near 7.4 yards. That is a tour card, not scratch.
+    const h = estimateHandicap(profile({ sideMad: 7.4, carry: 160, carryMad: 7.4 }), strike(0.95));
     expect(h).not.toBeNull();
-    expect(h!.estimate).toBeLessThan(3);
+    expect(h!.estimate).toBeLessThan(-2);
   });
 
-  it('puts the published 10-handicap dispersion near 10', () => {
-    // ±17.5 yards is the midpoint of the quoted 15-20 band.
-    const h = estimateHandicap(profile({ sideMad: 17.5 }), strike(0.8));
-    expect(h!.estimate).toBeGreaterThan(6);
-    expect(h!.estimate).toBeLessThan(15);
+  it('puts a mid-handicap pattern in the mid handicaps', () => {
+    // ~45-50 ft proximity from 150 yards is a 10-15 handicap.
+    const sigma = 15.8 / Math.sqrt(Math.PI / 2);
+    const h = estimateHandicap(
+      profile({ sideMad: sigma, carry: 150, carryMad: sigma }), strike(0.8),
+    );
+    expect(h!.estimate).toBeGreaterThan(8);
+    expect(h!.estimate).toBeLessThan(18);
   });
 
-  it('reads the benchmark as a typical miss, not a 95% band', () => {
+  it('agrees with the Dispersion score instead of contradicting it', () => {
     /*
-     * Reading "±9 yards" as the outer edge of a 95% pattern doubles everyone's
-     * dispersion and lands a competent striker near a 27 handicap — an
-     * estimate that contradicted the tour-level strike efficiency shown
-     * beside it. Tour dispersion must come out at scratch, not mid-handicap.
+     * The bug this exists to prevent: the two numbers were on separate
+     * invented scales, and the app cheerfully showed "Dispersion 0/100"
+     * directly above "handicap 7-12". They now share `benchmarks/skill.ts`,
+     * so a pattern scoring badly must estimate badly and vice versa.
      */
-    expect(estimateHandicap(profile({ sideMad: 9 }), strike(0.95))!.estimate).toBeLessThan(5);
+    const tight = estimateHandicap(profile({ sideMad: 8, carry: 170, carryMad: 6 }), strike(0.9))!;
+    const wide = estimateHandicap(profile({ sideMad: 20, carry: 170, carryMad: 6 }), strike(0.9))!;
+    expect(dispersionScore(8 * 4, 170)).toBeGreaterThan(dispersionScore(20 * 4, 170));
+    expect(tight.estimate).toBeLessThan(wide.estimate);
+  });
+
+  it('does not flatter a pattern that is only tight sideways', () => {
+    // Twenty yards short is exactly as expensive as twenty yards left.
+    const straightButWild = estimateHandicap(
+      profile({ sideMad: 6, carry: 170, carryMad: 18 }), strike(0.9),
+    )!;
+    const balanced = estimateHandicap(
+      profile({ sideMad: 6, carry: 170, carryMad: 6 }), strike(0.9),
+    )!;
+    expect(straightButWild.estimate).toBeGreaterThan(balanced.estimate + 5);
   });
 
   it('scales with the club, not with raw yards', () => {
     // 6 yards offline on a 100-yard wedge is the same control as 10.5 on a
     // 175-yard 7-iron, and should score the same.
-    const wedge = estimateHandicap(profile({ sideMad: 6, carry: 100 }), strike(0.9))!;
-    const iron = estimateHandicap(profile({ sideMad: 10.5, carry: 175 }), strike(0.9))!;
+    const wedge = estimateHandicap(
+      profile({ sideMad: 6, carry: 100, carryMad: 6 }), strike(0.9),
+    )!;
+    const iron = estimateHandicap(
+      profile({ sideMad: 10.5, carry: 175, carryMad: 10.5 }), strike(0.9),
+    )!;
     expect(Math.abs(wedge.estimate - iron.estimate)).toBeLessThan(1.5);
   });
 
@@ -88,9 +111,13 @@ describe('handicap from ball-striking', () => {
     expect(h.caveat).toMatch(/short game|100 yards/i);
   });
 
-  it("stays inside the handicap system bounds", () => {
+  it('stays inside sane bounds at both ends', () => {
     const wild = estimateHandicap(profile({ sideMad: 60 }), strike(0.2))!;
     expect(wild.estimate).toBeLessThanOrEqual(36);
-    expect(wild.estimate).toBeGreaterThanOrEqual(0);
+    // A pattern tighter than tour reads as a plus handicap rather than being
+    // flattened to scratch — a player who gets there should see it.
+    const elite = estimateHandicap(profile({ sideMad: 4, carry: 175, carryMad: 4 }), strike(0.99))!;
+    expect(elite.estimate).toBeLessThan(0);
+    expect(elite.estimate).toBeGreaterThanOrEqual(-6);
   });
 });

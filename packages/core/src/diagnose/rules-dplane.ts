@@ -89,7 +89,7 @@ export const pathRule: Rule = {
           { label: 'Shot-to-shot spread', value: round(p.mad, 1), unit: '°' },
           { label: 'Shots', value: p.n, unit: '' },
         ],
-        drills: ['gate-path', 'exaggerate-both-ways', 'step-change-tempo'],
+        drills: ['gate-path', 'aim-reset', 'exaggerate-both-ways'],
       },
     ];
   },
@@ -132,7 +132,7 @@ export const faceConsistencyRule: Rule = {
           { label: 'Most closed', value: round(f.min, 1), unit: '°' },
           { label: 'Shots', value: f.n, unit: '' },
         ],
-        drills: ['target-window', 'lead-arm-only', 'step-change-tempo'],
+        drills: ['target-window', 'split-hands-face', 'lead-arm-only'],
       },
     ];
   },

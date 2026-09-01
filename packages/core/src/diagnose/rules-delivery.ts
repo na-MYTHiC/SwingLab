@@ -1,3 +1,4 @@
+import { widthPctForHandicap } from '../benchmarks/skill.js';
 import { speedAdjusted } from '../benchmarks/tour.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
@@ -39,7 +40,7 @@ export const dynamicLoftConsistencyRule: Rule = {
           { label: 'Highest', value: round(d.max, 1), unit: '°' },
           { label: 'Shots', value: d.n, unit: '' },
         ],
-        drills: ['spin-loft-control', 'towel-behind-ball', 'exaggerate-both-ways'],
+        drills: ['one-flight', 'spin-loft-control', 'towel-behind-ball'],
       },
     ];
   },
@@ -71,7 +72,7 @@ export const launchWindowRule: Rule = {
           { label: 'Highest', value: round(l.max, 1), unit: '°' },
           { label: 'Shots', value: l.n, unit: '' },
         ],
-        drills: ['tee-forward-low-point', 'towel-behind-ball', 'foot-spray-strike'],
+        drills: ['one-flight', 'spin-loft-control', 'tee-forward-low-point'],
       },
     ];
   },
@@ -106,7 +107,7 @@ export const spinConsistencyRule: Rule = {
           { label: 'Highest', value: round(s.max, 0), unit: 'rpm' },
           { label: 'Shots', value: s.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'spin-loft-control'],
+        drills: ['one-flight', 'spin-loft-control', 'foot-spray-strike'],
       },
     ];
   },
@@ -130,15 +131,27 @@ export const lateralDispersionRule: Rule = {
     const carry = profile.carry.median;
     if (!Number.isFinite(carry) || carry <= 0) return [];
 
-    // Width as a share of carry, so the bar scales with the shot.
-    const relative = d.width / carry;
-    if (relative < 0.16) return [];
+    /*
+     * Width as a share of carry, judged against the researched scale rather
+     * than a round number.
+     *
+     * The old thresholds — flag above 16% of carry, major above 26% — were
+     * set before the scale existed and are simply wrong at the top end: tour
+     * standard is 18.5% of carry, so a tour player's pattern was reported to
+     * them as a fault. Nothing is flagged now until the pattern is worse than
+     * a good single-figure player's, and it is only major once it is out
+     * around a high-teens handicap.
+     */
+    const relative = (d.width / carry) * 100;
+    const minorAt = widthPctForHandicap(5);
+    const majorAt = widthPctForHandicap(18);
+    if (relative < minorAt) return [];
 
     return [
       {
         id: 'dispersion-wide',
         club: profile.club,
-        severity: relative >= 0.26 ? 'major' : 'minor',
+        severity: relative >= majorAt ? 'major' : 'minor',
         confidence: confidenceFor(side.n),
         title: `Your ${profile.club} pattern is ${round(d.width, 0)} yards wide`,
         detail:
@@ -152,7 +165,7 @@ export const lateralDispersionRule: Rule = {
           { label: 'Widest left', value: round(side.min, 0), unit: 'yds' },
           { label: 'Widest right', value: round(side.max, 0), unit: 'yds' },
         ],
-        drills: ['target-window', 'gate-path', 'random-practice-block'],
+        drills: ['target-window', 'aim-reset', 'gate-path'],
       },
     ];
   },

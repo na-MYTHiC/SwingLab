@@ -78,7 +78,7 @@ export function distanceBiasFindings(shots: Shot[]): Finding[] {
         { label: 'Worst short', value: round(stats.min, 0), unit: 'yds' },
         { label: 'Worst long', value: round(stats.max, 0), unit: 'yds' },
       ],
-      drills: ['random-practice-block', 'foot-spray-strike'],
+      drills: ['call-the-number', 'pressure-nine'],
     });
   }
 
@@ -187,7 +187,7 @@ export function weakDistanceFindings(shots: Shot[]): Finding[] {
           ? [{ label: 'Score there', value: round(worst.value, 0), unit: '/100' }]
           : []),
       ],
-      drills: ['random-practice-block'],
+      drills: ['call-the-number', 'ladder-gapping'],
     },
   ];
 }

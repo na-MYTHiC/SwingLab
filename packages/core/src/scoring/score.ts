@@ -3,6 +3,7 @@ import type { ClubConsistency } from '../analysis/consistency.js';
 import type { StrikeBreakdown } from '../analysis/strike.js';
 import type { OptimalComparison } from '../benchmarks/personal.js';
 import type { ClubProfile } from '../stats/dispersion.js';
+import { dispersionScore, tourWidthFor, TOUR_WIDTH_PCT } from '../benchmarks/skill.js';
 
 /**
  * Session scoring.
@@ -108,33 +109,72 @@ export function scoreSession(args: {
     });
   }
 
-  // --- Delivery against the player's own optimal windows. ---------------
+  /*
+   * --- Delivery against the player's own optimal windows. ---------------
+   *
+   * Graded by distance from the target, not by band membership.
+   *
+   * Counting how many numbers land inside their window gave 100/100 to a
+   * player sitting at the very edge of all six of them, which is not a
+   * hundred-point delivery by any reading — and it made the component
+   * jump between round numbers as a value crossed a line. So each metric
+   * scores on how far it sits from its target, measured in units of the
+   * band's own half-width: exactly on target is 100, at the edge of the
+   * band is 60, and it falls away from there. A perfect delivery score
+   * now means what it says — every number identical to what the tour
+   * tables say your swing speed should produce.
+   */
   if (optimals && optimals.length > 0) {
     const judged = optimals.filter((o) => o.status !== 'unknown');
     if (judged.length > 0) {
+      const per = judged.map((o) => {
+        const half = Math.max((o.window.max - o.window.min) / 2, 1e-9);
+        const offBy = Math.abs(o.actual - o.window.target) / half;
+        // 0 off target -> 100, 1 half-width off (the band edge) -> 60,
+        // 2.5 half-widths off -> 0.
+        return Math.max(0, 100 - offBy * 40);
+      });
+      const mean = per.reduce((a, b) => a + b, 0) / per.length;
       const onTarget = judged.filter((o) => o.status === 'on-target').length;
+      const perfect = per.filter((x) => x >= 99).length;
       components.push({
         id: 'delivery',
         label: 'Delivery',
-        score: clamp((onTarget / judged.length) * 100),
+        score: clamp(mean),
         weight: 0.2,
-        detail: `${onTarget} of ${judged.length} numbers inside the window for your swing speed.`,
+        detail:
+          perfect === judged.length
+            ? `All ${judged.length} numbers are on the tour figure for your swing speed.`
+            : `${onTarget} of ${judged.length} numbers inside the window, scored on how close ` +
+              `each sits to the tour figure for your swing speed rather than merely inside it.`,
       });
     }
   }
 
-  // --- Dispersion. What the player actually sees on the ground. ---------
+  /*
+   * --- Dispersion. What the player actually sees on the ground. ---------
+   *
+   * Scored against the researched tour-to-30-handicap scale in
+   * `benchmarks/skill.ts`, so 100 means a pattern as tight as a tour
+   * player's and 0 means a 30 handicap's. The previous version invented
+   * its own range — 10% of carry for full marks, 30% for none — which put
+   * full marks well inside tour standard and gave zero to patterns that
+   * are ordinary for a mid handicap.
+   */
   const d = profile.dispersion;
   const carry = profile.carry.median;
   if (d && Number.isFinite(d.width) && Number.isFinite(carry) && carry > 0) {
-    // A pattern under 10% of carry is tight; over 30% is scattered.
-    const relative = d.width / carry;
+    const score = dispersionScore(d.width, carry);
+    const tourWidth = tourWidthFor(carry);
     components.push({
       id: 'dispersion',
       label: 'Dispersion',
-      score: clamp(((0.3 - relative) / (0.3 - 0.1)) * 100),
+      score: clamp(score),
       weight: 0.15,
-      detail: `Your pattern is ${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard shot.`,
+      detail:
+        `${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard shot. Tour standard ` +
+        `at that distance is about ${Math.round(tourWidth)} yards ` +
+        `(${TOUR_WIDTH_PCT.toFixed(0)}% of carry).`,
     });
   }
 

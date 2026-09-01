@@ -4,3 +4,4 @@ export * from './consistency.js';
 export * from './progression.js';
 export * from './potential.js';
 export * from './didItWork.js';
+export * from './baseline.js';

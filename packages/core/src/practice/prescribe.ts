@@ -2,7 +2,7 @@ import type { Club } from '../schema.js';
 import { clubFamily } from '../clubs.js';
 import type { ClubProfile } from '../stats/dispersion.js';
 import type { Finding } from '../diagnose/types.js';
-import { DRILLS, type Drill } from '../diagnose/drills.js';
+import { DRILLS, fitDrillList, type Drill } from '../diagnose/drills.js';
 import { PRACTICE_MODES, type PracticeMode, type PracticeModeId } from './modes.js';
 
 /**
@@ -88,6 +88,11 @@ function carryOf(profiles: ClubProfile[], club: Club | null): number | null {
   return Math.round(p.carry.median);
 }
 
+/**
+ * Candidate drills for a block. What actually survives is decided later by
+ * `fitDrillList`, once the block's real length is known — a template cannot
+ * know whether it will be given fifteen minutes or twenty-five.
+ */
 function drillsFor(ids: string[]): Drill[] {
   return ids.map((id) => DRILLS[id]).filter((d): d is Drill => d !== undefined);
 }
@@ -137,7 +142,7 @@ const TEMPLATES: Template[] = [
         shots: 30,
         minutes: 20,
         addresses: [finding.id],
-        drills: drillsFor(['foot-spray-strike', 'towel-behind-ball']),
+        drills: drillsFor(['foot-spray-strike', 'toe-heel-gate', 'tempo-ratio']),
       };
     },
   },
@@ -163,7 +168,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['towel-behind-ball', 'tee-forward-low-point']),
+        drills: drillsFor(['towel-behind-ball', 'tempo-ratio', 'tee-forward-low-point']),
       };
     },
   },
@@ -189,7 +194,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['foot-spray-strike', 'spin-loft-control']),
+        drills: drillsFor(['one-flight', 'spin-loft-control', 'foot-spray-strike']),
       };
     },
   },
@@ -217,7 +222,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['target-window', 'lead-arm-only']),
+        drills: drillsFor(['target-window', 'lead-arm-only', 'split-hands-face']),
       };
     },
   },
@@ -243,7 +248,9 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(open ? ['split-hands-face', 'lead-arm-only'] : ['target-window', 'gate-path']),
+        drills: drillsFor(open
+          ? ['split-hands-face', 'lead-arm-only', 'target-window']
+          : ['target-window', 'aim-reset', 'gate-path']),
       };
     },
   },
@@ -268,7 +275,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['gate-path', 'step-change-tempo']),
+        drills: drillsFor(['gate-path', 'aim-reset', 'exaggerate-both-ways']),
       };
     },
   },
@@ -295,7 +302,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['tee-height-aoa']),
+        drills: drillsFor(['tee-height-aoa', 'shaft-lean-irons']),
       };
     },
   },
@@ -325,7 +332,7 @@ const TEMPLATES: Template[] = [
         shots: 10,
         minutes: 12,
         addresses: [finding.id],
-        drills: drillsFor(['random-practice-block']),
+        drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
   },
@@ -354,7 +361,7 @@ const TEMPLATES: Template[] = [
         shots: Math.max(20, eligible.length * 5),
         minutes: 25,
         addresses: [finding.id],
-        drills: drillsFor(['ladder-gapping']),
+        drills: drillsFor(['ladder-gapping', 'call-the-number']),
       };
     },
   },
@@ -381,7 +388,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 20,
         addresses: [finding.id],
-        drills: drillsFor(['ladder-gapping']),
+        drills: drillsFor(['ladder-gapping', 'call-the-number']),
       };
     },
   },
@@ -408,7 +415,7 @@ const TEMPLATES: Template[] = [
         shots: 10,
         minutes: 15,
         addresses: [finding.id],
-        drills: drillsFor(['random-practice-block']),
+        drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
   },
@@ -432,7 +439,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 20,
         addresses: [finding.id],
-        drills: drillsFor(['random-practice-block']),
+        drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
   },
@@ -457,7 +464,7 @@ const TEMPLATES: Template[] = [
         shots: 18,
         minutes: 20,
         addresses: [finding.id],
-        drills: drillsFor(['random-practice-block']),
+        drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
   },
@@ -516,6 +523,18 @@ export function prescribePractice(
   blocks.sort((a, b) => orderKey(a) - orderKey(b));
 
   fitToSlot(blocks, duration);
+
+  /*
+   * Only now can drills be chosen, because only now is a block's real length
+   * known. Templates offer candidates; this keeps the ones that fit and drops
+   * any aimed at a different fault than the first. A fifteen-minute block
+   * listing four drills is a block that gets none of them done, and two
+   * unrelated changes in one block is the one case where doing more is
+   * actively worse than doing less.
+   */
+  for (const block of blocks) {
+    block.drills = fitDrillList(block.drills, block.minutes);
+  }
 
   return {
     blocks,
