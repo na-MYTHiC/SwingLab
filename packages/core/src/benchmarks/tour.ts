@@ -18,15 +18,14 @@ import type { Club } from '../schema.js';
  *   - **Speed-dependent**: ball speed, carry, height. Compared only after
  *     scaling to the player's own club speed — see `speedAdjusted` below.
  *
- * PROVENANCE. TrackMan's published tour averages (2024 revision). Ball speed
- * is derived as club speed × smash factor rather than transcribed, because
- * the published 3-wood row is internally inconsistent (110 mph at 1.47 smash
- * is 162 mph of ball speed, not the 169 printed) and a table that disagrees
- * with itself will eventually be used to "prove" something.
+ * PROVENANCE. TrackMan's published PGA and LPGA Tour averages, 2023 tables.
+ * Ball speed is derived as club speed × smash factor rather than transcribed:
+ * the two agree to within rounding everywhere, and deriving it keeps the table
+ * internally consistent by construction rather than by luck.
  */
 
-export const TOUR_TABLE_REVISED_AT = '2024';
-export const TOUR_TABLE_SOURCE = 'TrackMan published PGA/LPGA Tour averages, 2024 revision.';
+export const TOUR_TABLE_REVISED_AT = '2023';
+export const TOUR_TABLE_SOURCE = 'TrackMan published PGA and LPGA Tour averages, 2023.';
 
 export interface TourRow {
   clubSpeed: number;
@@ -61,17 +60,17 @@ const PGA: Partial<Record<Club, TourRow>> = {
 };
 
 const LPGA: Partial<Record<Club, TourRow>> = {
-  Dr:   { clubSpeed: 94, attackAngle: 3.0,  smashFactor: 1.48, launchAngle: 13.2, spinRate: 2611, apexHeight: 78, landingAngle: 37, carry: 218 },
-  '3w': { clubSpeed: 90, attackAngle: -0.9, smashFactor: 1.47, launchAngle: 11.2, spinRate: 2704, apexHeight: 71, landingAngle: 39, carry: 195 },
-  '5w': { clubSpeed: 88, attackAngle: -1.8, smashFactor: 1.47, launchAngle: 12.1, spinRate: 4501, apexHeight: 72, landingAngle: 43, carry: 185 },
-  '7w': { clubSpeed: 85, attackAngle: -3.0, smashFactor: 1.45, launchAngle: 12.7, spinRate: 4693, apexHeight: 69, landingAngle: 44, carry: 174 },
-  '4i': { clubSpeed: 80, attackAngle: -1.7, smashFactor: 1.45, launchAngle: 14.3, spinRate: 4801, apexHeight: 66, landingAngle: 43, carry: 169 },
-  '5i': { clubSpeed: 79, attackAngle: -1.9, smashFactor: 1.44, launchAngle: 14.8, spinRate: 5081, apexHeight: 69, landingAngle: 45, carry: 161 },
-  '6i': { clubSpeed: 78, attackAngle: -2.3, smashFactor: 1.43, launchAngle: 17.1, spinRate: 5943, apexHeight: 70, landingAngle: 46, carry: 152 },
-  '7i': { clubSpeed: 76, attackAngle: -2.3, smashFactor: 1.41, launchAngle: 19.0, spinRate: 6699, apexHeight: 75, landingAngle: 47, carry: 141 },
-  '8i': { clubSpeed: 74, attackAngle: -3.1, smashFactor: 1.39, launchAngle: 20.8, spinRate: 7494, apexHeight: 75, landingAngle: 47, carry: 130 },
-  '9i': { clubSpeed: 72, attackAngle: -3.1, smashFactor: 1.38, launchAngle: 23.9, spinRate: 8078, apexHeight: 75, landingAngle: 47, carry: 119 },
-  PW:   { clubSpeed: 70, attackAngle: -2.8, smashFactor: 1.33, launchAngle: 25.6, spinRate: 8403, apexHeight: 72, landingAngle: 48, carry: 107 },
+  Dr:   { clubSpeed: 96, attackAngle: 2.8,  smashFactor: 1.49, launchAngle: 12.6, spinRate: 2506, apexHeight: 78, landingAngle: 36, carry: 223 },
+  '3w': { clubSpeed: 92, attackAngle: -0.8, smashFactor: 1.47, launchAngle: 11.6, spinRate: 2595, apexHeight: 75, landingAngle: 38, carry: 200 },
+  '5w': { clubSpeed: 90, attackAngle: -1.6, smashFactor: 1.46, launchAngle: 12.3, spinRate: 4320, apexHeight: 75, landingAngle: 43, carry: 189 },
+  '3h': { clubSpeed: 87, attackAngle: -1.9, smashFactor: 1.44, launchAngle: 13.9, spinRate: 4504, apexHeight: 75, landingAngle: 45, carry: 178 },
+  '4i': { clubSpeed: 82, attackAngle: -1.7, smashFactor: 1.43, launchAngle: 13.9, spinRate: 4608, apexHeight: 75, landingAngle: 43, carry: 175 },
+  '5i': { clubSpeed: 81, attackAngle: -2.0, smashFactor: 1.42, launchAngle: 14.6, spinRate: 4966, apexHeight: 75, landingAngle: 45, carry: 166 },
+  '6i': { clubSpeed: 80, attackAngle: -2.3, smashFactor: 1.41, launchAngle: 16.7, spinRate: 5904, apexHeight: 75, landingAngle: 46, carry: 155 },
+  '7i': { clubSpeed: 78, attackAngle: -2.5, smashFactor: 1.38, launchAngle: 18.5, spinRate: 6630, apexHeight: 78, landingAngle: 47, carry: 143 },
+  '8i': { clubSpeed: 76, attackAngle: -2.8, smashFactor: 1.36, launchAngle: 20.8, spinRate: 7413, apexHeight: 81, landingAngle: 47, carry: 133 },
+  '9i': { clubSpeed: 74, attackAngle: -3.2, smashFactor: 1.30, launchAngle: 23.5, spinRate: 7605, apexHeight: 81, landingAngle: 48, carry: 123 },
+  PW:   { clubSpeed: 72, attackAngle: -3.2, smashFactor: 1.25, launchAngle: 25.2, spinRate: 8465, apexHeight: 81, landingAngle: 48, carry: 111 },
 };
 
 export type TourSet = 'pga' | 'lpga';

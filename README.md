@@ -44,11 +44,18 @@ built from root causes only, so a session never works the same fault three
 times under three names. Strike still precedes direction on the same club as a
 hard constraint.
 
-**Compares you to tour fairly.** Raw tour comparison is useless — an 87 mph
-7-iron is not "short" against a tour player's 92, it is slower, and no
-practice changes that this week. Smash factor is a ratio and therefore
-directly comparable at any speed, so the benchmark answers what your *own*
-club speed would carry with a tour-quality strike.
+**Gives you your own optimal numbers.** Raw tour comparison is useless — an
+87 mph 7-iron is not "short" against a tour player's 92, it is slower. So
+targets are interpolated between the men's and women's tour averages using
+your measured club speed. The two tours differ in ways no scaling law
+predicts: PGA driver attack angle is -0.9° and LPGA is **+2.8°**, and the
+LPGA 7-iron smash is *higher*, not lower. Slower swings should hit up more
+and launch higher, and the tables say so — so the tables do the work.
+
+**Tells you whether the practice worked.** Most tools measure you, some tell
+you what to practise, and then the loop is left open. This compares the same
+club against your previous session and reports what actually moved, in the
+direction that counts for each metric.
 
 **Fits the hour you booked.** Practice plans total exactly 60 or 120 minutes,
 because bays go by the hour and a 95-minute plan is not one anyone can

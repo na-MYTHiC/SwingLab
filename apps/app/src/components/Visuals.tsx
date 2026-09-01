@@ -1,5 +1,6 @@
 import type {
-  ConsistencyScore, ClubConsistency, Progression, ShapeBreakdown, StrikeBreakdown,
+  ConsistencyScore, ClubConsistency, OptimalComparison, Progression, SessionReport,
+  ShapeBreakdown, StrikeBreakdown,
 } from '@swinglab/core';
 import { num } from '../format.js';
 
@@ -182,5 +183,77 @@ export function ProgressionPanel({ progression }: { progression: Progression }) 
         <p>{progression.detail}</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Your numbers against your own targets.
+ *
+ * The band is the point. A single "target" number invites chasing a decimal
+ * that does not matter; showing the acceptable range makes it obvious when a
+ * number is fine and when it is genuinely outside where it should be — and
+ * the marker's position inside the band says which edge you are drifting
+ * towards, which a green tick never would.
+ */
+export function OptimalBands({
+  optimals,
+}: {
+  optimals: NonNullable<SessionReport['optimals']>;
+}) {
+  return (
+    <>
+      <p className="panel-sub">
+        Your targets, not tour's — interpolated between the men's and women's tour averages using
+        your measured {optimals.clubSpeed.toFixed(0)} mph. The two tours have each optimised for
+        their own speed, and they differ in ways no scaling law predicts: slower swings hit further
+        up on the driver and launch the ball higher. A player in between should be aiming in
+        between.
+      </p>
+      <ul className="opt-list">
+        {optimals.comparisons.map((c) => (
+          <OptimalBand key={c.window.metric} comparison={c} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function OptimalBand({ comparison }: { comparison: OptimalComparison }) {
+  const { window: w, actual, status } = comparison;
+  const dp = w.unit === 'rpm' || w.unit === 'yds' || w.unit === 'mph' ? 0 : w.unit === '' ? 3 : 1;
+
+  // Show a span half again as wide as the band, so a value outside it still
+  // lands on the track instead of being clamped to the end and looking fine.
+  const half = (w.max - w.min) / 2 || 1;
+  const lo = w.min - half;
+  const hi = w.max + half;
+  const pct = (v: number) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+
+  return (
+    <li className={`opt opt-${status}`}>
+      <div className="opt-head">
+        <span className="opt-label">
+          {w.label}
+          {w.basis === 'extrapolated' && (
+            <em title={w.why}>outside tour range — less certain</em>
+          )}
+        </span>
+        <span className="opt-values">
+          <strong>{actual.toFixed(dp)}{w.unit}</strong>
+          <span>target {w.target.toFixed(dp)}{w.unit}</span>
+        </span>
+      </div>
+      <div className="opt-track">
+        <div
+          className="opt-band"
+          style={{ left: `${pct(w.min)}%`, width: `${pct(w.max) - pct(w.min)}%` }}
+        />
+        <div className="opt-target" style={{ left: `${pct(w.target)}%` }} />
+        {Number.isFinite(actual) && (
+          <div className="opt-marker" style={{ left: `${pct(actual)}%` }} />
+        )}
+      </div>
+      <p className="opt-why">{w.why}</p>
+    </li>
   );
 }

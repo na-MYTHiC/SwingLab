@@ -12,46 +12,58 @@
 
 :root,
 :root[data-theme='dark'] {
-  --bg: #0b0f0d;
-  --surface: #121815;
-  --surface-2: #182019;
-  --surface-3: #1f2823;
-  --line: #26312b;
-  --line-strong: #33413a;
+  /*
+   * Warm near-black, not neutral grey. The accent is TrackMan orange, and an
+   * orange sitting on a cool grey reads as a warning colour — the ground has
+   * to carry a little of the same warmth for the accent to look deliberate
+   * rather than alarming.
+   */
+  --bg: #0c0a09;
+  --surface: #151210;
+  --surface-2: #1d1815;
+  --surface-3: #26201c;
+  --line: #322a25;
+  --line-strong: #453a33;
 
-  --text: #e9efe9;
-  --text-dim: #a5b3a9;
-  --text-faint: #6f8076;
+  --text: #f4efea;
+  --text-dim: #ab9f95;
+  --text-faint: #7a6c61;
 
-  --accent: #57d98b;
-  --accent-dim: #2f6b47;
-  --warn: #f2a65a;
-  --alert: #f07a5f;
+  --accent: #ff7a2f;
+  --accent-dim: #7d3a14;
+  /*
+   * Amber and red have to stay clear of the accent or severity stops reading.
+   * Amber is pushed yellow and red pushed pink, so all three are separable at
+   * a glance and for the ~8% of men with a colour vision deficiency — which
+   * is why severity is never carried by colour alone in this app.
+   */
+  --warn: #f5c518;
+  --alert: #ff4d6d;
 
   --radius: 14px;
   --radius-sm: 9px;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 10px 28px -14px rgb(0 0 0 / 0.65);
   color-scheme: dark;
 }
 
 :root[data-theme='light'] {
-  --bg: #f5f7f4;
+  --bg: #faf7f4;
   --surface: #ffffff;
-  --surface-2: #eef2ed;
-  --surface-3: #e5ebe4;
-  --line: #dde4dc;
-  --line-strong: #c6d1c5;
+  --surface-2: #f3eee9;
+  --surface-3: #eae3dc;
+  --line: #e2d9d1;
+  --line-strong: #cbbeb3;
 
-  --text: #131a15;
-  --text-dim: #4d5b51;
-  --text-faint: #77877c;
+  --text: #1a1512;
+  --text-dim: #5d5249;
+  --text-faint: #877a6e;
 
-  --accent: #178148;
-  --accent-dim: #cbe9d6;
-  --warn: #b26a12;
-  --alert: #c04a2c;
+  --accent: #d1571a;
+  --accent-dim: #f7dcc9;
+  --warn: #b07c06;
+  --alert: #c62b48;
 
-  --shadow: 0 1px 2px rgb(16 32 22 / 0.06), 0 8px 24px -14px rgb(16 32 22 / 0.18);
+  --shadow: 0 1px 2px rgb(60 40 25 / 0.07), 0 8px 24px -14px rgb(60 40 25 / 0.2);
   color-scheme: light;
 }
 
@@ -97,8 +109,8 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 30%, var(--accent), var(--accent-dim) 70%);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  background: radial-gradient(circle at 32% 28%, #ffb066, var(--accent) 45%, var(--accent-dim) 100%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16), 0 0 14px -3px var(--accent);
 }
 
 .version {
@@ -714,4 +726,83 @@ tbody tr:hover { background: var(--surface-2); }
   .hero-figure strong { font-size: 40px; }
   .prog-bars { height: 105px; }
   .prog-bar { width: 38px; }
+}
+
+/* ====================================================== optimal bands === */
+
+.opt-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 16px; }
+
+.opt-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.opt-label { font-size: 13.5px; font-weight: 550; display: flex; align-items: baseline; gap: 7px; }
+.opt-label em {
+  font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 6px; cursor: help;
+}
+.opt-values { display: flex; align-items: baseline; gap: 9px; white-space: nowrap; }
+.opt-values strong { font-size: 15px; }
+.opt-values span { font-size: 11.5px; color: var(--text-faint); }
+
+.opt-track {
+  position: relative;
+  height: 8px;
+  margin: 9px 0 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+.opt-band {
+  position: absolute; top: 0; bottom: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.opt-target {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+  transform: translateX(-1px);
+}
+.opt-marker {
+  position: absolute; top: 50%; width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2.5px solid var(--bg);
+  transform: translate(-50%, -50%);
+  transition: left .5s cubic-bezier(.4,0,.2,1);
+}
+/* Status is carried by the marker's own colour AND by the label suffix, so it
+ * never depends on colour alone. */
+.opt-on-target .opt-marker { background: var(--accent); }
+.opt-below .opt-marker, .opt-above .opt-marker { background: var(--warn); }
+
+.opt-why { margin: 0; font-size: 12px; color: var(--text-faint); }
+
+/* ================================================ did the work show up === */
+
+.diw-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.diw-since { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+.diw-headline { margin: 6px 0 0; font-size: 13.5px; color: var(--text-dim); }
+
+.diw-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.diw-list li {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--line-strong);
+  font-size: 13px;
+}
+.diw-up { border-left-color: var(--accent); }
+.diw-down { border-left-color: var(--alert); }
+.diw-arrow { font-size: 10px; }
+.diw-up .diw-arrow { color: var(--accent); }
+.diw-down .diw-arrow { color: var(--alert); }
+.diw-metric { font-weight: 550; }
+.diw-change { color: var(--text-faint); font-size: 12.5px; }
+.diw-change strong { color: var(--text); }
+.diw-verdict {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint);
 }

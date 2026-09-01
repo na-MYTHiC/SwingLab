@@ -1,5 +1,8 @@
 import type { Club, SessionKind, Shot, ShotSession } from '../schema.js';
 import { modeForKind, type PracticeMode } from '../practice/modes.js';
+import {
+  compareToOptimal, personalOptimals, type OptimalComparison,
+} from '../benchmarks/personal.js';
 import { prescribePractice, type PracticeDuration, type PracticeSession } from '../practice/prescribe.js';
 import { markImplausible, markMishits } from '../stats/outliers.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
@@ -93,6 +96,38 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
 }
 
 /**
+ * Your measured medians against your own speed-adjusted targets.
+ *
+ * Built for the most-hit club only. A page of targets for a club hit three
+ * times is noise, and the comparison is only as good as the median behind it.
+ */
+function buildOptimals(profile: ClubProfile | null): SessionReport['optimals'] {
+  if (!profile || profile.clubSpeed.n < 5 || !Number.isFinite(profile.clubSpeed.median)) {
+    return null;
+  }
+  const optimals = personalOptimals(profile.club, profile.clubSpeed.median);
+  if (!optimals) return null;
+
+  const actual: Record<string, number> = {
+    attackAngle: profile.attackAngle.median,
+    smashFactor: profile.smashFactor.median,
+    launchAngle: profile.launchAngle.median,
+    spinRate: profile.spinRate.median,
+    ballSpeed: profile.ballSpeed.median,
+    carry: profile.carry.median,
+  };
+
+  return {
+    club: profile.club,
+    clubSpeed: optimals.clubSpeed,
+    tourClubSpeed: optimals.tourClubSpeed,
+    comparisons: optimals.windows.map((w) =>
+      compareToOptimal(w, actual[w.metric] ?? Number.NaN),
+    ),
+  };
+}
+
+/**
  * Notes about the measurement rather than the golf.
  *
  * Things that change how much weight the numbers deserve, and which the
@@ -170,6 +205,16 @@ export interface SessionReport {
   potential: Potential | null;
   /** Notes about the data itself, rather than the golf. */
   dataNotes: string[];
+  /**
+   * Your numbers against your own optimals — the tour figures scaled to your
+   * measured club speed, so the targets are ones you can actually reach.
+   */
+  optimals: {
+    club: Club;
+    clubSpeed: number;
+    tourClubSpeed: number;
+    comparisons: OptimalComparison[];
+  } | null;
 }
 
 export interface PracticeItem {
@@ -266,6 +311,7 @@ export function diagnoseSession(
     progression: sessionProgression(session.shots),
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
+    optimals: buildOptimals(mainProfile),
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
     practice: prescribePractice(rootFindings, profiles, { duration: practiceDuration }),
   };

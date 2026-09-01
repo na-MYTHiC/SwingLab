@@ -1,4 +1,5 @@
 import { SPIN_WINDOW } from '../benchmarks/tour.js';
+import { personalOptimals } from '../benchmarks/personal.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
 /**
@@ -16,10 +17,22 @@ export const spinWindowRule: Rule = {
   minShots: 5,
   run({ profile }): Finding[] {
     const s = profile.spinRate;
-    const window = SPIN_WINDOW[profile.club];
-    if (s.n < 5 || !Number.isFinite(s.median) || !window) return [];
+    if (s.n < 5 || !Number.isFinite(s.median)) return [];
 
-    const [lo, hi] = window;
+    /*
+     * Judge spin against this player's own optimal, not a one-size window.
+     *
+     * The same delivery spins less at a lower club speed, so a fixed range
+     * calls a slower swing "low spin" for doing everything right. Scaling the
+     * tour figure to the player's measured speed asks the only question worth
+     * asking: is your spin what *your* swing should produce?
+     */
+    const optimal = personalOptimals(profile.club, profile.clubSpeed.median)
+      ?.windows.find((w) => w.metric === 'spinRate');
+    const fallback = SPIN_WINDOW[profile.club];
+    if (!optimal && !fallback) return [];
+
+    const [lo, hi] = optimal ? [optimal.min, optimal.max] : (fallback as [number, number]);
     const m = s.median;
     if (m >= lo && m <= hi) return [];
 
@@ -35,11 +48,13 @@ export const spinWindowRule: Rule = {
         confidence: confidenceFor(s.n),
         title: `Your ${profile.club} spin is ${high ? 'high' : 'low'}`,
         detail: high
-          ? `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} above the top of a normal range ` +
-            `for this club. High spin steepens the descent and shortens the shot; with a ${profile.club} ` +
+          ? `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} above the top of the range ` +
+            `your own ${round(profile.clubSpeed.median, 0)} mph club speed should produce ` +
+            `(${round(lo, 0)}-${round(hi, 0)} rpm). High spin steepens the descent and shortens the shot; with a ${profile.club} ` +
             `it usually traces back to spin loft — dynamic loft minus attack angle — currently ` +
             `${round(profile.spinLoft.median, 1)}°.`
-          : `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} below a normal range for this club. ` +
+          : `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} below what your own ` +
+            `${round(profile.clubSpeed.median, 0)} mph club speed should produce (${round(lo, 0)}-${round(hi, 0)} rpm). ` +
             `Low spin flattens the flight and costs stopping power, and on an iron it usually means the ` +
             `strike is low on the face or the face is delofted through impact.`,
         evidence: [

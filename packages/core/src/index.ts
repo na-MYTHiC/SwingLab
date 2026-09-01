@@ -23,6 +23,7 @@ export * from './stats/dispersion.js';
 export * from './stats/trends.js';
 
 export * from './benchmarks/tour.js';
+export * from './benchmarks/personal.js';
 export * from './analysis/index.js';
 
 export * from './practice/modes.js';

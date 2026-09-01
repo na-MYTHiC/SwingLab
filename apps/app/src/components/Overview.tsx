@@ -1,5 +1,7 @@
-import type { SessionReport, ShotSession } from '@swinglab/core';
-import { ConsistencyBars, ProgressionPanel, ScoreRing, ShapePanel, StrikePanel } from './Visuals.js';
+import type { SessionComparison, SessionReport, ShotSession } from '@swinglab/core';
+import {
+  ConsistencyBars, OptimalBands, ProgressionPanel, ScoreRing, ShapePanel, StrikePanel,
+} from './Visuals.js';
 import { DispersionChart } from './Charts.js';
 import { shots as fmtShots } from '../format.js';
 
@@ -12,8 +14,12 @@ import { shots as fmtShots } from '../format.js';
  * are told what to do about it, and a wall of findings skips that step.
  */
 export function OverviewView({
-  report, session,
-}: { report: SessionReport; session: ShotSession }) {
+  report, session, comparison,
+}: {
+  report: SessionReport;
+  session: ShotSession;
+  comparison: SessionComparison | null;
+}) {
   const main = report.profiles.length
     ? [...report.profiles].sort((a, b) => b.shotCount - a.shotCount)[0]
     : null;
@@ -56,6 +62,18 @@ export function OverviewView({
             <Figure value={Math.round(report.potential.medianCarry)} label="typical" />
             <Figure value={Math.round(report.potential.bestCarry)} label="your best" />
           </div>
+        </section>
+      )}
+
+      {comparison && <DidItWork comparison={comparison} />}
+
+      {report.optimals && (
+        <section className="card">
+          <h3 className="panel-title">
+            Your optimal numbers — {report.optimals.club} at{' '}
+            {report.optimals.clubSpeed.toFixed(0)} mph
+          </h3>
+          <OptimalBands optimals={report.optimals} />
         </section>
       )}
 
@@ -114,5 +132,47 @@ function Figure({ value, label, accent }: { value: number; label: string; accent
       <strong>{value}</strong>
       <span>{label}</span>
     </div>
+  );
+}
+
+/**
+ * Whether the last session's work showed up in this one.
+ *
+ * The loop almost every launch monitor tool leaves open: they measure you,
+ * some tell you what to practise, and then nothing ever connects the two. A
+ * player never finds out whether the hour moved anything, which is the one
+ * piece of feedback that makes practice worth repeating.
+ */
+function DidItWork({ comparison }: { comparison: SessionComparison }) {
+  const since = comparison.previousDate
+    ? comparison.previousDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : 'last time';
+
+  return (
+    <section className="card diw">
+      <div className="diw-head">
+        <h3 className="panel-title">Did the work show up?</h3>
+        <span className="diw-since">{comparison.club} vs {since}</span>
+      </div>
+      <p className="diw-headline">{comparison.headline}</p>
+
+      {comparison.meaningful.length > 0 && (
+        <ul className="diw-list">
+          {comparison.meaningful.map((d) => {
+            const dp = d.unit === '' ? 3 : d.unit === 'rpm' || d.unit === 'yds' ? 0 : 1;
+            return (
+              <li key={d.metric} className={d.improved ? 'diw-up' : 'diw-down'}>
+                <span className="diw-arrow" aria-hidden="true">{d.improved ? '▲' : '▼'}</span>
+                <span className="diw-metric">{d.label}</span>
+                <span className="diw-change">
+                  {d.previous.toFixed(dp)} → <strong>{d.current.toFixed(dp)}{d.unit}</strong>
+                </span>
+                <span className="diw-verdict">{d.improved ? 'better' : 'worse'}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

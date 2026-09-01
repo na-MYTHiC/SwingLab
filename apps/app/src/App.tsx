@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildTrends,
+  compareSessions,
+  previousSessionFor,
   diagnoseSession,
   ingest,
   trendableClubs,
@@ -59,6 +61,27 @@ export default function App() {
     () => (cloned ? diagnoseSession(cloned, { practiceDuration }) : null),
     [cloned, practiceDuration],
   );
+
+  /*
+   * Did the last session's work actually change anything?
+   *
+   * Computed here rather than in the report because it needs every stored
+   * session, not just the one being viewed.
+   */
+  const comparison = useMemo(() => {
+    if (!cloned) return null;
+    const club = [...cloned.shots].reduce<Record<string, number>>((acc, s) => {
+      acc[s.club] = (acc[s.club] ?? 0) + 1;
+      return acc;
+    }, {});
+    const main = Object.entries(club).sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (!main) return null;
+    const prev = previousSessionFor(
+      stored.map((s) => s.session), cloned, main as Parameters<typeof compareSessions>[2],
+    );
+    if (!prev) return null;
+    return compareSessions(prev, cloned, main as Parameters<typeof compareSessions>[2]);
+  }, [cloned, stored]);
 
   const trends = useMemo<Trend[]>(() => {
     const sessions = stored.map((s) => s.session);
@@ -230,7 +253,9 @@ export default function App() {
           </nav>
 
           <section className="view">
-            {tab === 'overview' && cloned && <OverviewView report={report} session={cloned} />}
+            {tab === 'overview' && cloned && (
+              <OverviewView report={report} session={cloned} comparison={comparison} />
+            )}
             {tab === 'priority' && <PriorityView report={report} />}
             {tab === 'practice' && (
               <PracticeView
