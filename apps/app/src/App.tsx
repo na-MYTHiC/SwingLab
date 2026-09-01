@@ -24,12 +24,12 @@ import { OverviewView } from './components/Overview.js';
 
 type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'priority', label: 'Priority' },
-  { id: 'practice', label: 'Practice' },
-  { id: 'clubs', label: 'Clubs' },
-  { id: 'trends', label: 'Trends' },
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'overview', label: 'Overview', icon: '◎' },
+  { id: 'priority', label: 'Fix', icon: '▲' },
+  { id: 'practice', label: 'Practice', icon: '◷' },
+  { id: 'clubs', label: 'Clubs', icon: '▦' },
+  { id: 'trends', label: 'Trends', icon: '◈' },
 ];
 
 export default function App() {
@@ -171,15 +171,37 @@ export default function App() {
             v{VERSION}
           </span>
         </div>
+
         <div className="topbar-actions">
-          <select
-            aria-label="Handedness"
-            value={handedness}
-            onChange={(e) => setHandedness(e.target.value as Handedness)}
-          >
-            <option value="right">Right-handed</option>
-            <option value="left">Left-handed</option>
-          </select>
+          {stored.length > 0 && (
+            <select
+              className="session-select"
+              aria-label="Session"
+              value={activeId ?? ''}
+              onChange={(e) => setActiveId(e.target.value)}
+            >
+              {stored.map((s) => (
+                <option key={s.session.id} value={s.session.id}>
+                  {shortDate(s.session.startedAt)} · {s.session.kind} · {s.session.shots.length}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <label className="import-btn" title="Import a TrackMan export">
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) void handleFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            Import
+          </label>
+
           <button
             className="icon-btn"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -191,12 +213,9 @@ export default function App() {
         </div>
       </header>
 
-      <DropZone
-        dragging={dragging}
-        setDragging={setDragging}
-        onFiles={handleFiles}
-        hasData={stored.length > 0}
-      />
+      {stored.length === 0 && (
+        <DropZone dragging={dragging} setDragging={setDragging} onFiles={handleFiles} />
+      )}
 
       {isDesktop() && (
         <button className="watch" onClick={startWatching} disabled={watching}>
@@ -209,56 +228,9 @@ export default function App() {
       {error && <p className="error">{error}</p>}
       {warnings.length > 0 && <Warnings warnings={warnings} />}
 
-      {stored.length > 0 && (
-        <nav className="sessions" aria-label="Sessions">
-          {stored.map((s) => (
-            <span
-              key={s.session.id}
-              className={s.session.id === activeId ? 'chip-wrap chip-on' : 'chip-wrap'}
-            >
-              <button className="chip" onClick={() => setActiveId(s.session.id)}>
-                {shortDate(s.session.startedAt)}
-                <em>{s.session.kind}</em>
-                <span>{s.session.shots.length}</span>
-              </button>
-              <button
-                className="chip-x"
-                aria-label={`Delete the ${shortDate(s.session.startedAt)} session`}
-                title="Delete this session"
-                onClick={() => deleteSession(s.session.id)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          {stored.length > 1 && (
-            <button className="chip-clear" onClick={handleClearAll}>
-              Clear all
-            </button>
-          )}
-        </nav>
-      )}
-
       {report && active ? (
         <main>
           <SessionSummary report={report} onDelete={() => deleteSession(active.id)} />
-
-          <nav className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={tab === t.id}
-                className={tab === t.id ? 'tab tab-on' : 'tab'}
-                onClick={() => setTab(t.id)}
-              >
-                {t.label}
-                {t.id === 'trends' && trends.filter((x) => x.significant).length > 0 && (
-                  <span className="dot" />
-                )}
-              </button>
-            ))}
-          </nav>
 
           <section className="view">
             {tab === 'overview' && cloned && (
@@ -289,6 +261,31 @@ export default function App() {
         <span>{buildStamp()}</span>
         <span>Everything runs on this device. Nothing is uploaded.</span>
       </footer>
+
+      {/*
+        Navigation sits at the bottom, where a thumb is. A tab strip halfway
+        down the page competes with the content for the eye and is the
+        furthest thing from reach on a phone.
+      */}
+      {report && (
+        <nav className="bottom-nav" role="tablist" aria-label="Views">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
+              onClick={() => setTab(t.id)}
+            >
+              <span className="nav-icon" aria-hidden="true">{t.icon}</span>
+              <span className="nav-label">{t.label}</span>
+              {t.id === 'trends' && trends.some((x) => x.significant) && (
+                <span className="nav-dot" />
+              )}
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
@@ -296,10 +293,7 @@ export default function App() {
 function SessionSummary({ report, onDelete }: { report: SessionReport; onDelete: () => void }) {
   return (
     <div className="summary card">
-      <div className="summary-mode">
-        <strong>{report.mode?.name ?? 'Session'}</strong>
-        <span>{report.mode?.what ?? 'Imported shots'}</span>
-      </div>
+      <strong className="summary-mode">{report.mode?.name ?? 'Session'}</strong>
       <div className="summary-stats">
         <Stat value={String(report.shotCount)} label="shots" />
         <Stat value={String(report.clubsSeen.length)} label="clubs" />
@@ -322,15 +316,11 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 function DropZone({
-  dragging,
-  setDragging,
-  onFiles,
-  hasData,
+  dragging, setDragging, onFiles,
 }: {
   dragging: boolean;
   setDragging: (v: boolean) => void;
   onFiles: (files: FileList | File[]) => void;
-  hasData: boolean;
 }) {
   return (
     <label
@@ -356,7 +346,7 @@ function DropZone({
           e.target.value = '';
         }}
       />
-      <strong>{hasData ? 'Import another session' : 'Drop a TrackMan export here'}</strong>
+      <strong>Drop a TrackMan export here</strong>
       <span>
         TPS → Table View → File Options → TrackMan CSV. Works with Range, Test Center, Combine,
         Performance Center and the games.

@@ -5,7 +5,10 @@ import {
 } from '../benchmarks/personal.js';
 import { prescribePractice, type PracticeDuration, type PracticeSession } from '../practice/prescribe.js';
 import { discarded, markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
-import { evaluateAchievements, scoreSession, type Achievement, type SessionScore } from '../scoring/index.js';
+import {
+  estimateHandicap, evaluateAchievements, scoreSession,
+  type Achievement, type HandicapEstimate, type SessionScore,
+} from '../scoring/index.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
@@ -218,6 +221,12 @@ export interface SessionReport {
   /** Thresholds crossed this session, and what is nearly in reach. */
   achievements: Achievement[];
   /**
+   * The handicap this player's ball-striking would support. Ball-striking
+   * only — a range session cannot see the short game, which is most of
+   * scoring — so it is a range with the caveat attached.
+   */
+  handicap: HandicapEstimate | null;
+  /**
    * Your numbers against your own optimals — the tour figures scaled to your
    * measured club speed, so the targets are ones you can actually reach.
    */
@@ -328,6 +337,7 @@ export function diagnoseSession(
     discardedCount: discarded(session.shots).length,
     score: null,
     achievements: [],
+    handicap: null,
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
     practice: prescribePractice(rootFindings, profiles, { duration: practiceDuration }),
   };
@@ -344,6 +354,7 @@ export function diagnoseSession(
     optimals: report.optimals?.comparisons ?? null,
   });
   report.achievements = evaluateAchievements(report);
+  report.handicap = estimateHandicap(mainProfile, report.strike);
 
   return report;
 }

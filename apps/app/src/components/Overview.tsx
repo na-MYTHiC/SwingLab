@@ -1,7 +1,7 @@
 import type { SessionComparison, SessionReport, ShotSession, Streak } from '@swinglab/core';
 import { useState } from 'react';
 import {
-  AchievementPanel, ConsistencyBars, OptimalBands, ProgressionPanel, ScorePanel, ScoreRing,
+  AchievementPanel, ConsistencyBars, HandicapPanel, OptimalBands, ProgressionPanel, ScorePanel,
   ShapePanel, StreakBadge, StrikePanel,
 } from './Visuals.js';
 import { shareCard } from '../shareCard.js';
@@ -52,45 +52,8 @@ export function OverviewView({
             </button>
           </div>
           <ScorePanel score={report.score} />
+          {report.handicap && <HandicapPanel handicap={report.handicap} />}
           <StreakBadge streak={streak} />
-        </section>
-      )}
-
-      <section className="hero">
-        <div className="hero-main">
-          <span className="hero-eyebrow">On the table this session</span>
-          <div className="hero-figure">
-            <strong>{fmtShots(report.strokesAvailable)}</strong>
-            <span>shots a round</span>
-          </div>
-          <p>
-            An estimate of what the findings below are costing you, weighted so the fastest
-            improvement comes first. Ranges flatter everyone — treat it as a direction, not a
-            promise.
-          </p>
-        </div>
-        {report.consistency && (
-          <ScoreRing
-            score={report.consistency.overall}
-            label="Repeatability"
-            sublabel={
-              report.consistency.weakest
-                ? `Weakest: ${report.consistency.weakest.label.toLowerCase()}`
-                : undefined
-            }
-          />
-        )}
-      </section>
-
-      {report.potential && (
-        <section className="card callout">
-          <h3>{report.potential.headline}</h3>
-          <p>{report.potential.detail}</p>
-          <div className="callout-figures">
-            <Figure value={Math.round(report.potential.reliableCarry)} label="club off this" accent />
-            <Figure value={Math.round(report.potential.medianCarry)} label="typical" />
-            <Figure value={Math.round(report.potential.bestCarry)} label="your best" />
-          </div>
         </section>
       )}
 
@@ -152,25 +115,25 @@ export function OverviewView({
         <ProgressionPanel progression={report.progression} />
       </section>
 
-      {report.discardedCount > 0 && (
-        <p className="discard-note">
-          {report.discardedCount} shot{report.discardedCount === 1 ? '' : 's'} thrown out entirely —
-          tops or shanks that travelled a fraction of this club's normal distance. There is nothing
-          to learn from those, so they are excluded from every number above rather than dragging
-          your averages down.
-        </p>
-      )}
-
-      {report.dataNotes.length > 0 && (
-        <section className="card notes">
-          <h3 className="panel-title">About this data</h3>
+      {(report.discardedCount > 0 || report.dataNotes.length > 0) && (
+        <details className="notes">
+          <summary>About this data</summary>
           <ul>
+            {report.discardedCount > 0 && (
+              <li>
+                {report.discardedCount} shot{report.discardedCount === 1 ? '' : 's'} thrown out
+                entirely — tops or shanks that travelled a fraction of this club's normal distance.
+                There is nothing to learn from those, so they are excluded from every number above
+                rather than dragging your averages down.
+              </li>
+            )}
             {report.dataNotes.map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
+
     </div>
   );
 }

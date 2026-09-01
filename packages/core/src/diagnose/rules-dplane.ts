@@ -53,7 +53,9 @@ export const faceToPathRule: Rule = {
           { label: 'Club path', value: round(profile.clubPath.median, 1), unit: '°' },
           { label: 'Shots', value: f.n, unit: '' },
         ],
-        drills: open ? ['split-hands-face', 'lead-arm-only', 'target-window'] : ['target-window', 'gate-path'],
+        drills: open
+          ? ['exaggerate-both-ways', 'split-hands-face', 'target-window']
+          : ['exaggerate-both-ways', 'target-window', 'gate-path'],
       },
     ];
   },
@@ -87,7 +89,7 @@ export const pathRule: Rule = {
           { label: 'Shot-to-shot spread', value: round(p.mad, 1), unit: '°' },
           { label: 'Shots', value: p.n, unit: '' },
         ],
-        drills: ['gate-path', 'step-change-tempo'],
+        drills: ['gate-path', 'exaggerate-both-ways', 'step-change-tempo'],
       },
     ];
   },

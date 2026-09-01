@@ -109,7 +109,17 @@ function shot(g, date, time, clubName, bias = {}, target = null) {
   const carry = base.carry * speedRatio + carryOffset + g(0, base.carry * 0.012 * spread);
   const roll = clubName === 'Driver' ? 18 : clubName === '3 Wood' ? 12 : 4;
   const curve = spinAxis * carry * 0.004;
-  const side = Math.tan((launchDirection * Math.PI) / 180) * carry + curve;
+  /*
+   * Lateral scatter needs its own term.
+   *
+   * Deriving side purely from launch direction and curve produced patterns
+   * tighter than tour players hold, because those two are modelled almost
+   * noiselessly here. Real dispersion also carries strike location, gear
+   * effect and wind, none of which this generator simulates — so a scatter
+   * term stands in for them. Without it every sample golfer read as scratch.
+   */
+  const lateralNoise = g(0, carry * 0.035 * spread);
+  const side = Math.tan((launchDirection * Math.PI) / 180) * carry + curve + lateralNoise;
 
   const row = [
     date, time, clubName,

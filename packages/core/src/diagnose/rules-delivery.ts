@@ -39,7 +39,7 @@ export const dynamicLoftConsistencyRule: Rule = {
           { label: 'Highest', value: round(d.max, 1), unit: '°' },
           { label: 'Shots', value: d.n, unit: '' },
         ],
-        drills: ['towel-behind-ball', 'spin-loft-control', 'tee-forward-low-point'],
+        drills: ['spin-loft-control', 'towel-behind-ball', 'exaggerate-both-ways'],
       },
     ];
   },

@@ -52,6 +52,19 @@ predicts: PGA driver attack angle is -0.9° and LPGA is **+2.8°**, and the
 LPGA 7-iron smash is *higher*, not lower. Slower swings should hit up more
 and launch higher, and the tables say so — so the tables do the work.
 
+**Estimates the handicap your ball-striking supports.** Built from published
+dispersion benchmarks — tour holds about ±9 yards with a 7-iron, a
+10-handicap ±15-20 — scaled by carry so a wedge and a driver both feed it.
+Reported as a range with its limits stated: a range session cannot see the
+short game, and roughly 45% of scoring happens inside 100 yards.
+
+**Drills built on the motor-learning research, not range folklore.** Every
+drill has a build phase and a variable phase, because combined blocked-then-
+random practice beats either alone on retention *and* transfer. Drills that
+will feel worse while you do them say so — random practice lowers performance
+during acquisition and raises it on retention, and players who are not warned
+conclude it is not working.
+
 **Keeps score.** Every session gets a grade out of 100 across contact,
 repeatability, delivery and dispersion, with milestones at thresholds that
 mean something in golf. Nothing rewards hitting more balls or one big swing —

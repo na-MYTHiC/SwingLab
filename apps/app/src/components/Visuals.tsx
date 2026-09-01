@@ -1,6 +1,6 @@
 import type {
-  Achievement, ConsistencyScore, ClubConsistency, OptimalComparison, Progression, SessionReport,
-  SessionScore, ShapeBreakdown, StrikeBreakdown, Streak,
+  Achievement, ConsistencyScore, ClubConsistency, HandicapEstimate, OptimalComparison, Progression,
+  SessionReport, SessionScore, ShapeBreakdown, StrikeBreakdown, Streak,
 } from '@swinglab/core';
 import { num } from '../format.js';
 
@@ -51,16 +51,18 @@ export function ScoreRing({
 
 /** Consistency bars, worst first — the ordering is the message. */
 export function ConsistencyBars({ consistency }: { consistency: ClubConsistency }) {
+  // Ordered worst first, so only the top one needs explaining — repeating a
+  // "so what" line under all eight buries the one that matters.
   return (
     <ul className="bars">
-      {consistency.scores.map((s) => (
-        <ConsistencyBar key={s.metric} score={s} />
+      {consistency.scores.map((s, i) => (
+        <ConsistencyBar key={s.metric} score={s} explain={i === 0} />
       ))}
     </ul>
   );
 }
 
-function ConsistencyBar({ score }: { score: ConsistencyScore }) {
+function ConsistencyBar({ score, explain }: { score: ConsistencyScore; explain: boolean }) {
   const tone = score.score >= 68 ? 'good' : score.score >= 45 ? 'mid' : 'bad';
   return (
     <li className={`bar bar-${tone}`}>
@@ -74,7 +76,7 @@ function ConsistencyBar({ score }: { score: ConsistencyScore }) {
       <div className="bar-track">
         <div className="bar-fill" style={{ width: `${score.score}%` }} />
       </div>
-      <p className="bar-so-what">{score.soWhat}</p>
+      {explain && <p className="bar-so-what">{score.soWhat}</p>}
     </li>
   );
 }
@@ -203,11 +205,8 @@ export function OptimalBands({
   return (
     <>
       <p className="panel-sub">
-        Your targets, not tour's — interpolated between the men's and women's tour averages using
-        your measured {optimals.clubSpeed.toFixed(0)} mph. The two tours have each optimised for
-        their own speed, and they differ in ways no scaling law predicts: slower swings hit further
-        up on the driver and launch the ball higher. A player in between should be aiming in
-        between.
+        Interpolated between the men's and women's tour averages at your{' '}
+        {optimals.clubSpeed.toFixed(0)} mph — yours, not tour's.
       </p>
       <ul className="opt-list">
         {optimals.comparisons.map((c) => (
@@ -253,7 +252,10 @@ function OptimalBand({ comparison }: { comparison: OptimalComparison }) {
           <div className="opt-marker" style={{ left: `${pct(actual)}%` }} />
         )}
       </div>
-      <p className="opt-why">{w.why}</p>
+      <details className="opt-why">
+        <summary>Why this number</summary>
+        <p>{w.why}</p>
+      </details>
     </li>
   );
 }
@@ -305,24 +307,55 @@ export function ScorePanel({ score }: { score: SessionScore }) {
 /** Achievements: what was crossed, and what is nearly in reach. */
 export function AchievementPanel({ achievements }: { achievements: Achievement[] }) {
   if (achievements.length === 0) return null;
+
+  // Earned, plus the two nearest. A wall of things you have not done yet is
+  // discouraging rather than motivating, and the far-off ones are not
+  // information you can act on this week.
+  const earned = achievements.filter((a) => a.earned);
+  const near = achievements.filter((a) => !a.earned).slice(0, 2);
+  const rest = achievements.filter((a) => !a.earned).slice(2);
+
   return (
-    <ul className="achievements">
-      {achievements.map((a) => (
-        <li key={a.id} className={a.earned ? `ach ach-earned ach-${a.tier}` : 'ach'}>
+    <>
+      <ul className="achievements">
+        {[...earned, ...near].map((a) => (
+          <AchievementCard key={a.id} achievement={a} />
+        ))}
+      </ul>
+      {rest.length > 0 && (
+        <details className="more-ach">
+          <summary>{rest.length} more to aim at</summary>
+          <ul className="achievements">
+            {rest.map((a) => (
+              <AchievementCard key={a.id} achievement={a} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
+
+function AchievementCard({ achievement: a }: { achievement: Achievement }) {
+  return (
+    <ul style={{ display: 'contents' }}>
+      {[a].map((x) => (
+        <li key={x.id} className={x.earned ? `ach ach-earned ach-${x.tier}` : 'ach'}>
           <div className="ach-head">
             <span className="ach-name">
-              <i className={`ach-dot ach-dot-${a.tier}`} aria-hidden="true" />
-              {a.name}
+              <i className={`ach-dot ach-dot-${x.tier}`} aria-hidden="true" />
+              {x.name}
             </span>
-            <span className="ach-tier">{a.earned ? 'earned' : `${Math.round(a.progress * 100)}%`}</span>
+            <span className="ach-tier">
+              {x.earned ? 'earned' : `${Math.round(x.progress * 100)}%`}
+            </span>
           </div>
-          {!a.earned && (
+          {!x.earned && (
             <div className="ach-track">
-              <div className="ach-fill" style={{ width: `${a.progress * 100}%` }} />
+              <div className="ach-fill" style={{ width: `${x.progress * 100}%` }} />
             </div>
           )}
-          <p className="ach-req">{a.requirement}</p>
-          <p className="ach-meaning">{a.meaning}</p>
+          <p className="ach-req">{x.requirement}</p>
         </li>
       ))}
     </ul>
@@ -343,6 +376,31 @@ export function StreakBadge({ streak }: { streak: Streak }) {
         <span>
           Best {streak.best} · {streak.totalDays} day{streak.totalDays === 1 ? '' : 's'} practised
         </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Estimated handicap.
+ *
+ * Shown as a range and never without its caveat. A range session sees
+ * ball-striking and nothing else, and roughly 45% of scoring happens inside
+ * 100 yards — so a single confident number here would be the most quotable
+ * thing in the app and also the least defensible.
+ */
+export function HandicapPanel({ handicap }: { handicap: HandicapEstimate }) {
+  return (
+    <div className="hcp">
+      <div className="hcp-figure">
+        <strong>
+          {Math.round(handicap.low)}–{Math.round(handicap.high)}
+        </strong>
+        <span>handicap</span>
+      </div>
+      <div className="hcp-detail">
+        <span className="hcp-conf">{handicap.confidence} confidence</span>
+        <p>{handicap.caveat}</p>
       </div>
     </div>
   );

@@ -217,6 +217,19 @@ function PracticeBlock({ block, step }: { block: Prescription; step: number }) {
                   <li key={d.id}>
                     <strong>{d.name}</strong>
                     <span>{d.how}</span>
+                    <p className="drill-phase">
+                      <b>Build</b> {d.build}
+                    </p>
+                    <p className="drill-phase">
+                      <b>Then vary</b> {d.transfer}
+                    </p>
+                    {d.feelsWorse && (
+                      <p className="drill-warn">
+                        Expect this to look worse while you do it. Variable practice lowers
+                        performance in the moment and raises it on retention — that dip is the
+                        drill working, not failing.
+                      </p>
+                    )}
                     <em>{d.dose}</em>
                   </li>
                 ))}
