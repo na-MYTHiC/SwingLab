@@ -3,6 +3,7 @@ import {
   buildBaseline,
   buildTrends,
   compareSessions,
+  evaluateTargets,
   practiceStreak,
   previousSessionFor,
   diagnoseSession,
@@ -14,9 +15,13 @@ import {
   type ShotSession,
   type PlayerBaseline,
   type PracticeDuration,
+  type PracticeTarget,
+  type TargetResult,
   type Trend,
 } from '@swinglab/core';
-import { clearAll, loadAll, remove, save, type StoredSession } from './storage.js';
+import {
+  forgetTargets, loadAll, loadTargets, remove, save, saveTargets, type StoredSession,
+} from './storage.js';
 import { isDesktop, watchExportFolder } from './desktop.js';
 import { applyTheme, loadTheme, type Theme } from './theme.js';
 import { buildStamp, VERSION } from './version.js';
@@ -121,6 +126,30 @@ export default function App() {
     [stored],
   );
 
+  /*
+   * The closed loop.
+   *
+   * A plan's pass marks are written once, against the session that produced
+   * them, and read back when a later session is imported. Without this the app
+   * could say what to practise and never find out whether it worked — which is
+   * the loop almost every launch monitor tool leaves open.
+   */
+  useEffect(() => {
+    if (report && active) saveTargets(active.id, report.practice.targets);
+  }, [report, active]);
+
+  const targetResults = useMemo<{ results: TargetResult[]; since: Date | null } | null>(() => {
+    if (!active) return null;
+    const ordered = stored.map((s) => s.session);
+    const index = ordered.findIndex((s) => s.id === active.id);
+    const previous = index >= 0 ? ordered[index + 1] : undefined;
+    if (!previous) return null;
+
+    const targets = loadTargets(previous.id) as PracticeTarget[] | null;
+    if (!targets || targets.length === 0) return null;
+    return { results: evaluateTargets(targets, active), since: previous.startedAt };
+  }, [stored, active]);
+
   const trends = useMemo<Trend[]>(() => {
     const sessions = stored.map((s) => s.session);
     if (sessions.length < 3) return [];
@@ -171,6 +200,7 @@ export default function App() {
    */
   const deleteSession = useCallback(
     (id: string) => {
+      forgetTargets(id);
       const next = byDate(remove(id));
       setStored(next);
       setActiveId((current) => (current === id ? (next[0]?.session.id ?? null) : current));
@@ -257,6 +287,7 @@ export default function App() {
                 session={cloned}
                 comparison={comparison}
                 streak={streak}
+                targets={targetResults}
               />
             )}
             {tab === 'priority' && <PriorityView report={report} />}

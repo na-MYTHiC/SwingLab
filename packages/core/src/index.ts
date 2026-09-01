@@ -29,6 +29,15 @@ export * from './scoring/index.js';
 
 export * from './practice/modes.js';
 export {
+  evaluateTargets,
+  nextTarget,
+  targetFrom,
+  targetMetricLabel,
+  type PracticeTarget,
+  type TargetMetric,
+  type TargetResult,
+} from './practice/targets.js';
+export {
   prescribePractice,
   type Prescription,
   type PracticeSession,

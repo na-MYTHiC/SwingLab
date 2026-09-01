@@ -298,6 +298,25 @@ function PracticeBlock({
         {block.success}
       </p>
 
+      {block.targets.length > 0 && (
+        <>
+          <h4 className="block-sub">Hit these and the app will say so</h4>
+          <ul className="target-marks">
+            {block.targets.map((t) => (
+              <li key={t.id}>
+                <strong>{t.label}</strong>
+                {t.baseline !== null && (
+                  <span>
+                    you are at {t.baseline}
+                    {t.unit} now
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {block.drills.length > 0 && (
         <details className="drills" open={openByDefault}>
           <summary>

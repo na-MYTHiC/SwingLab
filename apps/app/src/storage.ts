@@ -75,3 +75,57 @@ export function clearAll(): StoredSession[] {
 }
 
 export type { StoredSession };
+
+/**
+ * The pass marks a session's plan set, kept so the next one can be judged.
+ *
+ * Stored beside the sessions rather than inside them: a plan is derived from a
+ * session and changes when the engine changes, whereas the shots are a
+ * measurement and must never be rewritten. Keyed by the id of the session the
+ * plan was built *from*, which is what makes "did last time's work land?"
+ * answerable without guessing which plan was in force.
+ */
+const TARGETS_KEY = 'swinglab.targets.v1';
+
+type TargetStore = Record<string, { savedAt: string; targets: unknown[] }>;
+
+function readTargets(): TargetStore {
+  try {
+    const raw = localStorage.getItem(TARGETS_KEY);
+    return raw ? (JSON.parse(raw) as TargetStore) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveTargets(sessionId: string, targets: unknown[]): void {
+  if (targets.length === 0) return;
+  try {
+    const store = readTargets();
+    const existing = store[sessionId];
+    // Written once. Re-deriving them on every render would quietly move the
+    // goalposts to match whatever the engine says today, which is precisely
+    // the thing a target exists to prevent.
+    if (existing) return;
+    store[sessionId] = { savedAt: new Date().toISOString(), targets };
+    localStorage.setItem(TARGETS_KEY, JSON.stringify(store));
+  } catch {
+    // Storage full or blocked. The loop degrades to no targets, which is the
+    // behaviour before they existed — not worth breaking the app over.
+  }
+}
+
+export function loadTargets(sessionId: string): unknown[] | null {
+  const entry = readTargets()[sessionId];
+  return entry ? entry.targets : null;
+}
+
+export function forgetTargets(sessionId: string): void {
+  try {
+    const store = readTargets();
+    delete store[sessionId];
+    localStorage.setItem(TARGETS_KEY, JSON.stringify(store));
+  } catch {
+    // Nothing stored, or storage is blocked.
+  }
+}

@@ -1,6 +1,6 @@
 import type { Club, Shot } from '../schema.js';
 import { compareClubs } from '../clubs.js';
-import { pluck, summarise, type Summary } from './robust.js';
+import { percentile, pluck, summarise, type Summary } from './robust.js';
 import { representative, usable } from './outliers.js';
 
 /**
@@ -64,6 +64,35 @@ export interface ClubProfile {
 
   /** Two-sigma dispersion ellipse in yards, from carry and side. */
   dispersion: DispersionEllipse | null;
+  /** Where the shots actually fell, without assuming a bell curve. */
+  containment: Containment | null;
+}
+
+/**
+ * Containment radii, measured rather than modelled.
+ *
+ * The ellipse assumes the pattern is normal in both axes. Real ones often are
+ * not: a player can be tight for forty shots and have three that went
+ * somewhere else entirely, and a standard deviation quietly averages that into
+ * "moderately wide" when the truth is "tight, with three disasters". Sorting
+ * the actual distances from the centre and reading off the 50th, 75th and 90th
+ * shows the shape of the tail instead of hiding it.
+ *
+ * These are also the right unit for a practice target. "Get 75% of them inside
+ * 11 yards" is something a player can count on the screen in front of them;
+ * "reduce your standard deviation" is not.
+ */
+export interface Containment {
+  /** Radius from the pattern centre holding this share of shots, in yards. */
+  p50: number;
+  p75: number;
+  p90: number;
+  /** Half-width sideways at 75%, ignoring distance error. */
+  side75: number;
+  /** Half-depth for distance at 75%, ignoring direction. */
+  depth75: number;
+  /** How many shots the radii were measured from. */
+  n: number;
 }
 
 export interface DispersionEllipse {
@@ -134,6 +163,32 @@ export function buildClubProfile(club: Club, shots: Shot[]): ClubProfile {
     landingAngle: s((x) => x.landingAngle),
 
     dispersion: buildEllipse(carry, side),
+    containment: buildContainment(rep, carry, side),
+  };
+}
+
+function buildContainment(shots: Shot[], carry: Summary, side: Summary): Containment | null {
+  if (!Number.isFinite(carry.median) || !Number.isFinite(side.median)) return null;
+
+  const points = shots
+    .filter((s) => s.carry !== null && s.side !== null)
+    .map((s) => ({
+      dx: (s.side as number) - side.median,
+      dy: (s.carry as number) - carry.median,
+    }));
+  if (points.length < 6) return null;
+
+  const radii = points.map((p) => Math.hypot(p.dx, p.dy)).sort((a, b) => a - b);
+  const sides = points.map((p) => Math.abs(p.dx)).sort((a, b) => a - b);
+  const depths = points.map((p) => Math.abs(p.dy)).sort((a, b) => a - b);
+
+  return {
+    p50: percentile(radii, 0.5),
+    p75: percentile(radii, 0.75),
+    p90: percentile(radii, 0.9),
+    side75: percentile(sides, 0.75),
+    depth75: percentile(depths, 0.75),
+    n: points.length,
   };
 }
 

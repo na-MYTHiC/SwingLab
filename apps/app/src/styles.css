@@ -1075,6 +1075,50 @@ tbody tr:hover { background: var(--surface-2); }
 .opt-on-target .opt-marker { background: var(--good); }
 .opt-below .opt-marker, .opt-above .opt-marker { background: var(--warn); }
 
+/* The pass marks, shown in the plan so they are known before the session
+ * rather than only judged after it. */
+.target-marks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.target-marks li {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-left: 2px solid var(--brand);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.target-marks strong { font-size: var(--fs-sm); font-weight: 600; }
+.target-marks span { font-size: var(--fs-xs); color: var(--text-faint); }
+
+/* ===================================================== practice targets === */
+
+.target-list { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.target-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--line-strong);
+}
+.target-list li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.target-list strong { font-size: var(--fs-sm); font-weight: 600; }
+.target-list span { font-size: var(--fs-xs); color: var(--text-faint); }
+
+.tg-mark {
+  flex: none;
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  background: var(--surface-3);
+  color: var(--text-faint);
+}
+.tg-hit { border-left-color: var(--good); }
+.tg-hit .tg-mark { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); }
+.tg-miss { border-left-color: var(--warn); }
+.tg-miss .tg-mark { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+
 /* ================================================ did the work show up === */
 
 .diw-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }

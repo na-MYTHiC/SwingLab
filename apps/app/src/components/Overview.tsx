@@ -1,4 +1,6 @@
-import type { SessionComparison, SessionReport, ShotSession, Streak } from '@swinglab/core';
+import type {
+  SessionComparison, SessionReport, ShotSession, Streak, TargetResult,
+} from '@swinglab/core';
 import { useState } from 'react';
 import {
   AchievementPanel, HandicapPanel, ProgressionPanel, ScorePanel, ShapePanel, StreakBadge,
@@ -18,12 +20,13 @@ import { shots } from '../format.js';
  * pushed below the things that are read every single time.
  */
 export function OverviewView({
-  report, session, comparison, streak,
+  report, session, comparison, streak, targets,
 }: {
   report: SessionReport;
   session: ShotSession;
   comparison: SessionComparison | null;
   streak: Streak;
+  targets: { results: TargetResult[]; since: Date | null } | null;
 }) {
   const [sharing, setSharing] = useState(false);
   const main = report.profiles.length
@@ -73,6 +76,8 @@ export function OverviewView({
           </p>
         </section>
       )}
+
+      {targets && <TargetScorecard results={targets.results} since={targets.since} />}
 
       {comparison && <DidItWork comparison={comparison} />}
 
@@ -145,6 +150,57 @@ export function OverviewView({
         </details>
       )}
     </div>
+  );
+}
+
+/**
+ * Did you hit the marks your last plan set?
+ *
+ * The loop almost every launch monitor tool leaves open. They measure you,
+ * some tell you what to practise, and then nothing ever checks. A pass mark
+ * that is never marked is a suggestion; one that comes back with your number
+ * next to it is practice with a result, and it is the only thing that makes an
+ * hour in a bay feel like it counted.
+ */
+function TargetScorecard({
+  results, since,
+}: {
+  results: TargetResult[];
+  since: Date | null;
+}) {
+  const measured = results.filter((r) => r.met !== null);
+  const hit = measured.filter((r) => r.met).length;
+  const when = since
+    ? since.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : 'last time';
+
+  return (
+    <section className="card targets">
+      <div className="diw-head">
+        <h3 className="panel-title">Your targets from {when}</h3>
+        {measured.length > 0 && (
+          <span className="diw-since">
+            {hit} of {measured.length} hit
+          </span>
+        )}
+      </div>
+      <ul className="target-list">
+        {results.map((r) => (
+          <li
+            key={r.target.id}
+            className={r.met === null ? 'tg-skip' : r.met ? 'tg-hit' : 'tg-miss'}
+          >
+            <span className="tg-mark" aria-hidden="true">
+              {r.met === null ? '–' : r.met ? '✓' : '✗'}
+            </span>
+            <div>
+              <strong>{r.target.label}</strong>
+              <span>{r.verdict}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

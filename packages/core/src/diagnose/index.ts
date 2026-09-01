@@ -356,6 +356,14 @@ export function diagnoseSession(
   // them per club would bury the reading in a session that is mostly one club.
   const mainProfile = [...profiles].sort((a, b) => b.shotCount - a.shotCount)[0] ?? null;
 
+  // Computed before the report literal because the practice plan needs them:
+  // its pass marks are set from the session's own strike and blow-up figures.
+  const strike = classifyStrikes(session.shots);
+  const discardedShots = discarded(session.shots);
+  const unusableRate = session.shots.length > 0
+    ? (discardedShots.length / session.shots.length) * 100
+    : null;
+
   const report: SessionReport = {
     sessionId: session.id,
     kind: session.kind,
@@ -369,19 +377,23 @@ export function diagnoseSession(
     priorities,
     strokesAvailable: estimateStrokesAvailable(priorities),
     shape: shapeBreakdown(session.shots),
-    strike: classifyStrikes(session.shots),
+    strike,
     consistency: mainProfile ? clubConsistency(mainProfile) : null,
     progression: sessionProgression(session.shots),
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
     optimals: buildOptimals(mainProfile, baseline),
-    discardedCount: discarded(session.shots).length,
+    discardedCount: discardedShots.length,
     score: null,
     greenRate: null,
     achievements: [],
     handicap: null,
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
-    practice: prescribePractice(rootFindings, profiles, { duration: practiceDuration }),
+    practice: prescribePractice(rootFindings, profiles, {
+      duration: practiceDuration,
+      strikeQuality: strike.total >= 10 ? strike.qualityShare * 100 : null,
+      unusableRate,
+    }),
   };
 
   /*

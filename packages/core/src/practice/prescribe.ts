@@ -4,6 +4,8 @@ import type { ClubProfile } from '../stats/dispersion.js';
 import type { Finding } from '../diagnose/types.js';
 import { DRILLS, fitDrillList, type Drill } from '../diagnose/drills.js';
 import { PRACTICE_MODES, type PracticeMode, type PracticeModeId } from './modes.js';
+import { targetFrom, type PracticeTarget, type TargetMetric } from './targets.js';
+import { TOUR_AXIS_PCT } from '../benchmarks/skill.js';
 
 /**
  * Turning findings into a practice session someone can actually run.
@@ -40,11 +42,19 @@ export interface Prescription {
   addresses: string[];
   /** Supporting drills to run inside this block. */
   drills: Drill[];
+  /**
+   * The pass mark, made measurable. `success` is the sentence a player reads;
+   * these are the same thing in a form the next session can be checked
+   * against, which is what turns a plan into a loop.
+   */
+  targets: PracticeTarget[];
 }
 
 export interface PracticeSession {
   /** Ordered blocks: build the change, vary it, measure it, take it to a course. */
   blocks: Prescription[];
+  /** Every block's pass mark, flattened — what the next session is judged on. */
+  targets: PracticeTarget[];
   totalMinutes: number;
   /** The slot this plan was built to fill. */
   duration: PracticeDuration;
@@ -142,6 +152,7 @@ const TEMPLATES: Template[] = [
         shots: 30,
         minutes: 20,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['foot-spray-strike', 'toe-heel-gate', 'tempo-ratio']),
       };
     },
@@ -168,6 +179,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['towel-behind-ball', 'tempo-ratio', 'tee-forward-low-point']),
       };
     },
@@ -194,6 +206,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['one-flight', 'spin-loft-control', 'foot-spray-strike']),
       };
     },
@@ -222,6 +235,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['target-window', 'lead-arm-only', 'split-hands-face']),
       };
     },
@@ -248,6 +262,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(open
           ? ['split-hands-face', 'lead-arm-only', 'target-window']
           : ['target-window', 'aim-reset', 'gate-path']),
@@ -275,6 +290,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['gate-path', 'aim-reset', 'exaggerate-both-ways']),
       };
     },
@@ -302,6 +318,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['tee-height-aoa', 'shaft-lean-irons']),
       };
     },
@@ -332,6 +349,7 @@ const TEMPLATES: Template[] = [
         shots: 10,
         minutes: 12,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
@@ -361,6 +379,7 @@ const TEMPLATES: Template[] = [
         shots: Math.max(20, eligible.length * 5),
         minutes: 25,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['ladder-gapping', 'call-the-number']),
       };
     },
@@ -388,6 +407,7 @@ const TEMPLATES: Template[] = [
         shots: 25,
         minutes: 20,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['ladder-gapping', 'call-the-number']),
       };
     },
@@ -415,6 +435,7 @@ const TEMPLATES: Template[] = [
         shots: 10,
         minutes: 15,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
@@ -439,6 +460,7 @@ const TEMPLATES: Template[] = [
         shots: 20,
         minutes: 20,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
@@ -464,6 +486,7 @@ const TEMPLATES: Template[] = [
         shots: 18,
         minutes: 20,
         addresses: [finding.id],
+        targets: [],
         drills: drillsFor(['random-practice-block', 'pressure-nine']),
       };
     },
@@ -473,7 +496,13 @@ const TEMPLATES: Template[] = [
 export function prescribePractice(
   findings: Finding[],
   profiles: ClubProfile[],
-  opts: { duration?: PracticeDuration } = {},
+  opts: {
+    duration?: PracticeDuration;
+    /** Share of strikes that were solid or better, 0-100. */
+    strikeQuality?: number | null;
+    /** Share of shots thrown out as tops or duffs, 0-100. */
+    unusableRate?: number | null;
+  } = {},
 ): PracticeSession {
   const duration: PracticeDuration = opts.duration === 120 ? 120 : 60;
 
@@ -536,8 +565,11 @@ export function prescribePractice(
     block.drills = fitDrillList(block.drills, block.minutes);
   }
 
+  attachTargets(blocks, profiles, opts.strikeQuality ?? null, opts.unusableRate ?? null);
+
   return {
     blocks,
+    targets: blocks.flatMap((b) => b.targets),
     totalMinutes: blocks.reduce((sum, b) => sum + b.minutes, 0),
     duration,
     note:
@@ -545,6 +577,112 @@ export function prescribePractice(
         ? 'No specific fault stood out, so this plan is about measurement rather than repair.'
         : null,
   };
+}
+
+/*
+ * Which measurements each kind of block is trying to move.
+ *
+ * Kept as a table rather than spread through the templates so that adding a
+ * measurement means editing one place, and so it is possible to see at a
+ * glance that every block has something it can be judged on.
+ */
+const BLOCK_TARGETS: { match: (id: string) => boolean; metrics: TargetMetric[] }[] = [
+  { match: (id) => id.startsWith('rx-strike'), metrics: ['strikeQuality', 'smashFactor'] },
+  { match: (id) => id.startsWith('rx-lowpoint'), metrics: ['lowPointSpread', 'carrySpread'] },
+  { match: (id) => id.startsWith('rx-face') || id.startsWith('rx-path'),
+    metrics: ['faceSpread', 'sideSpread'] },
+  { match: (id) => id.startsWith('rx-distance') || id.startsWith('rx-gap'),
+    metrics: ['carrySpread', 'containment75'] },
+  { match: (id) => id.startsWith('rx-spin') || id.startsWith('rx-launch'),
+    metrics: ['carrySpread'] },
+  { match: (id) => id === 'rx-shot-analysis', metrics: ['containment75', 'unusableRate'] },
+];
+
+/**
+ * What "good" is for each measurement, in the player's own units.
+ *
+ * These are the benchmark the target steps *towards*, never the target itself
+ * — asking somebody to reach tour standard by their next session is how a
+ * plan stops being read.
+ */
+function benchmarkFor(metric: TargetMetric, profile: ClubProfile): number | null {
+  const carry = profile.carry.median;
+  const hasCarry = Number.isFinite(carry) && carry > 0;
+  switch (metric) {
+    case 'carrySpread':
+    case 'sideSpread':
+      return hasCarry ? (TOUR_AXIS_PCT / 100) * carry : null;
+    case 'containment75':
+      // For a tour-tight pattern the 75% radius is about 1.665 sigma.
+      return hasCarry ? 1.665 * (TOUR_AXIS_PCT / 100) * carry : null;
+    case 'strikeQuality':
+      return 95;
+    case 'faceSpread':
+      return 1.2;
+    case 'lowPointSpread':
+      return 1;
+    case 'smashFactor':
+      return 1.38;
+    case 'unusableRate':
+      return 0;
+    default:
+      return null;
+  }
+}
+
+function currentValue(metric: TargetMetric, profile: ClubProfile): number | null {
+  const ok = (n: number, min: number) => (Number.isFinite(n) && min > 0 ? n : null);
+  switch (metric) {
+    case 'carrySpread': return ok(profile.carry.mad, profile.carry.n >= 8 ? 1 : 0);
+    case 'sideSpread': return ok(profile.side.mad, profile.side.n >= 8 ? 1 : 0);
+    case 'containment75': return profile.containment ? profile.containment.p75 : null;
+    case 'faceSpread': return ok(profile.faceAngle.mad, profile.faceAngle.n >= 8 ? 1 : 0);
+    case 'lowPointSpread':
+      return ok(profile.lowPointDistance.mad, profile.lowPointDistance.n >= 8 ? 1 : 0);
+    case 'smashFactor': return ok(profile.smashFactor.median, profile.smashFactor.n >= 8 ? 1 : 0);
+    default: return null;
+  }
+}
+
+/**
+ * Attach the measurable pass marks.
+ *
+ * Strike quality and the tops-and-duffs rate are session-wide rather than
+ * per-club, so they are set from the session's own figures; everything else
+ * comes off the club the block is about.
+ */
+function attachTargets(
+  blocks: Prescription[],
+  profiles: ClubProfile[],
+  strikeQuality: number | null,
+  unusableRate: number | null,
+): void {
+  const main = [...profiles].sort((a, b) => b.shotCount - a.shotCount)[0] ?? null;
+
+  for (const block of blocks) {
+    const entry = BLOCK_TARGETS.find((t) => t.match(block.id));
+    if (!entry) continue;
+
+    const profile = (block.club ? profiles.find((p) => p.club === block.club) : main) ?? main;
+    if (!profile) continue;
+
+    const out: PracticeTarget[] = [];
+    for (const metric of entry.metrics) {
+      const benchmark = benchmarkFor(metric, profile);
+      if (benchmark === null) continue;
+
+      let current: number | null;
+      if (metric === 'strikeQuality') current = strikeQuality;
+      else if (metric === 'unusableRate') current = unusableRate;
+      else current = currentValue(metric, profile);
+
+      if (current === null || !Number.isFinite(current)) continue;
+      out.push(targetFrom(metric, metric === 'strikeQuality' || metric === 'unusableRate'
+        ? null
+        : profile.club, current, benchmark));
+    }
+    block.targets = out;
+  }
 }
 
 /**
@@ -622,6 +760,7 @@ function shotAnalysisBlock(profiles: ClubProfile[], hadWork: boolean): Prescript
     minutes: 15,
     fixedLength: true,
     addresses: [],
+    targets: [],
     drills: [],
   };
 }
@@ -646,6 +785,7 @@ function warmUp(profiles: ClubProfile[]): Prescription {
     minutes: WARMUP_MINUTES,
     fixedLength: true,
     addresses: [],
+    targets: [],
     drills: [],
   };
 }
@@ -681,6 +821,7 @@ function closingBlocks(duration: PracticeDuration, hadWork: boolean): Prescripti
         minutes: 35,
         fixedLength: true,
         addresses: [],
+        targets: [],
         drills: [],
       },
     ];
