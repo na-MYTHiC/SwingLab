@@ -1,6 +1,6 @@
 import type { Shot } from '../schema.js';
 import { clubFamily } from '../clubs.js';
-import { percentile, pluck } from './robust.js';
+import { median, percentile, pluck } from './robust.js';
 
 /**
  * Mishit and implausible-value detection.
@@ -58,10 +58,61 @@ export function markImplausible(shots: Shot[]): void {
  * `madFloor` stops a very consistent group from having a near-zero MAD and
  * flagging perfectly good shots as outliers.
  */
-export function markMishits(shots: Shot[], opts: { madFloor?: number } = {}): void {
+/**
+ * Flag shots there is nothing to learn from.
+ *
+ * A topped 7-iron that goes 30 yards is not a data point about the player's
+ * 7-iron. Its face angle, path and spin describe a collision, not a swing,
+ * and leaving it in drags every median and inflates every spread — the
+ * player already knows they topped it, and does not need it counted twice.
+ *
+ * Distinct from a mishit, which stays in the count because how often you
+ * mis-strike is worth knowing. This is for shots where even that is not
+ * informative: they are excluded everywhere and reported only as a number,
+ * so nothing is hidden.
+ *
+ * The bar is deliberately extreme. Judged against the club's own median,
+ * which is robust enough not to be dragged by the very shots being caught.
+ */
+export function markUnusable(shots: Shot[]): void {
   const byClub = new Map<string, Shot[]>();
   for (const shot of shots) {
     if (shot.flags.includes('implausible')) continue;
+    const list = byClub.get(shot.club) ?? [];
+    list.push(shot);
+    byClub.set(shot.club, list);
+  }
+
+  for (const [club, group] of byClub) {
+    if (clubFamily(club as Shot['club']) === 'putter') continue;
+    if (group.length < 6) continue;
+
+    const carries = pluck(group, (s) => s.carry);
+    const speeds = pluck(group, (s) => s.ballSpeed);
+    const carryMid = carries.length >= 6 ? median(carries) : Number.NaN;
+    const speedMid = speeds.length >= 6 ? median(speeds) : Number.NaN;
+
+    for (const shot of group) {
+      // Under half the club's normal carry, or under two thirds of its
+      // normal ball speed, is not a version of the shot — it is a different
+      // event. Either alone is enough; a shank keeps its ball speed and
+      // loses its distance, a top loses both.
+      const carryDead =
+        Number.isFinite(carryMid) && shot.carry !== null && shot.carry < carryMid * 0.5;
+      const speedDead =
+        Number.isFinite(speedMid) && shot.ballSpeed !== null && shot.ballSpeed < speedMid * 0.66;
+
+      if ((carryDead || speedDead) && !shot.flags.includes('unusable')) {
+        shot.flags.push('unusable');
+      }
+    }
+  }
+}
+
+export function markMishits(shots: Shot[], opts: { madFloor?: number } = {}): void {
+  const byClub = new Map<string, Shot[]>();
+  for (const shot of shots) {
+    if (shot.flags.includes('implausible') || shot.flags.includes('unusable')) continue;
     const list = byClub.get(shot.club) ?? [];
     list.push(shot);
     byClub.set(shot.club, list);
@@ -114,10 +165,27 @@ function flagLowTail(
 
 /** Shots usable for "what does this player typically do" statistics. */
 export function representative(shots: Shot[]): Shot[] {
-  return shots.filter((s) => !s.flags.includes('implausible') && !s.flags.includes('mishit'));
+  return shots.filter(
+    (s) =>
+      !s.flags.includes('implausible') &&
+      !s.flags.includes('unusable') &&
+      !s.flags.includes('mishit'),
+  );
 }
 
-/** Shots usable at all — implausible rows removed, mishits retained. */
+/**
+ * Shots usable at all — mishits retained because their frequency matters,
+ * tops and shanks removed because nothing about them is informative.
+ */
 export function usable(shots: Shot[]): Shot[] {
-  return shots.filter((s) => !s.flags.includes('implausible'));
+  return shots.filter(
+    (s) => !s.flags.includes('implausible') && !s.flags.includes('unusable'),
+  );
+}
+
+/** Shots thrown out entirely, for reporting the count honestly. */
+export function discarded(shots: Shot[]): Shot[] {
+  return shots.filter(
+    (s) => s.flags.includes('implausible') || s.flags.includes('unusable'),
+  );
 }

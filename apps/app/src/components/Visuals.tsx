@@ -1,6 +1,6 @@
 import type {
-  ConsistencyScore, ClubConsistency, OptimalComparison, Progression, SessionReport,
-  ShapeBreakdown, StrikeBreakdown,
+  Achievement, ConsistencyScore, ClubConsistency, OptimalComparison, Progression, SessionReport,
+  SessionScore, ShapeBreakdown, StrikeBreakdown, Streak,
 } from '@swinglab/core';
 import { num } from '../format.js';
 
@@ -255,5 +255,95 @@ function OptimalBand({ comparison }: { comparison: OptimalComparison }) {
       </div>
       <p className="opt-why">{w.why}</p>
     </li>
+  );
+}
+
+/** The session score: a grade, the components behind it, and where to gain. */
+export function ScorePanel({ score }: { score: SessionScore }) {
+  const tone = score.total >= 75 ? 'good' : score.total >= 55 ? 'mid' : 'bad';
+
+  return (
+    <div className={`score score-${tone}`}>
+      <div className="score-head">
+        <div className="score-figure">
+          <strong>{score.total}</strong>
+          <span>/ 100</span>
+        </div>
+        <div className={`grade grade-${score.grade}`}>{score.grade}</div>
+      </div>
+      <p className="score-verdict">{score.verdict}</p>
+
+      <ul className="score-components">
+        {score.components.map((c) => {
+          const t = c.score >= 68 ? 'good' : c.score >= 45 ? 'mid' : 'bad';
+          return (
+            <li key={c.id} className={`sc sc-${t}`}>
+              <div className="sc-head">
+                <span>{c.label}</span>
+                <strong>{c.score}</strong>
+              </div>
+              <div className="sc-track">
+                <div className="sc-fill" style={{ width: `${c.score}%` }} />
+              </div>
+              <p>{c.detail}</p>
+            </li>
+          );
+        })}
+      </ul>
+
+      {score.weakest && score.headroom > 0 && (
+        <p className="score-headroom">
+          <strong>+{score.headroom} points</strong> available from{' '}
+          {score.weakest.label.toLowerCase()} alone — the rest of the score is already close to
+          what it can be.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Achievements: what was crossed, and what is nearly in reach. */
+export function AchievementPanel({ achievements }: { achievements: Achievement[] }) {
+  if (achievements.length === 0) return null;
+  return (
+    <ul className="achievements">
+      {achievements.map((a) => (
+        <li key={a.id} className={a.earned ? `ach ach-earned ach-${a.tier}` : 'ach'}>
+          <div className="ach-head">
+            <span className="ach-name">
+              <i className={`ach-dot ach-dot-${a.tier}`} aria-hidden="true" />
+              {a.name}
+            </span>
+            <span className="ach-tier">{a.earned ? 'earned' : `${Math.round(a.progress * 100)}%`}</span>
+          </div>
+          {!a.earned && (
+            <div className="ach-track">
+              <div className="ach-fill" style={{ width: `${a.progress * 100}%` }} />
+            </div>
+          )}
+          <p className="ach-req">{a.requirement}</p>
+          <p className="ach-meaning">{a.meaning}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Practice streak, counted in days because that is what a habit is. */
+export function StreakBadge({ streak }: { streak: Streak }) {
+  if (streak.totalDays === 0) return null;
+  return (
+    <div className="streak">
+      <div className="streak-figure">
+        <strong>{streak.current}</strong>
+        <span>day{streak.current === 1 ? '' : 's'}</span>
+      </div>
+      <div className="streak-detail">
+        <strong>{streak.current > 0 ? 'Current streak' : 'Streak broken'}</strong>
+        <span>
+          Best {streak.best} · {streak.totalDays} day{streak.totalDays === 1 ? '' : 's'} practised
+        </span>
+      </div>
+    </div>
   );
 }

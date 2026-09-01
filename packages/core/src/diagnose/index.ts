@@ -4,7 +4,8 @@ import {
   compareToOptimal, personalOptimals, type OptimalComparison,
 } from '../benchmarks/personal.js';
 import { prescribePractice, type PracticeDuration, type PracticeSession } from '../practice/prescribe.js';
-import { markImplausible, markMishits } from '../stats/outliers.js';
+import { discarded, markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
+import { evaluateAchievements, scoreSession, type Achievement, type SessionScore } from '../scoring/index.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
@@ -206,6 +207,17 @@ export interface SessionReport {
   /** Notes about the data itself, rather than the golf. */
   dataNotes: string[];
   /**
+   * Shots thrown out entirely — tops and shanks that travel a fraction of the
+   * club's normal distance. Reported as a count so nothing is hidden, but
+   * excluded from every statistic, because a topped 7-iron is not a data
+   * point about the player's 7-iron.
+   */
+  discardedCount: number;
+  /** How the session scored, and what dragged it down. */
+  score: SessionScore | null;
+  /** Thresholds crossed this session, and what is nearly in reach. */
+  achievements: Achievement[];
+  /**
    * Your numbers against your own optimals — the tour figures scaled to your
    * measured club speed, so the targets are ones you can actually reach.
    */
@@ -251,6 +263,7 @@ export function diagnoseSession(
   const { hideLowConfidence = true, maxDrills = 4, practiceDuration = 60 } = opts;
 
   markImplausible(session.shots);
+  markUnusable(session.shots);
   markMishits(session.shots);
 
   const profiles = buildClubProfiles(session.shots);
@@ -293,7 +306,7 @@ export function diagnoseSession(
   // them per club would bury the reading in a session that is mostly one club.
   const mainProfile = [...profiles].sort((a, b) => b.shotCount - a.shotCount)[0] ?? null;
 
-  return {
+  const report: SessionReport = {
     sessionId: session.id,
     kind: session.kind,
     mode: modeForKind(session.kind),
@@ -312,9 +325,27 @@ export function diagnoseSession(
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
     optimals: buildOptimals(mainProfile),
+    discardedCount: discarded(session.shots).length,
+    score: null,
+    achievements: [],
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
     practice: prescribePractice(rootFindings, profiles, { duration: practiceDuration }),
   };
+
+  /*
+   * Scoring runs last because it reads the assembled report — the strike
+   * breakdown, the consistency scores and the optimal comparisons all have to
+   * exist before a session can be graded on them.
+   */
+  report.score = scoreSession({
+    profile: mainProfile,
+    strike: report.strike,
+    consistency: report.consistency,
+    optimals: report.optimals?.comparisons ?? null,
+  });
+  report.achievements = evaluateAchievements(report);
+
+  return report;
 }
 
 /**

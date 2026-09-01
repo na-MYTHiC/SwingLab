@@ -53,8 +53,10 @@ describe('practice prescriptions from a range session', () => {
     expect(r.practice.blocks[0]?.id).toBe('rx-warmup');
   });
 
-  it('ends an hour on something scored, so you find out whether it held', () => {
-    expect(r.practice.blocks.at(-1)?.mode.stage).toBe('measure');
+  it('always ends on a recorded set you can export and bring back', () => {
+    // Without it a session is a memory. This block is what lets the next one
+    // open by saying whether the work actually showed up.
+    expect(r.practice.blocks.at(-1)?.id).toBe('rx-shot-analysis');
   });
 
   it('uses the player’s own carry numbers for target distances', () => {
@@ -94,7 +96,7 @@ describe('practice prescriptions when nothing is wrong', () => {
     );
     const r = diagnoseSession(session!);
     expect(r.findings).toHaveLength(0);
-    expect(r.practice.blocks.some((b) => b.id === 'rx-checkpoint')).toBe(true);
+    expect(r.practice.blocks.some((b) => b.id === 'rx-shot-analysis')).toBe(true);
     expect(r.practice.note).toContain('measurement');
   });
 });
@@ -145,5 +147,36 @@ describe('practice fits the slot you can actually book', () => {
         expect(block.minutes % 5, `${duration}min: ${block.id}`).toBe(0);
       }
     }
+  });
+});
+
+describe('the recorded set closes every plan', () => {
+  const session = () => {
+    const text = readFileSync(resolve(samples, '1-range-slicer.csv'), 'utf8');
+    const { session } = ingest({ name: '1-range-slicer.csv', text }, { handedness: 'right' });
+    return session!;
+  };
+
+  it('comes last at both lengths, after the round rather than before it', () => {
+    for (const duration of [60, 120] as const) {
+      const r = diagnoseSession(session(), { practiceDuration: duration });
+      const ids = r.practice.blocks.map((b) => b.id);
+      expect(ids.at(-1), `${duration}min`).toBe('rx-shot-analysis');
+      // Measuring before the round would measure the range.
+      const round = ids.indexOf('rx-transfer');
+      if (round !== -1) expect(round).toBeLessThan(ids.length - 1);
+    }
+  });
+
+  it('tells the player how to export it', () => {
+    const r = diagnoseSession(session());
+    const block = r.practice.blocks.at(-1)!;
+    expect(block.setup.join(' ')).toMatch(/export/i);
+    expect(block.setup.join(' ')).toMatch(/import/i);
+  });
+
+  it('still lands exactly on the slot with the recorded set included', () => {
+    expect(diagnoseSession(session(), { practiceDuration: 60 }).practice.totalMinutes).toBe(60);
+    expect(diagnoseSession(session(), { practiceDuration: 120 }).practice.totalMinutes).toBe(120);
   });
 });

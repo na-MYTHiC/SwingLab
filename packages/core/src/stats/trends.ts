@@ -1,6 +1,6 @@
 import type { Club, ShotSession } from '../schema.js';
 import { buildClubProfiles, type ClubProfile } from './dispersion.js';
-import { markImplausible, markMishits } from './outliers.js';
+import { markImplausible, markMishits, markUnusable } from './outliers.js';
 import { median } from './robust.js';
 
 /**
@@ -170,6 +170,7 @@ export function buildTrends(
     // not mutate stored sessions as a side effect.
     const shots = session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] }));
     markImplausible(shots);
+    markUnusable(shots);
     markMishits(shots);
     return { session, profile: buildClubProfiles(shots)[0] ?? null };
   });

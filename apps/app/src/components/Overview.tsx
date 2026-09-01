@@ -1,7 +1,10 @@
-import type { SessionComparison, SessionReport, ShotSession } from '@swinglab/core';
+import type { SessionComparison, SessionReport, ShotSession, Streak } from '@swinglab/core';
+import { useState } from 'react';
 import {
-  ConsistencyBars, OptimalBands, ProgressionPanel, ScoreRing, ShapePanel, StrikePanel,
+  AchievementPanel, ConsistencyBars, OptimalBands, ProgressionPanel, ScorePanel, ScoreRing,
+  ShapePanel, StreakBadge, StrikePanel,
 } from './Visuals.js';
+import { shareCard } from '../shareCard.js';
 import { DispersionChart } from './Charts.js';
 import { shots as fmtShots } from '../format.js';
 
@@ -14,12 +17,14 @@ import { shots as fmtShots } from '../format.js';
  * are told what to do about it, and a wall of findings skips that step.
  */
 export function OverviewView({
-  report, session, comparison,
+  report, session, comparison, streak,
 }: {
   report: SessionReport;
   session: ShotSession;
   comparison: SessionComparison | null;
+  streak: Streak;
 }) {
+  const [sharing, setSharing] = useState(false);
   const main = report.profiles.length
     ? [...report.profiles].sort((a, b) => b.shotCount - a.shotCount)[0]
     : null;
@@ -27,6 +32,30 @@ export function OverviewView({
 
   return (
     <div className="overview">
+      {report.score && (
+        <section className="card score-card">
+          <div className="score-card-head">
+            <h3 className="panel-title">This session</h3>
+            <button
+              className="share-btn"
+              disabled={sharing}
+              onClick={async () => {
+                setSharing(true);
+                try {
+                  await shareCard(report, session.startedAt);
+                } finally {
+                  setSharing(false);
+                }
+              }}
+            >
+              {sharing ? 'Making image…' : 'Save summary image'}
+            </button>
+          </div>
+          <ScorePanel score={report.score} />
+          <StreakBadge streak={streak} />
+        </section>
+      )}
+
       <section className="hero">
         <div className="hero-main">
           <span className="hero-eyebrow">On the table this session</span>
@@ -107,10 +136,30 @@ export function OverviewView({
         </div>
       )}
 
+      {report.achievements.length > 0 && (
+        <section className="card">
+          <h3 className="panel-title">Milestones</h3>
+          <p className="panel-sub">
+            Thresholds that mean something in golf. Nothing here rewards hitting more balls or one
+            big swing — those are easy to farm and neither makes anybody better.
+          </p>
+          <AchievementPanel achievements={report.achievements} />
+        </section>
+      )}
+
       <section className="card">
         <h3 className="panel-title">How the session went</h3>
         <ProgressionPanel progression={report.progression} />
       </section>
+
+      {report.discardedCount > 0 && (
+        <p className="discard-note">
+          {report.discardedCount} shot{report.discardedCount === 1 ? '' : 's'} thrown out entirely —
+          tops or shanks that travelled a fraction of this club's normal distance. There is nothing
+          to learn from those, so they are excluded from every number above rather than dragging
+          your averages down.
+        </p>
+      )}
 
       {report.dataNotes.length > 0 && (
         <section className="card notes">

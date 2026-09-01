@@ -70,6 +70,17 @@ const STAGE_ORDER: Record<PracticeMode['stage'], number> = {
   play: 3,
 };
 
+/**
+ * Blocks run in stage order, with two pinned: the warm-up first and the
+ * measured set last, whatever modes they happen to use. Recording your golf
+ * before you have played the round measures the warm-up.
+ */
+function orderKey(block: Prescription): number {
+  if (block.id === 'rx-warmup') return -1;
+  if (block.id === 'rx-shot-analysis') return 99;
+  return STAGE_ORDER[block.mode.stage];
+}
+
 function carryOf(profiles: ClubProfile[], club: Club | null): number | null {
   if (!club) return null;
   const p = profiles.find((x) => x.club === club);
@@ -494,8 +505,15 @@ export function prescribePractice(
     candidates.push(rx);
   }
 
-  const blocks = [warmUp(profiles), ...candidates, ...closingBlocks(duration, candidates.length > 0)];
-  blocks.sort((a, b) => STAGE_ORDER[a.mode.stage] - STAGE_ORDER[b.mode.stage]);
+  const hadWork = candidates.length > 0;
+  const blocks = [
+    warmUp(profiles),
+    ...candidates,
+    ...closingBlocks(duration, hadWork),
+    // Always last: the recorded set that makes the next session comparable.
+    shotAnalysisBlock(profiles, hadWork),
+  ];
+  blocks.sort((a, b) => orderKey(a) - orderKey(b));
 
   fitToSlot(blocks, duration);
 
@@ -544,6 +562,49 @@ function fitToSlot(blocks: Prescription[], duration: PracticeDuration): void {
     const largest = [...flexible].sort((a, b) => b.minutes - a.minutes)[0];
     if (largest) largest.minutes = Math.max(10, largest.minutes + drift);
   }
+}
+
+/**
+ * The measured set that closes every session.
+ *
+ * Without it a session is a memory. Twenty recorded shots, exported and
+ * imported back, are what let the next session open by telling the player
+ * whether the hour actually moved anything — which is the feedback that makes
+ * practice worth repeating, and the thing almost no launch monitor tool
+ * bothers to close the loop on.
+ *
+ * Placed last on purpose: measuring before the work is done measures the
+ * warm-up, and measuring before the round measures the range.
+ */
+function shotAnalysisBlock(profiles: ClubProfile[], hadWork: boolean): Prescription {
+  const main = [...profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+  const club = main?.club ?? '7i';
+  const carry = main && Number.isFinite(main.carry.median) ? Math.round(main.carry.median) : null;
+
+  return {
+    id: 'rx-shot-analysis',
+    mode: PRACTICE_MODES.range,
+    title: 'Measured set — export this',
+    rationale: hadWork
+      ? 'The last twenty balls are the ones worth recording. Full routine on each, then export the file and import it here. That is what turns this hour into a data point rather than a memory, and the next session will open by telling you whether the work showed up.'
+      : 'Finish on a recorded set so the next session has something to compare against. Without one, every visit starts from scratch.',
+    setup: [
+      `Practice Range with the ${club}, warm and rested — this is a measurement, not more practice.`,
+      'Twenty shots, full pre-shot routine on every one. No re-hits, and do not delete the bad ones.',
+      'TPS → Table View → File Options → export as TrackMan CSV.',
+      'Import that file here before your next session.',
+    ],
+    success: carry
+      ? `Twenty recorded shots. A carry spread tighter than ±${Math.max(3, Math.round(carry * 0.06))} yards means the hour worked.`
+      : 'Twenty recorded shots with a full routine on each.',
+    club,
+    targetDistance: carry,
+    shots: 20,
+    minutes: 15,
+    fixedLength: true,
+    addresses: [],
+    drills: [],
+  };
 }
 
 function warmUp(profiles: ClubProfile[]): Prescription {
@@ -598,7 +659,7 @@ function closingBlocks(duration: PracticeDuration, hadWork: boolean): Prescripti
         club: null,
         targetDistance: null,
         shots: 0,
-        minutes: 45,
+        minutes: 35,
         fixedLength: true,
         addresses: [],
         drills: [],
@@ -606,29 +667,9 @@ function closingBlocks(duration: PracticeDuration, hadWork: boolean): Prescripti
     ];
   }
 
-  return [
-    {
-      id: 'rx-checkpoint',
-      mode: PRACTICE_MODES['test-center'],
-      title: hadWork ? 'Check whether it held' : 'Set a baseline you can repeat',
-      rationale: hadWork
-        ? 'Ten scored shots at the end tell you whether the hour changed anything. Without them you only know the drill felt better, which is not the same thing.'
-        : 'Nothing specific stood out, so the most useful thing this hour can produce is a number you can measure the next one against.',
-      setup: [
-        'Test Center → build a custom test, or re-run the one you saved.',
-        'One target at a distance you face often, ten shots.',
-        'Full routine on every ball — this part is meant to feel like the course.',
-      ],
-      success: 'A score you can write down and beat next visit.',
-      club: null,
-      targetDistance: null,
-      shots: 10,
-      minutes: 15,
-      fixedLength: true,
-      addresses: [],
-      drills: [],
-    },
-  ];
+  // An hour has no room for a round, so the measured set below is what
+  // closes it. Nothing else is needed here.
+  return [];
 }
 
 export type { PracticeMode, PracticeModeId };

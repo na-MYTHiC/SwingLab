@@ -145,7 +145,14 @@ export interface Shot {
 }
 
 export type ShotFlag =
+  /** Unrepresentative of the player's normal strike, but still informative. */
   | 'mishit'
+  /**
+   * So badly struck there is nothing to learn from it — a top or a shank
+   * that travels a fraction of the club's normal distance. Excluded from
+   * everything, including the mishit rate, and only ever reported as a count.
+   */
+  | 'unusable'
   | 'incomplete-club-data'
   | 'incomplete-ball-data'
   | 'implausible';

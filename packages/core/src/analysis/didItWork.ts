@@ -1,6 +1,6 @@
 import type { Club, ShotSession } from '../schema.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
-import { markImplausible, markMishits } from '../stats/outliers.js';
+import { markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
 
 /**
  * Did the last session's work actually change anything?
@@ -98,6 +98,7 @@ function profileFor(session: ShotSession, club: Club): ClubProfile | null {
   const shots = session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] }));
   if (shots.length < 6) return null;
   markImplausible(shots);
+  markUnusable(shots);
   markMishits(shots);
   return buildClubProfiles(shots)[0] ?? null;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Shot } from '../schema.js';
-import { markImplausible, markMishits, representative, usable } from './outliers.js';
+import {
+  discarded, markImplausible, markMishits, markUnusable, representative, usable,
+} from './outliers.js';
 import { classifyStrikes } from '../analysis/strike.js';
 
 function shot(over: Partial<Shot>): Shot {
@@ -134,5 +136,44 @@ describe('strike classification is judged in the player’s own spread', () => {
     const result = classifyStrikes(shots);
     const heavy = result.counts.find((c: { klass: string }) => c.klass === 'heavy');
     expect(heavy?.share ?? 0).toBeLessThan(0.1);
+  });
+});
+
+describe('shots there is nothing to learn from', () => {
+  it('throws out a top that goes a fraction of the normal distance', () => {
+    // A topped 7-iron that goes 20 yards is not a data point about the
+    // player's 7-iron. Its path and face describe a collision, not a swing.
+    const shots = [
+      ...Array.from({ length: 14 }, (_, i) => shot({ sequence: i + 1 })),
+      shot({ sequence: 15, carry: 20, ballSpeed: 55, launchAngle: 3, spinRate: 1500 }),
+    ];
+    markImplausible(shots);
+    markUnusable(shots);
+    expect(shots[14]?.flags).toContain('unusable');
+  });
+
+  it('excludes them from everything, not just from the medians', () => {
+    const shots = [
+      ...Array.from({ length: 14 }, (_, i) => shot({ sequence: i + 1 })),
+      shot({ sequence: 15, carry: 20, ballSpeed: 55 }),
+    ];
+    markImplausible(shots);
+    markUnusable(shots);
+    markMishits(shots);
+    // Unlike a mishit, which stays in the count because its frequency matters.
+    expect(usable(shots)).toHaveLength(14);
+    expect(representative(shots)).toHaveLength(14);
+    expect(discarded(shots)).toHaveLength(1);
+  });
+
+  it('leaves an ordinary bad shot alone', () => {
+    // A 15% miss is a mishit worth counting, not a discard.
+    const shots = [
+      ...Array.from({ length: 14 }, (_, i) => shot({ sequence: i + 1 })),
+      shot({ sequence: 15, carry: 136, ballSpeed: 100 }),
+    ];
+    markImplausible(shots);
+    markUnusable(shots);
+    expect(shots[14]?.flags).not.toContain('unusable');
   });
 });

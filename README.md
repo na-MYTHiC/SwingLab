@@ -52,6 +52,20 @@ predicts: PGA driver attack angle is -0.9° and LPGA is **+2.8°**, and the
 LPGA 7-iron smash is *higher*, not lower. Slower swings should hit up more
 and launch higher, and the tables say so — so the tables do the work.
 
+**Keeps score.** Every session gets a grade out of 100 across contact,
+repeatability, delivery and dispersion, with milestones at thresholds that
+mean something in golf. Nothing rewards hitting more balls or one big swing —
+both are easy to farm and neither makes anybody better. Sessions export as a
+summary image.
+
+**Throws out shots there is nothing to learn from.** A topped 7-iron that goes
+20 yards is not a data point about your 7-iron; its face and path describe a
+collision. Those are excluded from every statistic and reported only as a
+count, separately from mishits, whose frequency does matter.
+
+**Ends every practice plan with a recorded set** you export and import back,
+so the next session opens by telling you whether the work showed up.
+
 **Tells you whether the practice worked.** Most tools measure you, some tell
 you what to practise, and then the loop is left open. This compares the same
 club against your previous session and reports what actually moved, in the

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildTrends,
   compareSessions,
+  practiceStreak,
   previousSessionFor,
   diagnoseSession,
   ingest,
@@ -82,6 +83,13 @@ export default function App() {
     if (!prev) return null;
     return compareSessions(prev, cloned, main as Parameters<typeof compareSessions>[2]);
   }, [cloned, stored]);
+
+  // Counted in days, not sessions — importing one afternoon twice is not a
+  // two-day habit.
+  const streak = useMemo(
+    () => practiceStreak(stored.map((s) => s.session.startedAt)),
+    [stored],
+  );
 
   const trends = useMemo<Trend[]>(() => {
     const sessions = stored.map((s) => s.session);
@@ -254,7 +262,12 @@ export default function App() {
 
           <section className="view">
             {tab === 'overview' && cloned && (
-              <OverviewView report={report} session={cloned} comparison={comparison} />
+              <OverviewView
+                report={report}
+                session={cloned}
+                comparison={comparison}
+                streak={streak}
+              />
             )}
             {tab === 'priority' && <PriorityView report={report} />}
             {tab === 'practice' && (
