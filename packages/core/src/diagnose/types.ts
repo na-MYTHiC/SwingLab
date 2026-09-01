@@ -70,6 +70,23 @@ export function confidenceFor(n: number): Confidence {
   return 'low';
 }
 
+/**
+ * One step down the confidence ladder.
+ *
+ * For findings built on a number the launch monitor modelled rather than
+ * measured. A rule reading estimated spin is reasoning about the output of
+ * somebody else's model, and it should say so rather than presenting it with
+ * the same certainty as a radar return.
+ */
+export function downgrade(confidence: Confidence): Confidence {
+  return confidence === 'high' ? 'medium' : 'low';
+}
+
+/** True when spin on this club was mostly modelled rather than measured. */
+export function spinIsModelled(share: number | null): boolean {
+  return share !== null && share < 0.5;
+}
+
 export function round(n: number, dp = 1): number {
   const f = 10 ** dp;
   return Math.round(n * f) / f;

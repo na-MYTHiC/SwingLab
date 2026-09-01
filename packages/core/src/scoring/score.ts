@@ -83,13 +83,40 @@ export function scoreSession(args: {
   /** Shots thrown out as unusable, and the session they came from. */
   discarded?: number;
   shotCount?: number;
+  /**
+   * Every club with enough shots. Distance and Direction are scored across
+   * the bag rather than on the most-hit club alone, so a session that worked
+   * driver and wedges is graded on both.
+   */
+  allProfiles?: ClubProfile[];
 }): SessionScore | null {
-  const { profile, strike, consistency, optimals, discarded = 0, shotCount = 0 } = args;
+  const {
+    profile, strike, consistency, optimals, discarded = 0, shotCount = 0, allProfiles,
+  } = args;
   if (!profile || strike.total < 6) return null;
 
   const components: ScoreComponent[] = [];
   const carry = profile.carry.median;
   const hasCarry = Number.isFinite(carry) && carry > 0;
+
+  /*
+   * The clubs the pattern components are averaged over, weighted by shots.
+   * One club hit six times must not outvote one hit thirty, and a bag session
+   * should not be graded entirely on whichever club happened to get the most
+   * balls.
+   */
+  const bag = (allProfiles ?? [profile]).filter(
+    (p) => p.representativeCount >= 8 && Number.isFinite(p.carry.median) && p.carry.median > 0,
+  );
+  const across = (read: (p: ClubProfile) => number): number | null => {
+    const parts = bag
+      .map((p) => ({ n: p.representativeCount, v: read(p) }))
+      .filter((x) => Number.isFinite(x.v));
+    if (parts.length === 0) return null;
+    const w = parts.reduce((sum, x) => sum + x.n, 0);
+    return parts.reduce((sum, x) => sum + x.v * x.n, 0) / w;
+  };
+  const clubNote = bag.length > 1 ? ` Averaged across ${bag.length} clubs.` : '';
 
   // --- Contact. The largest single driver of amateur scoring. -----------
   components.push({
@@ -114,9 +141,14 @@ export function scoreSession(args: {
    * Combine the carry is *supposed* to vary, and reading that as a fault
    * would be scoring the protocol rather than the player.
    */
-  if (hasCarry && profile.carry.n >= 8 && profile.distinctTargets <= 1) {
-    const score = axisScore(profile.carry.mad, carry);
-    if (Number.isFinite(score)) {
+  const distanceBag = bag.filter((p) => p.distinctTargets <= 1);
+  if (hasCarry && distanceBag.length > 0) {
+    const parts = distanceBag
+      .map((p) => ({ n: p.representativeCount, v: axisScore(p.carry.mad, p.carry.median) }))
+      .filter((x) => Number.isFinite(x.v));
+    if (parts.length > 0) {
+      const w = parts.reduce((sum, x) => sum + x.n, 0);
+      const score = parts.reduce((sum, x) => sum + x.v * x.n, 0) / w;
       const pct = (profile.carry.mad / carry) * 100;
       components.push({
         id: 'distance',
@@ -124,25 +156,28 @@ export function scoreSession(args: {
         score: clamp(score),
         weight: 0.16,
         detail:
-          `Carry repeats to within ±${profile.carry.mad.toFixed(1)} yards, ` +
-          `${pct.toFixed(1)}% of the shot. Tour is about ${TOUR_AXIS_PCT.toFixed(1)}%.`,
+          `Carry repeats to within ±${profile.carry.mad.toFixed(1)} yards on the ` +
+          `${profile.club}, ${pct.toFixed(1)}% of the shot. Tour is about ` +
+          `${TOUR_AXIS_PCT.toFixed(1)}%.` +
+          (parts.length > 1 ? ` Scored across ${parts.length} clubs.` : ''),
       });
     }
   }
 
   // --- Direction. The other half of proximity. --------------------------
   const d = profile.dispersion;
-  if (d && hasCarry && Number.isFinite(profile.side.mad)) {
-    const score = axisScore(profile.side.mad, carry);
-    if (Number.isFinite(score)) {
+  if (d && hasCarry) {
+    const score = across((p) => axisScore(p.side.mad, p.carry.median));
+    if (score !== null) {
       components.push({
         id: 'dispersion',
         label: 'Direction',
         score: clamp(score),
         weight: 0.16,
         detail:
-          `${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard shot. Tour standard ` +
-          `at that distance is about ${Math.round(tourWidthFor(carry))} yards.`,
+          `${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard ${profile.club}. ` +
+          `Tour standard at that distance is about ${Math.round(tourWidthFor(carry))} yards.`
+          + clubNote,
       });
     }
   }
@@ -169,16 +204,34 @@ export function scoreSession(args: {
       const mean = per.reduce((a, b) => a + b, 0) / per.length;
       const onTarget = judged.filter((o) => o.status === 'on-target').length;
       const perfect = per.filter((x) => x >= 99).length;
+
+      /*
+       * Delivery carries less weight when the spin behind it was modelled.
+       *
+       * TrackMan estimates spin when it cannot read the ball's markings, and
+       * in the real test session it did so on forty-three shots out of
+       * forty-five. Spin is one of six numbers here and it feeds launch as
+       * well, so a component resting largely on a model should not weigh the
+       * same as one resting on measurement. The score is unchanged — what
+       * changes is how much of the total it decides.
+       */
+      const measured = profile.spinMeasuredShare;
+      const modelled = measured !== null && measured < 0.5;
       components.push({
         id: 'delivery',
         label: 'Delivery',
         score: clamp(mean),
-        weight: 0.16,
+        weight: modelled ? 0.1 : 0.16,
         detail:
           perfect === judged.length
             ? `All ${judged.length} numbers are on the tour figure for your swing speed.`
             : `${onTarget} of ${judged.length} numbers inside the window, scored on how close ` +
-              `each sits to the tour figure for your swing speed rather than merely inside it.`,
+              `each sits to the tour figure for your swing speed rather than merely inside it.` +
+              (modelled
+                ? ` Counts for less here: your unit estimated spin on ` +
+                  `${Math.round((1 - (measured as number)) * 100)}% of these shots rather than ` +
+                  `measuring it.`
+                : ''),
       });
     }
   }
@@ -217,6 +270,11 @@ export function scoreSession(args: {
    * the cost. On a course each of those is a stroke and sometimes two, so the
    * rate is scored directly. Most clean sessions get full marks here; that is
    * the point, it is a penalty rather than a ladder.
+   *
+   * Counts wasted strikes only, never rows the radar could not read. Lumping
+   * the two together charged a golfer for their launch monitor's sensor
+   * errors — a Combine with six unreadable rows scored zero here and was told
+   * it had topped ten percent of the session.
    */
   if (shotCount >= 15) {
     const rate = discarded / shotCount;
@@ -230,7 +288,7 @@ export function scoreSession(args: {
         discarded === 0
           ? 'Not one shot bad enough to throw out. On a course that is a round without a wasted stroke.'
           : `${discarded} of ${shotCount} shots were tops or duffs — ` +
-            `${(rate * 100).toFixed(0)}% of the session, and a stroke each on a course.`,
+            `${(rate * 100).toFixed(1)}% of the session, and a stroke each on a course.`,
     });
   }
 

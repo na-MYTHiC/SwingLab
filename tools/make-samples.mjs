@@ -106,7 +106,7 @@ function shot(g, date, time, clubName, bias = {}, target = null) {
   const spinAxis = f2p * 2.5 + g(0, 1.1);
 
   const speedRatio = ballSpeed / (base.speed * base.smash);
-  const carry = base.carry * speedRatio + carryOffset + g(0, base.carry * 0.012 * spread);
+  const carry = base.carry * speedRatio + carryOffset + g(0, base.carry * 0.05 * spread);
   const roll = clubName === 'Driver' ? 18 : clubName === '3 Wood' ? 12 : 4;
   const curve = spinAxis * carry * 0.004;
   /*
@@ -118,7 +118,18 @@ function shot(g, date, time, clubName, bias = {}, target = null) {
    * effect and wind, none of which this generator simulates — so a scatter
    * term stands in for them. Without it every sample golfer read as scratch.
    */
-  const lateralNoise = g(0, carry * 0.035 * spread);
+  /*
+   * Lateral noise is calibrated against the researched scale, not guessed.
+   *
+   * At 3.5% of carry the "slicer" fixture came out with a tighter pattern than
+   * a tour player — 6% of carry against tour's 4.6% — and a plus-handicap
+   * estimate. A fixture that flatters is worse than no fixture: it was used to
+   * "verify" the bag-aggregation work and would have passed anything.
+   *
+   * 7% of carry at spread 1 puts a default persona around a 12 handicap, and
+   * the per-persona `spread` multiplier moves them from there.
+   */
+  const lateralNoise = g(0, carry * 0.07 * spread);
   const side = Math.tan((launchDirection * Math.PI) / 180) * carry + curve + lateralNoise;
 
   const row = [

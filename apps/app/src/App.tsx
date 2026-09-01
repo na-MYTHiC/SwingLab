@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildBaseline,
   buildTrends,
+  buildWindows,
+  readForm,
   compareSessions,
   evaluateTargets,
   practiceStreak,
@@ -15,12 +17,15 @@ import {
   type ShotSession,
   type PlayerBaseline,
   type PracticeDuration,
+  type FormRead,
   type PracticeTarget,
   type TargetResult,
+  type WindowProfile,
   type Trend,
 } from '@swinglab/core';
 import {
-  forgetTargets, loadAll, loadTargets, remove, save, saveTargets, type StoredSession,
+  buildBackup, forgetTargets, loadAll, loadTargets, remove, restoreBackup, save, saveTargets,
+  type StoredSession,
 } from './storage.js';
 import { isDesktop, watchExportFolder } from './desktop.js';
 import { applyTheme, loadTheme, type Theme } from './theme.js';
@@ -57,6 +62,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [managing, setManaging] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [watching, setWatching] = useState(false);
 
   const handednessRef = useRef(handedness);
@@ -150,6 +156,21 @@ export default function App() {
     return { results: evaluateTargets(targets, active), since: previous.startedAt };
   }, [stored, active]);
 
+  /*
+   * Form over several lengths of history.
+   *
+   * A single session cannot separate "today was bad" from "I have got worse".
+   * The windows can, and it is the question a player actually has after a poor
+   * afternoon.
+   */
+  const windows = useMemo<{ windows: WindowProfile[]; form: FormRead[] } | null>(() => {
+    if (!report || report.profiles.length === 0 || stored.length < 2) return null;
+    const club = [...report.profiles].sort((x, y) => y.shotCount - x.shotCount)[0]?.club;
+    if (!club) return null;
+    const built = buildWindows(stored.map((x) => x.session), club);
+    return { windows: built, form: readForm(built) };
+  }, [report, stored]);
+
   const trends = useMemo<Trend[]>(() => {
     const sessions = stored.map((s) => s.session);
     if (sessions.length < 3) return [];
@@ -182,15 +203,57 @@ export default function App() {
     }
   }, []);
 
+  /**
+   * Everything that arrives as a file, however it arrived.
+   *
+   * A folder drop hands over every file inside it, including whatever else the
+   * player keeps in there, so exports are picked out by extension and a
+   * SwingLab backup is routed to the restorer rather than the CSV parser.
+   * Restoring by dropping the folder you already keep your exports in is the
+   * whole point: no per-file clicking on the day something goes wrong.
+   */
   const handleFiles = useCallback(
     async (files: FileList | File[]) => {
+      const all = Array.from(files);
+      const backups = all.filter((f) => /\.json$/i.test(f.name));
+      const exports_ = all.filter((f) => /\.(csv|tsv|txt)$/i.test(f.name));
+
+      if (backups.length > 0) {
+        const result = restoreBackup(await (backups[0] as File).text());
+        setNotice(result.message);
+        if (result.ok) {
+          const next = byDate(loadAll());
+          setStored(next);
+          setActiveId((current) => current ?? next[0]?.session.id ?? null);
+        }
+        if (exports_.length === 0) return;
+      }
+
+      if (exports_.length === 0) {
+        if (backups.length === 0) setError('No TrackMan exports found in that selection.');
+        return;
+      }
+
       const inputs = await Promise.all(
-        Array.from(files).map(async (f) => ({ name: f.name, text: await f.text() })),
+        exports_.map(async (f) => ({ name: f.name, text: await f.text() })),
       );
       ingestRaw(inputs);
+      if (inputs.length > 1) {
+        setNotice(`Read ${inputs.length} files.`);
+      }
     },
     [ingestRaw],
   );
+
+  const downloadBackup = useCallback(() => {
+    const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `swinglab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, []);
 
   /**
    * Delete one session, keeping a sensible selection.
@@ -298,7 +361,9 @@ export default function App() {
                 onDuration={setPracticeDuration}
               />
             )}
-            {tab === 'clubs' && cloned && <ClubsView report={report} session={cloned} />}
+            {tab === 'clubs' && cloned && (
+              <ClubsView report={report} session={cloned} windows={windows} />
+            )}
             {tab === 'trends' && <TrendsView trends={trends} sessionCount={stored.length} />}
           </section>
         </main>
@@ -312,7 +377,9 @@ export default function App() {
           activeId={activeId}
           onFiles={handleFiles}
           onDelete={deleteSession}
-          onClose={() => setManaging(false)}
+          onBackup={downloadBackup}
+          notice={notice}
+          onClose={() => { setManaging(false); setNotice(null); }}
         />
       )}
 
@@ -389,12 +456,14 @@ function SessionBar({
  * parked under the picker where it is one mis-tap from losing a session.
  */
 function ImportDialog({
-  stored, activeId, onFiles, onDelete, onClose,
+  stored, activeId, onFiles, onDelete, onBackup, notice, onClose,
 }: {
   stored: StoredSession[];
   activeId: string | null;
   onFiles: (files: FileList | File[]) => void;
   onDelete: (id: string) => void;
+  onBackup: () => void;
+  notice: string | null;
   onClose: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -450,20 +519,50 @@ function ImportDialog({
         >
           <input
             type="file"
-            accept=".csv,.tsv,.txt"
+            accept=".csv,.tsv,.txt,.json"
             multiple
             hidden
             onChange={(e) => {
-              if (e.target.files?.length) {
-                onFiles(e.target.files);
-                onClose();
-              }
+              if (e.target.files?.length) void onFiles(e.target.files);
               e.target.value = '';
             }}
           />
-          <strong>Add a TrackMan export</strong>
-          <span>TPS → Table View → File Options → TrackMan CSV. Or drop a file here.</span>
+          <strong>Add exports</strong>
+          <span>
+            TPS → Table View → File Options → TrackMan CSV. Drop one file, several, or a whole
+            folder.
+          </span>
         </label>
+
+        {/*
+          A folder picker as well as a file picker.
+          
+          Keeping every export in one folder means a wipe is recoverable in a
+          single action rather than by clicking through a year of files one at
+          a time — which is the difference between a backup that works and one
+          that exists.
+        */}
+        <div className="sheet-row">
+          <label className="ghost-btn">
+            <input
+              type="file"
+              hidden
+              multiple
+              // Not in the React types; supported by every browser that matters.
+              {...{ webkitdirectory: '', directory: '' }}
+              onChange={(e) => {
+                if (e.target.files?.length) void onFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            Import a folder
+          </label>
+          <button className="ghost-btn" onClick={onBackup} disabled={stored.length === 0}>
+            Save a backup
+          </button>
+        </div>
+
+        {notice && <p className="sheet-notice">{notice}</p>}
 
         {stored.length > 0 && (
           <>
@@ -490,7 +589,10 @@ function ImportDialog({
           </>
         )}
 
-        <p className="sheet-note">Everything stays on this device. Nothing is uploaded.</p>
+        <p className="sheet-note">
+          Everything stays on this device — which also means a browser tidy-up can erase it. Save a
+          backup now and then, or keep your exports in one folder and re-import it.
+        </p>
       </div>
     </div>
   );

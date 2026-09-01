@@ -66,6 +66,16 @@ export interface ClubProfile {
   dispersion: DispersionEllipse | null;
   /** Where the shots actually fell, without assuming a bell curve. */
   containment: Containment | null;
+  /**
+   * Share of shots whose spin the launch monitor actually measured, rather
+   * than modelled from the rest of the flight.
+   *
+   * Null when the export does not say. The real test file reads 0.04 — two
+   * measured shots out of forty-five — which means every spin finding in that
+   * session rests on a model, and the app said so in a footnote while
+   * weighting it exactly as heavily as a measured one.
+   */
+  spinMeasuredShare: number | null;
 }
 
 /**
@@ -164,7 +174,14 @@ export function buildClubProfile(club: Club, shots: Shot[]): ClubProfile {
 
     dispersion: buildEllipse(carry, side),
     containment: buildContainment(rep, carry, side),
+    spinMeasuredShare: measuredShare(rep),
   };
+}
+
+function measuredShare(shots: Shot[]): number | null {
+  const known = shots.filter((s) => s.spinMeasured !== null);
+  if (known.length === 0) return null;
+  return known.filter((s) => s.spinMeasured === true).length / known.length;
 }
 
 function buildContainment(shots: Shot[], carry: Summary, side: Summary): Containment | null {

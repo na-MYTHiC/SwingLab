@@ -56,6 +56,65 @@ export interface HandicapEstimate {
   caveat: string;
 }
 
+/**
+ * Across the bag, not just the most-hit club.
+ *
+ * Every session-level number used to come from whichever club had the most
+ * shots, so a bag session was graded on its 7-iron and the driver might as
+ * well not have been hit. Each club's pattern is expressed as a share of its
+ * own carry, so they are directly comparable and can be averaged — weighted by
+ * shots, because a club hit six times should not outvote one hit thirty.
+ *
+ * Falls back to the single-club behaviour when there is only one club, which
+ * is the common case and gives exactly the same answer.
+ */
+export function estimateHandicapAcrossBag(
+  profiles: ClubProfile[],
+  strike: StrikeBreakdown,
+): HandicapEstimate | null {
+  const usable = profiles.filter((p) => p.representativeCount >= 10);
+  if (usable.length === 0) return null;
+  if (usable.length === 1) return estimateHandicap(usable[0] as ClubProfile, strike);
+
+  const parts = usable
+    .map((p) => ({ profile: p, estimate: estimateHandicap(p, strike) }))
+    .filter((x): x is { profile: ClubProfile; estimate: HandicapEstimate } => x.estimate !== null);
+  if (parts.length === 0) return null;
+
+  const weight = parts.reduce((sum, x) => sum + x.profile.representativeCount, 0);
+  const mean = (read: (x: (typeof parts)[number]) => number) =>
+    parts.reduce((sum, x) => sum + read(x) * x.profile.representativeCount, 0) / weight;
+
+  const estimate = mean((x) => x.estimate.estimate);
+  const shots = parts.reduce((sum, x) => sum + x.profile.representativeCount, 0);
+  const spreadBand = shots >= 45 ? 2.5 : shots >= 30 ? 3 : 4;
+  const clubs = parts.map((x) => x.profile.club).join(', ');
+
+  return {
+    estimate: Math.round(estimate * 10) / 10,
+    low: Math.round((estimate - spreadBand) * 10) / 10,
+    high: Math.round((estimate + spreadBand) * 10) / 10,
+    basis: {
+      club: clubs,
+      radialPercent: mean((x) => x.estimate.basis.radialPercent),
+      widthYards: mean((x) => x.estimate.basis.widthYards),
+      carrySigma: mean((x) => x.estimate.basis.carrySigma),
+      strikeQuality: strike.qualityShare,
+    },
+    // More clubs is a better sample of a player than more shots with one club.
+    confidence: parts.length >= 3 && shots >= 40 ? 'high' : shots >= 25 ? 'medium' : 'low',
+    band: skillBand(estimate),
+    headline: estimate <= 0
+      ? 'Your ball-striking is at scratch level or better'
+      : `Your ball-striking supports roughly a ${Math.round(estimate - spreadBand)}-` +
+        `${Math.round(estimate + spreadBand)} handicap`,
+    caveat:
+      `Averaged across ${parts.length} clubs (${clubs}), weighted by how many shots you hit with ` +
+      `each. Ball-striking only — around 45% of scoring happens inside 100 yards and none of it ` +
+      `shows up on a range.`,
+  };
+}
+
 export function estimateHandicap(
   profile: ClubProfile | null,
   strike: StrikeBreakdown,

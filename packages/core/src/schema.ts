@@ -1,3 +1,4 @@
+import type { Conditions } from './benchmarks/conditions.js';
 /**
  * The canonical shot schema.
  *
@@ -133,6 +134,17 @@ export interface Shot {
    * finding that leans on spin should say which it had.
    */
   spinMeasured: Maybe<boolean>;
+  /**
+   * TrackMan's own comparison against its optimal model, as a percentage.
+   *
+   * An independent second opinion on the same swing, computed by the people
+   * who built the radar. 100 means exactly optimal for the shot; the real test
+   * file reads about 102% on smash and 51-60% on spin. Kept separate from our
+   * own optimals rather than blended into them — two models that disagree are
+   * more informative than one average that hides the disagreement.
+   */
+  smashIndex: Maybe<number>;
+  spinIndex: Maybe<number>;
 
   /**
    * Set by the outlier pass, not by ingest. A shot flagged here is excluded
@@ -185,6 +197,16 @@ export interface ShotSession {
   id: string;
   source: SourceKind;
   kind: SessionKind;
+  /**
+   * The air the numbers were normalised to.
+   *
+   * A launch monitor states the conditions its distances assume, and they
+   * matter enormously: at 4,700 feet a ball carries five and a half percent
+   * further than at sea level, so comparing a mountain session against a
+   * sea-level session — or against a tour table — without correcting is a
+   * systematic error dressed up as improvement.
+   */
+  conditions?: Conditions;
   /** Original filename or API activity id, for de-duplication on re-import. */
   sourceRef: string;
   handedness: Handedness;

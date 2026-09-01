@@ -11,6 +11,7 @@ import {
 } from '../units.js';
 import { parseCsv } from './csv.js';
 import type { IngestAdapter, IngestOptions, IngestResult, IngestWarning, RawInput } from './types.js';
+import { parseConditions, type Conditions } from '../benchmarks/conditions.js';
 
 /** How a column's raw number becomes a canonical number. */
 type Quantity =
@@ -155,13 +156,24 @@ const FIELD_MAP: Record<string, FieldSpec> = {
  * email address. Silence here is the informative choice; a warning should
  * mean something was unexpected.
  */
+/*
+ * TrackMan grades the shot against its own optimal model and puts the result
+ * in the file as a percentage. Worth keeping: it is a second opinion computed
+ * by the people who built the radar, and where it disagrees with ours that
+ * disagreement is itself information.
+ */
+const INDEX_FIELDS: Record<string, 'smashIndex' | 'spinIndex'> = {
+  smashindex: 'smashIndex',
+  spinindex: 'spinIndex',
+};
+
 const KNOWN_UNUSED = new Set([
-  'tmdno', 'tmdfilename', 'player', 'ball', 'email', 'tags', 'condition',
+  'tmdno', 'tmdfilename', 'player', 'email', 'tags',
   'maxheightdist', 'maxheightside',
   'lastdatapointlength', 'lastdatapointside', 'lastdatapointheight',
   'carryflatballspeed', 'carryflattime',
   'lowpointheight', 'dplanetilt', 'gyroangle',
-  'ballspeeddiff', 'smashindex', 'spinratediff', 'spinindex',
+  'ballspeeddiff', 'spinratediff',
   'swingplane',
 ]);
 
@@ -397,10 +409,26 @@ export const trackmanCsvAdapter: IngestAdapter = {
     const firstDataRow = headerRow + (unitsFromRow ? 2 : 1);
 
     const columns: Column[] = [];
+    /*
+     * Three columns that are not shot measurements but matter anyway: the
+     * conditions line, the ball, and TrackMan's own optimality indices. They
+     * are tracked by position rather than routed through FIELD_MAP, which
+     * exists to convert units on physical quantities.
+     */
+    let conditionCol: number | null = null;
+    let ballCol: number | null = null;
+    const indexCols: { index: number; field: 'smashIndex' | 'spinIndex' }[] = [];
+
     for (let i = 0; i < headers.length; i++) {
       const header = headers[i] ?? '';
       if (header === '') continue;
       const key = headerKey(header);
+
+      if (key === 'condition') { conditionCol = i; continue; }
+      if (key === 'ball') { ballCol = i; continue; }
+      const indexField = INDEX_FIELDS[key];
+      if (indexField) { indexCols.push({ index: i, field: indexField }); continue; }
+
       const spec = FIELD_MAP[key];
       if (!spec) {
         if (!KNOWN_UNUSED.has(key)) {
@@ -419,6 +447,13 @@ export const trackmanCsvAdapter: IngestAdapter = {
 
     const mirror = opts.handedness === 'left' ? -1 : 1;
     const shots: Shot[] = [];
+    /*
+     * The conditions line repeats on every row. Read the first one that says
+     * anything: a session is one set of conditions, and if a file ever mixed
+     * two the right answer is to notice, not to average them.
+     */
+    let conditionLine: string | null = null;
+    let ballLabel: string | null = null;
     const unknownClubLabels = new Set<string>();
 
     for (let r = firstDataRow; r < rows.length; r++) {
@@ -433,6 +468,7 @@ export const trackmanCsvAdapter: IngestAdapter = {
       let excluded = false;
       let spinMeasured: boolean | null = null;
       const numeric: Partial<Record<keyof Shot, number>> = {};
+      const indices: Partial<Record<'smashIndex' | 'spinIndex', number>> = {};
       const claimedBy: Partial<Record<keyof Shot, number>> = {};
       let sawAnyNumber = false;
 
@@ -480,6 +516,19 @@ export const trackmanCsvAdapter: IngestAdapter = {
         }
       }
 
+      if (conditionLine === null && conditionCol !== null) {
+        const cell = (row[conditionCol] ?? '').trim();
+        if (cell) conditionLine = cell;
+      }
+      if (ballLabel === null && ballCol !== null) {
+        const cell = (row[ballCol] ?? '').trim();
+        if (cell) ballLabel = cell;
+      }
+      for (const col of indexCols) {
+        const value = parseNumber(row[col.index]);
+        if (value !== null) indices[col.field] = value;
+      }
+
       if (excluded) continue;
 
       if (!sawAnyNumber) {
@@ -498,6 +547,7 @@ export const trackmanCsvAdapter: IngestAdapter = {
           time: parseTimestamp(dateStr, timeStr, dateOrder),
           numeric,
           spinMeasured,
+          indices,
           sourceRef: input.name,
         }),
       );
@@ -520,6 +570,7 @@ export const trackmanCsvAdapter: IngestAdapter = {
       id: `tm-${hashString(input.name + shots.length + (firstTime?.toISOString() ?? ''))}`,
       source: 'trackman-csv',
       kind: detectSessionKind(shots, input.name),
+      conditions: mergeBall(parseConditions(conditionLine), ballLabel),
       sourceRef: input.name,
       handedness: opts.handedness,
       startedAt: firstTime,
@@ -529,6 +580,11 @@ export const trackmanCsvAdapter: IngestAdapter = {
     return { session, warnings };
   },
 };
+
+/** The Ball column is more reliable than the one inside the conditions prose. */
+function mergeBall(conditions: Conditions, ball: string | null): Conditions {
+  return ball ? { ...conditions, ball } : conditions;
+}
 
 /**
  * Work out which TrackMan activity produced this export.
@@ -578,6 +634,7 @@ function buildShot(args: {
   time: Maybe<Date>;
   numeric: Partial<Record<keyof Shot, number>>;
   spinMeasured?: boolean | null;
+  indices?: Partial<Record<'smashIndex' | 'spinIndex', number>>;
   sourceRef: string;
 }): Shot {
   const n = args.numeric;
@@ -625,6 +682,8 @@ function buildShot(args: {
     dynamicLie: get('dynamicLie'),
 
     spinMeasured: args.spinMeasured ?? null,
+    smashIndex: args.indices?.smashIndex ?? null,
+    spinIndex: args.indices?.spinIndex ?? null,
     targetDistance: get('targetDistance'),
     proximity: get('proximity'),
     shotScore: get('shotScore'),

@@ -1,9 +1,10 @@
 import type {
   Prioritised, SessionReport, Prescription, ClubProfile, Shot, ShotSession, Trend,
-  PracticeDuration,
+  PracticeDuration, FormRead, WindowProfile,
 } from '@swinglab/core';
 import { DispersionChart, TrendChart } from './Charts.js';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
+import { carryFactor, trackManIndices } from '@swinglab/core';
 import { minutes, num, shots, speedLabel } from '../format.js';
 
 /**
@@ -366,9 +367,27 @@ function clock(minute: number): string {
  * to drag sideways on a phone, so below the breakpoint each club renders as
  * a card instead and nothing sits off the edge of the screen.
  */
-export function ClubsView({ report, session }: { report: SessionReport; session: ShotSession }) {
+export function ClubsView({
+  report, session, windows,
+}: {
+  report: SessionReport;
+  session: ShotSession;
+  windows: { windows: WindowProfile[]; form: FormRead[] } | null;
+}) {
   return (
     <div className="stack">
+      {report.conditions.raw && <ConditionsCard report={report} />}
+
+      {windows && windows.form.length > 0 && (
+        <>
+          <h2 className="section-head">
+            Form
+            <span>your last twenty against your all-time</span>
+          </h2>
+          <FormCard form={windows.form} windows={windows.windows} />
+        </>
+      )}
+
       {report.profiles.length > 1 && (
         <div className="table-scroll card wide-only">
           <table>
@@ -457,6 +476,66 @@ export function ClubsView({ report, session }: { report: SessionReport; session:
  * Carry and its spread lead because they are the two a player checks first,
  * and they are the pair that decides whether a club can be aimed at a flag.
  */
+/**
+ * The air these numbers were measured in.
+ *
+ * Silent until now, and it mattered more than almost anything else on the
+ * screen: a bay at altitude inflates every carry, and the app was comparing
+ * those inflated numbers against sea-level tour targets.
+ */
+function ConditionsCard({ report }: { report: SessionReport }) {
+  const c = report.conditions;
+  const pct = (carryFactor(c) - 1) * 100;
+  return (
+    <section className="card conditions">
+      <h3 className="panel-title">The air you hit in</h3>
+      <div className="cond-row">
+        {c.altitudeFeet !== null && (
+          <Cell label="Altitude" value={Math.round(c.altitudeFeet).toLocaleString()} unit="ft" />
+        )}
+        {c.temperatureF !== null && (
+          <Cell label="Temp" value={String(Math.round(c.temperatureF))} unit="°F" />
+        )}
+        {c.ball && <Cell label="Ball" value={c.ball} unit="" />}
+        <Cell label="Carry effect" value={`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}`} unit="%" big />
+      </div>
+      <p className="panel-sub cond-note">
+        {Math.abs(pct) < 1.5
+          ? 'Close enough to sea level that no correction is worth making.'
+          : `Your carries here run ${Math.abs(pct).toFixed(1)}% ${pct > 0 ? 'longer' : 'shorter'} `
+            + 'than the same swing would produce at sea level. Carry targets below are scaled to '
+            + 'match, and sessions from other venues are put back into common air before any '
+            + 'comparison.'}
+      </p>
+    </section>
+  );
+}
+
+/** Recent form against the long run: a bad day, or a new normal. */
+function FormCard({ form, windows }: { form: FormRead[]; windows: WindowProfile[] }) {
+  const counted = windows.filter((w) => w.profile !== null);
+  return (
+    <section className="card">
+      <ul className="form-list">
+        {form.map((f) => (
+          <li key={f.metric} className={`form-${f.verdict}`}>
+            <div>
+              <strong>{f.label}</strong>
+              <span>{f.detail}</span>
+            </div>
+            <em>{f.verdict}</em>
+          </li>
+        ))}
+      </ul>
+      <p className="panel-sub cond-note">
+        Built from{' '}
+        {counted.map((w) => `${w.window.label} (${w.profile?.representativeCount ?? 0})`).join(', ')}
+        , all put into common air first.
+      </p>
+    </section>
+  );
+}
+
 function ClubCard({ profile: p, shots }: { profile: ClubProfile; shots: Shot[] }) {
   return (
     <section className="card club-card">
@@ -482,12 +561,42 @@ function ClubCard({ profile: p, shots }: { profile: ClubProfile; shots: Shot[] }
         <Cell label="Face/path" value={num(p.faceToPath.median, 1)} unit="°" />
         <Cell label="Attack" value={num(p.attackAngle.median, 1)} unit="°" />
       </div>
+      <TrackManVerdict shots={shots} />
       {p.dispersion !== null && (
         <div className="club-chart">
           <DispersionChart profile={p} shots={shots} />
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * What TrackMan itself made of the same shots.
+ *
+ * The unit grades every shot against its own optimal model. Shown beside our
+ * numbers rather than folded into them: where the two agree that is worth more
+ * than either alone, and where they disagree that is the interesting part.
+ */
+function TrackManVerdict({ shots }: { shots: Shot[] }) {
+  const idx = trackManIndices(shots);
+  if (idx.smashIndex === null && idx.spinIndex === null) return null;
+  return (
+    <div className="tm-verdict">
+      <span className="tm-label">TrackMan's own grade</span>
+      <div>
+        {idx.smashIndex !== null && (
+          <span>
+            Smash <strong>{Math.round(idx.smashIndex)}%</strong> of optimal
+          </span>
+        )}
+        {idx.spinIndex !== null && (
+          <span>
+            Spin <strong>{Math.round(idx.spinIndex)}%</strong> of optimal
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

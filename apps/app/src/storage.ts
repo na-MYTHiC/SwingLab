@@ -24,6 +24,10 @@ function reviveDates(raw: StoredSession): StoredSession {
   return {
     ...raw,
     session: {
+      // Sessions imported before conditions existed have none. Backfilling an
+      // empty one keeps every consumer on the same shape instead of scattering
+      // null checks through the engine.
+      conditions: undefined,
       ...raw.session,
       startedAt: raw.session.startedAt ? new Date(raw.session.startedAt) : null,
       shots: raw.session.shots.map((s) => ({ ...s, time: s.time ? new Date(s.time) : null })),
@@ -128,4 +132,117 @@ export function forgetTargets(sessionId: string): void {
   } catch {
     // Nothing stored, or storage is blocked.
   }
+}
+
+/**
+ * A whole-store backup, and the way back in.
+ *
+ * localStorage is not durable. Clearing site data wipes it, and iOS reclaims
+ * storage from installed web apps without asking — so a player who has built
+ * up months of sessions, baselines and practice targets is one browser tidy-up
+ * away from losing all of it. Since everything is local by design, the backup
+ * has to be a file the player holds.
+ *
+ * Versioned from the start: a restore that silently misreads an older export
+ * would be worse than one that refuses.
+ */
+const BACKUP_VERSION = 1;
+
+export interface Backup {
+  app: 'swinglab';
+  version: number;
+  exportedAt: string;
+  sessions: unknown[];
+  targets: unknown;
+}
+
+export function buildBackup(): Backup {
+  return {
+    app: 'swinglab',
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    sessions: (() => {
+      try {
+        const raw = localStorage.getItem(KEY);
+        return raw ? (JSON.parse(raw) as unknown[]) : [];
+      } catch {
+        return [];
+      }
+    })(),
+    targets: readTargets(),
+  };
+}
+
+export interface RestoreResult {
+  ok: boolean;
+  added: number;
+  skipped: number;
+  message: string;
+}
+
+/**
+ * Merge a backup in rather than replacing what is there.
+ *
+ * Replacing would make restoring an old file destructive, and the moment
+ * somebody needs a backup is the moment they can least afford a second
+ * mistake. Sessions already present by id are left alone.
+ */
+export function restoreBackup(text: string): RestoreResult {
+  let parsed: Backup;
+  try {
+    parsed = JSON.parse(text) as Backup;
+  } catch {
+    return { ok: false, added: 0, skipped: 0, message: 'That file is not readable JSON.' };
+  }
+  if (parsed?.app !== 'swinglab' || !Array.isArray(parsed.sessions)) {
+    return { ok: false, added: 0, skipped: 0, message: 'That is not a SwingLab backup.' };
+  }
+  if (typeof parsed.version !== 'number' || parsed.version > BACKUP_VERSION) {
+    return {
+      ok: false, added: 0, skipped: 0,
+      message: 'That backup came from a newer version of SwingLab than this one.',
+    };
+  }
+
+  const existing = loadAll();
+  const seen = new Set(existing.map((s) => s.session.id));
+  let added = 0;
+  let skipped = 0;
+
+  const merged = [...existing];
+  for (const entry of parsed.sessions as StoredSession[]) {
+    const id = entry?.session?.id;
+    if (!id) { skipped += 1; continue; }
+    if (seen.has(id)) { skipped += 1; continue; }
+    merged.push(entry);
+    seen.add(id);
+    added += 1;
+  }
+
+  try {
+    localStorage.setItem(KEY, JSON.stringify(merged));
+    if (parsed.targets && typeof parsed.targets === 'object') {
+      const store = readTargets();
+      // Existing targets win: they are the ones the current plan was judged
+      // against, and overwriting them would move goalposts mid-loop.
+      localStorage.setItem(
+        TARGETS_KEY,
+        JSON.stringify({ ...(parsed.targets as TargetStore), ...store }),
+      );
+    }
+  } catch {
+    return {
+      ok: false, added: 0, skipped: 0,
+      message: 'Not enough room on this device to restore that backup.',
+    };
+  }
+
+  return {
+    ok: true,
+    added,
+    skipped,
+    message: skipped > 0
+      ? `Restored ${added} session${added === 1 ? '' : 's'}; ${skipped} already here.`
+      : `Restored ${added} session${added === 1 ? '' : 's'}.`,
+  };
 }

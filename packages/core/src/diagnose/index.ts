@@ -4,13 +4,16 @@ import {
   compareToOptimal, personalOptimals, type OptimalComparison,
 } from '../benchmarks/personal.js';
 import { prescribePractice, type PracticeDuration, type PracticeSession } from '../practice/prescribe.js';
-import { discarded, markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
 import {
-  estimateHandicap, evaluateAchievements, scoreSession,
+  badStrikes, discarded, markImplausible, markMishits, markUnusable, unreadable,
+} from '../stats/outliers.js';
+import {
+  estimateHandicapAcrossBag, evaluateAchievements, scoreSession,
   type Achievement, type HandicapEstimate, type SessionScore,
 } from '../scoring/index.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { greenHoldRate } from '../benchmarks/skill.js';
+import { carryFactor, NO_CONDITIONS, type Conditions } from '../benchmarks/conditions.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
 import { distanceBiasFindings, weakDistanceFindings } from './rules-target.js';
@@ -109,6 +112,7 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
 function buildOptimals(
   profile: ClubProfile | null,
   baseline: PlayerBaseline | null,
+  conditions: Conditions,
 ): SessionReport['optimals'] {
   if (!profile || profile.clubSpeed.n < 5 || !Number.isFinite(profile.clubSpeed.median)) {
     return null;
@@ -130,6 +134,34 @@ function buildOptimals(
   const optimals = personalOptimals(profile.club, speed);
   if (!optimals) return null;
 
+  /*
+   * Carry targets are expressed in the air the player is actually hitting in.
+   *
+   * The tour tables are a sea-level frame; the export states its own. At 4,700
+   * feet the ball carries six percent further, so an uncorrected comparison
+   * told this player they were five yards long when at sea level they are
+   * eight yards short — a systematic error of thirteen yards, larger than the
+   * band it was being judged against.
+   *
+   * Only carry moves. Ball speed, launch, spin and attack angle are measured
+   * at or near impact and do not care about the air the ball then flies
+   * through, so inflating those would invent an error rather than remove one.
+   */
+  const factor = carryFactor(conditions);
+  const windows = optimals.windows.map((w) => (
+    w.metric === 'carry' && factor !== 1
+      ? {
+        ...w,
+        target: w.target * factor,
+        min: w.min * factor,
+        max: w.max * factor,
+        why: `${w.why} Scaled by ${((factor - 1) * 100).toFixed(1)}% for the ` +
+          `${Math.round(conditions.altitudeFeet ?? 0).toLocaleString()} ft air your ` +
+          `numbers are normalised to, so this is the carry to aim at in your bay.`,
+      }
+      : w
+  ));
+
   const actual: Record<string, number> = {
     attackAngle: profile.attackAngle.median,
     smashFactor: profile.smashFactor.median,
@@ -146,9 +178,7 @@ function buildOptimals(
     speedBasis: base && base.sessions >= 2
       ? { sessions: base.sessions, sessionSpeed: profile.clubSpeed.median }
       : null,
-    comparisons: optimals.windows.map((w) =>
-      compareToOptimal(w, actual[w.metric] ?? Number.NaN),
-    ),
+    comparisons: windows.map((w) => compareToOptimal(w, actual[w.metric] ?? Number.NaN)),
   };
 }
 
@@ -171,6 +201,17 @@ function dataNotes(session: ShotSession): string[] {
       `Spin was estimated rather than measured on ${estimated} of ${withSpinFlag.length} shots. ` +
       `Estimated spin is a model output, so treat the spin findings as indicative and the ` +
       `strike and direction findings as solid.`,
+    );
+  }
+
+  const unread = shots.filter(
+    (s) => s.flags.includes('implausible') && !s.flags.includes('unusable'),
+  ).length;
+  if (unread > 0) {
+    notes.push(
+      `${unread} row${unread === 1 ? '' : 's'} carried numbers that cannot be true and ` +
+      `${unread === 1 ? 'was' : 'were'} dropped. That is the launch monitor misreading a shot, ` +
+      `not a shot you hit badly, so it does not count against your reliability score.`,
     );
   }
 
@@ -230,6 +271,8 @@ export interface SessionReport {
   potential: Potential | null;
   /** Notes about the data itself, rather than the golf. */
   dataNotes: string[];
+  /** The air these numbers were normalised to, and what it does to carry. */
+  conditions: Conditions;
   /**
    * Shots thrown out entirely — tops and shanks that travel a fraction of the
    * club's normal distance. Reported as a count so nothing is hidden, but
@@ -237,6 +280,8 @@ export interface SessionReport {
    * point about the player's 7-iron.
    */
   discardedCount: number;
+  /** Rows the launch monitor could not read. Not the player's fault, and not scored. */
+  unreadableCount: number;
   /** How the session scored, and what dragged it down. */
   score: SessionScore | null;
   /**
@@ -360,8 +405,10 @@ export function diagnoseSession(
   // its pass marks are set from the session's own strike and blow-up figures.
   const strike = classifyStrikes(session.shots);
   const discardedShots = discarded(session.shots);
+  const wasted = badStrikes(session.shots);
+  const unreadableShots = unreadable(session.shots);
   const unusableRate = session.shots.length > 0
-    ? (discardedShots.length / session.shots.length) * 100
+    ? (wasted.length / session.shots.length) * 100
     : null;
 
   const report: SessionReport = {
@@ -382,8 +429,10 @@ export function diagnoseSession(
     progression: sessionProgression(session.shots),
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
-    optimals: buildOptimals(mainProfile, baseline),
+    conditions: session.conditions ?? NO_CONDITIONS,
+    optimals: buildOptimals(mainProfile, baseline, session.conditions ?? NO_CONDITIONS),
     discardedCount: discardedShots.length,
+    unreadableCount: unreadableShots.length,
     score: null,
     greenRate: null,
     achievements: [],
@@ -406,8 +455,9 @@ export function diagnoseSession(
     strike: report.strike,
     consistency: report.consistency,
     optimals: report.optimals?.comparisons ?? null,
-    discarded: report.discardedCount,
+    discarded: wasted.length,
     shotCount: report.shotCount,
+    allProfiles: profiles,
   });
   /*
    * Handicap before achievements, not after.
@@ -418,15 +468,23 @@ export function diagnoseSession(
    * measure returning null is treated as "not applicable to this session"
    * rather than as an error.
    */
-  report.handicap = estimateHandicap(mainProfile, report.strike);
-  report.greenRate = mainProfile && Number.isFinite(mainProfile.carry.median)
-    ? greenHoldRate({
-      sigmaSide: mainProfile.side.mad,
-      sigmaCarry: mainProfile.carry.mad,
-      carry: mainProfile.carry.median,
-    })
+  report.handicap = estimateHandicapAcrossBag(profiles, report.strike);
+  /*
+   * Green rate across every club with enough shots, weighted the same way.
+   * A bag session's answer to "how often would this hold a green" is not the
+   * 7-iron's answer.
+   */
+  const greenParts = profiles
+    .filter((p) => p.representativeCount >= 6 && Number.isFinite(p.carry.median))
+    .map((p) => ({
+      n: p.representativeCount,
+      rate: greenHoldRate({ sigmaSide: p.side.mad, sigmaCarry: p.carry.mad, carry: p.carry.median }),
+    }))
+    .filter((x) => Number.isFinite(x.rate));
+  const greenWeight = greenParts.reduce((sum, x) => sum + x.n, 0);
+  report.greenRate = greenWeight > 0
+    ? greenParts.reduce((sum, x) => sum + x.rate * x.n, 0) / greenWeight
     : null;
-  if (report.greenRate !== null && !Number.isFinite(report.greenRate)) report.greenRate = null;
   report.achievements = evaluateAchievements(report);
 
   return report;
@@ -466,6 +524,7 @@ export function diagnoseShots(shots: Shot[], opts?: DiagnoseOptions): SessionRep
       id: 'ad-hoc',
       source: shots[0]?.source ?? 'manual',
       kind: 'range',
+      conditions: NO_CONDITIONS,
       sourceRef: 'ad-hoc',
       handedness: 'right',
       startedAt: shots[0]?.time ?? null,

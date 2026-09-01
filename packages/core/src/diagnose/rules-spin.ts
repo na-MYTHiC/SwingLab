@@ -1,5 +1,6 @@
 import { SPIN_WINDOW } from '../benchmarks/tour.js';
 import { personalOptimals } from '../benchmarks/personal.js';
+import { downgrade, spinIsModelled } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
 /**
@@ -45,7 +46,9 @@ export const spinWindowRule: Rule = {
         id: high ? 'spin-too-high' : 'spin-too-low',
         club: profile.club,
         severity: miss >= (high ? 1200 : 900) ? 'major' : 'minor',
-        confidence: confidenceFor(s.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(s.n))
+          : confidenceFor(s.n),
         title: `Your ${profile.club} spin is ${high ? 'high' : 'low'}`,
         detail: high
           ? `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} above the top of the range ` +
@@ -102,7 +105,9 @@ export const carryConsistencyRule: Rule = {
         id: 'carry-inconsistent',
         club: profile.club,
         severity: relative >= 0.075 ? 'major' : 'minor',
-        confidence: confidenceFor(c.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(c.n))
+          : confidenceFor(c.n),
         title: `Your ${profile.club} carry distance is unpredictable`,
         detail:
           `Carry varies by about ±${round(c.mad, 0)} yards around a median of ${round(c.median, 0)} ` +

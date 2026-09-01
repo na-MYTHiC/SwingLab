@@ -189,3 +189,22 @@ export function discarded(shots: Shot[]): Shot[] {
     (s) => s.flags.includes('implausible') || s.flags.includes('unusable'),
   );
 }
+
+/**
+ * Shots the *player* wasted, as against shots the *radar* misread.
+ *
+ * These are two completely different things and lumping them together was
+ * charging golfers for their launch monitor's sensor errors: a Combine with
+ * six unreadable rows scored zero for reliability and was told it had topped
+ * ten percent of the session. A top is a stroke; a bad radar return is not.
+ */
+export function badStrikes(shots: Shot[]): Shot[] {
+  return shots.filter((s) => s.flags.includes('unusable'));
+}
+
+/** Rows the launch monitor reported values for that cannot be true. */
+export function unreadable(shots: Shot[]): Shot[] {
+  return shots.filter(
+    (s) => s.flags.includes('implausible') && !s.flags.includes('unusable'),
+  );
+}

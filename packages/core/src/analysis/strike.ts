@@ -131,7 +131,28 @@ function classifyOne(
     launch: Band; spin: Band; carry: Band; smash: Band;
   },
 ): StrikeClass {
-  const { launchAngle, spinRate, carry, smashFactor, impactOffset } = shot;
+  const { launchAngle, spinRate, carry, smashFactor, impactOffset, impactHeight } = shot;
+
+  /*
+   * Measured impact location beats inferring it from ball flight.
+   *
+   * Thin and heavy were being deduced from carry and smash, which is the
+   * shadow of the thing rather than the thing. Where the unit reports where on
+   * the face the ball was struck, that is a direct measurement and it wins.
+   * The real export carries it on only fifteen shots of forty-five, so the
+   * inference below stays as the fallback rather than being replaced.
+   *
+   * Millimetres from centre. Roughly a dime's width vertically is the band
+   * inside which a strike stops costing ball speed.
+   */
+  if (impactHeight !== null && Math.abs(impactHeight) > 9) {
+    return impactHeight < 0 ? 'thin' : 'heavy';
+  }
+  if (impactOffset !== null && Math.abs(impactOffset) > 12) return 'off-centre';
+  if (impactHeight !== null && impactOffset !== null
+    && Math.abs(impactHeight) <= 4 && Math.abs(impactOffset) <= 5) {
+    return 'flush';
+  }
 
   // Thin first: it has the most specific signature, low launch *and* low spin
   // together, which nothing else produces.
@@ -144,8 +165,6 @@ function classifyOne(
   if (below(carry, base.carry, 1.5) && below(smashFactor, base.smash, 1.0)) {
     return 'heavy';
   }
-
-  if (impactOffset !== null && Math.abs(impactOffset) > 12) return 'off-centre';
 
   if (smashFactor !== null && smashFactor >= base.smashHigh) return 'flush';
 

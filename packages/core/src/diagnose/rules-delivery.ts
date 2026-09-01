@@ -1,5 +1,6 @@
 import { widthPctForHandicap } from '../benchmarks/skill.js';
 import { speedAdjusted } from '../benchmarks/tour.js';
+import { downgrade, spinIsModelled } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
 /**
@@ -26,7 +27,9 @@ export const dynamicLoftConsistencyRule: Rule = {
         id: 'dynamic-loft-inconsistent',
         club: profile.club,
         severity: d.mad >= 4 ? 'major' : 'minor',
-        confidence: confidenceFor(d.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(d.n))
+          : confidenceFor(d.n),
         title: `You deliver a different loft on every ${profile.club}`,
         detail:
           `Loft at impact swings about ±${round(d.mad, 1)}° around ${round(d.median, 1)}°, ` +
@@ -59,7 +62,9 @@ export const launchWindowRule: Rule = {
         id: 'launch-window-wide',
         club: profile.club,
         severity: l.mad >= 3.2 ? 'major' : 'minor',
-        confidence: confidenceFor(l.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(l.n))
+          : confidenceFor(l.n),
         title: `Your ${profile.club} launches through a very wide window`,
         detail:
           `Launch angle ranges from ${round(l.min, 1)}° to ${round(l.max, 1)}° — a spread of ` +
@@ -93,7 +98,9 @@ export const spinConsistencyRule: Rule = {
         id: 'spin-inconsistent',
         club: profile.club,
         severity: relative >= 0.22 ? 'major' : 'minor',
-        confidence: confidenceFor(s.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(s.n))
+          : confidenceFor(s.n),
         title: `Your ${profile.club} spin is all over the place`,
         detail:
           `Spin varies by about ±${round(s.mad, 0)} rpm around ${round(s.median, 0)}, from ` +
@@ -152,7 +159,9 @@ export const lateralDispersionRule: Rule = {
         id: 'dispersion-wide',
         club: profile.club,
         severity: relative >= majorAt ? 'major' : 'minor',
-        confidence: confidenceFor(side.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(side.n))
+          : confidenceFor(side.n),
         title: `Your ${profile.club} pattern is ${round(d.width, 0)} yards wide`,
         detail:
           `From ${round(side.min, 0)} to ${round(side.max, 0)} yards off line across ` +
@@ -205,7 +214,9 @@ export const speedAdjustedEfficiencyRule: Rule = {
         id: 'below-tour-efficiency',
         club: profile.club,
         severity: shortfall >= 0.1 ? 'major' : 'minor',
-        confidence: confidenceFor(speed.n),
+        confidence: spinIsModelled(profile.spinMeasuredShare)
+          ? downgrade(confidenceFor(speed.n))
+          : confidenceFor(speed.n),
         title: `You are leaving ${round(adj.expectedCarry - carry.median, 0)} yards in the strike, not the swing`,
         detail:
           `You swing the ${profile.club} at ${round(speed.median, 1)} mph against a tour average of ` +

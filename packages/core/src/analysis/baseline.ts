@@ -1,5 +1,6 @@
 import type { Club, ShotSession } from '../schema.js';
 import { buildClubProfiles } from '../stats/dispersion.js';
+import { toReferenceFrame } from '../benchmarks/conditions.js';
 import { median } from '../stats/robust.js';
 
 /**
@@ -82,7 +83,11 @@ export function buildBaseline(
   for (const session of recent) {
     // Profiles are rebuilt per session rather than pooled, so a session with
     // eighty shots does not outvote four sessions with twenty.
-    for (const profile of buildClubProfiles(session.shots)) {
+    // Normalised, because a baseline spanning two venues is otherwise an
+    // average of two different atmospheres rather than of one player.
+    for (const profile of buildClubProfiles(
+      toReferenceFrame(session.shots, session.conditions),
+    )) {
       if (profile.representativeCount < 4) continue;
       if (Number.isFinite(profile.clubSpeed.median)) {
         const list = speeds.get(profile.club) ?? [];

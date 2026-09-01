@@ -1,4 +1,5 @@
 import type { Club, ShotSession } from '../schema.js';
+import { toReferenceFrame } from '../benchmarks/conditions.js';
 import { buildClubProfiles, type ClubProfile } from './dispersion.js';
 import { markImplausible, markMishits, markUnusable } from './outliers.js';
 import { median } from './robust.js';
@@ -168,7 +169,12 @@ export function buildTrends(
   const profiles = ordered.map((session) => {
     // Work on copies: diagnosis attaches flags, and a trend calculation must
     // not mutate stored sessions as a side effect.
-    const shots = session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] }));
+    // Into a common air first: a move from a sea-level bay to one at altitude
+    // would otherwise read as ten yards of improvement overnight.
+    const shots = toReferenceFrame(
+      session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] })),
+      session.conditions,
+    );
     markImplausible(shots);
     markUnusable(shots);
     markMishits(shots);

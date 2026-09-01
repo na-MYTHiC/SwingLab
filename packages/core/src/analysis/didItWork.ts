@@ -1,5 +1,6 @@
 import type { Club, ShotSession } from '../schema.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
+import { toReferenceFrame } from '../benchmarks/conditions.js';
 import { markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
 
 /**
@@ -95,7 +96,12 @@ function improvedBy(direction: MetricDelta['direction'], prev: number, curr: num
 
 /** Profile one club from one session without mutating the stored shots. */
 function profileFor(session: ShotSession, club: Club): ClubProfile | null {
-  const shots = session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] }));
+  // Both sides of the comparison are put into the same air first, or a change
+  // of venue reads as a change in the player.
+  const shots = toReferenceFrame(
+    session.shots.filter((s) => s.club === club).map((s) => ({ ...s, flags: [] })),
+    session.conditions,
+  );
   if (shots.length < 6) return null;
   markImplausible(shots);
   markUnusable(shots);
