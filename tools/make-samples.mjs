@@ -232,9 +232,12 @@ function write(name, headers, rows, preamble) {
     let i = 0;
     for (const club of ['7 Iron', 'Driver']) {
       for (let k = 0; k < 12; k++) {
+        // Keep the spread realistic. At 1.25 the driver rows swung wildly
+        // enough to read as 38% heavy strikes and an 81-yard improvement
+        // across one session, which is not a player, it is noise.
         rows.push(shot(g, w.date, clock(i++), club, {
           path: w.path, faceToPath: w.f2p, offset: w.offset,
-          spread: 1.25 - idx * 0.15,
+          spread: 0.95 - idx * 0.12,
         }));
       }
     }

@@ -60,18 +60,32 @@ export function classifyStrikes(shots: Shot[]): StrikeBreakdown {
   const carries = pluck(pool, (s) => s.carry);
 
   const smashHigh = smashes.length >= 5 ? percentile(smashes, 0.72) : Number.POSITIVE_INFINITY;
-  const launchMid = median(launches);
-  const spinMid = median(spins);
-  const carryMid = median(carries);
-  const smashMid = median(smashes);
+
+  /*
+   * Judge every signature in the player's own spread, not as a fixed
+   * percentage of their median.
+   *
+   * A fixed cut — "carry below 85% of median" — is a different bar for a
+   * tight player and a wild one, and against a wide distribution it puts a
+   * third of the session below it. That produced a 33% "heavy" reading for a
+   * player whose contact was fine, because a third of anyone's shots are
+   * below their median by some margin. Measuring the deviation in the
+   * player's own units asks the right question instead: is this shot unusual
+   * *for you*?
+   */
+  const base = {
+    smashHigh,
+    launch: { mid: median(launches), spread: spreadOf(launches) },
+    spin: { mid: median(spins), spread: spreadOf(spins) },
+    carry: { mid: median(carries), spread: spreadOf(carries) },
+    smash: { mid: median(smashes), spread: spreadOf(smashes) },
+  };
 
   const perShot: StrikeBreakdown['perShot'] = [];
   const tally = new Map<StrikeClass, number>();
 
   for (const shot of pool) {
-    const klass = classifyOne(shot, {
-      smashHigh, smashMid, launchMid, spinMid, carryMid,
-    });
+    const klass = classifyOne(shot, base);
     tally.set(klass, (tally.get(klass) ?? 0) + 1);
     perShot.push({ sequence: shot.sequence, klass, carry: shot.carry });
   }
@@ -91,34 +105,43 @@ export function classifyStrikes(shots: Shot[]): StrikeBreakdown {
   return { total: pool.length, counts, qualityShare: good / pool.length, perShot };
 }
 
+interface Band { mid: number; spread: number }
+
+/** Robust spread with a floor, so a very tight group cannot divide by ~zero. */
+function spreadOf(values: number[]): number {
+  if (values.length < 4) return Number.POSITIVE_INFINITY;
+  const q1 = percentile(values, 0.25);
+  const q3 = percentile(values, 0.75);
+  const iqr = q3 - q1;
+  const mid = Math.abs(median(values)) || 1;
+  // Never tighter than 2% of the typical value: below that the classifier is
+  // reading measurement noise as technique.
+  return Math.max(iqr / 1.35, mid * 0.02);
+}
+
+function below(value: number | null, band: Band, multiples: number): boolean {
+  if (value === null || !Number.isFinite(band.mid) || !Number.isFinite(band.spread)) return false;
+  return value < band.mid - multiples * band.spread;
+}
+
 function classifyOne(
   shot: Shot,
   base: {
-    smashHigh: number; smashMid: number;
-    launchMid: number; spinMid: number; carryMid: number;
+    smashHigh: number;
+    launch: Band; spin: Band; carry: Band; smash: Band;
   },
 ): StrikeClass {
   const { launchAngle, spinRate, carry, smashFactor, impactOffset } = shot;
 
   // Thin first: it has the most specific signature, low launch *and* low spin
   // together, which nothing else produces.
-  if (
-    launchAngle !== null && spinRate !== null &&
-    Number.isFinite(base.launchMid) && Number.isFinite(base.spinMid) &&
-    launchAngle < base.launchMid * 0.72 &&
-    spinRate < base.spinMid * 0.78
-  ) {
+  if (below(launchAngle, base.launch, 1.5) && below(spinRate, base.spin, 1.2)) {
     return 'thin';
   }
 
   // Heavy: the ball came up short with ball speed to match, but it still
   // launched roughly normally — energy went into the turf, not over the ball.
-  if (
-    carry !== null && smashFactor !== null &&
-    Number.isFinite(base.carryMid) && Number.isFinite(base.smashMid) &&
-    carry < base.carryMid * 0.85 &&
-    smashFactor < base.smashMid * 0.94
-  ) {
+  if (below(carry, base.carry, 1.5) && below(smashFactor, base.smash, 1.0)) {
     return 'heavy';
   }
 

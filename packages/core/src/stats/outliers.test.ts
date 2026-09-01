@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Shot } from '../schema.js';
 import { markImplausible, markMishits, representative, usable } from './outliers.js';
+import { classifyStrikes } from '../analysis/strike.js';
 
 function shot(over: Partial<Shot>): Shot {
   return {
@@ -109,5 +110,29 @@ describe('skewed data does not manufacture mishits', () => {
     markImplausible(shots);
     markMishits(shots);
     expect(shots[14]?.flags).toContain('mishit');
+  });
+});
+
+describe('strike classification is judged in the player’s own spread', () => {
+  it('does not call a third of a tidy session heavy', () => {
+    /*
+     * A fixed cut — "carry below 85% of median" — is a different bar for a
+     * tight player and a wild one, and against a wide distribution it puts a
+     * third of the session below it. Some of anyone's shots are below their
+     * own median; that is what a median is.
+     */
+    const shots = Array.from({ length: 24 }, (_, i) =>
+      shot({
+        sequence: i + 1,
+        carry: 160 + (i % 6) - 3,
+        smashFactor: 1.33 + ((i % 5) - 2) * 0.006,
+        launchAngle: 17 + ((i % 4) - 1.5) * 0.4,
+        spinRate: 6800 + ((i % 5) - 2) * 90,
+      }),
+    );
+    markImplausible(shots);
+    const result = classifyStrikes(shots);
+    const heavy = result.counts.find((c: { klass: string }) => c.klass === 'heavy');
+    expect(heavy?.share ?? 0).toBeLessThan(0.1);
   });
 });
