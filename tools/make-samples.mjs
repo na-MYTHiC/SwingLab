@@ -243,3 +243,69 @@ function write(name, headers, rows, preamble) {
     ]);
   });
 }
+
+// ---------------------------------------------------------------------------
+// 9. The TrackMan shot-analysis ("Normalized") export.
+//
+// A different layout from Table View: a `sep=` hint, units on their own row
+// beneath the header, twelve-hour timestamps, several competing carry columns,
+// and TrackMan's own Use In Stat flag. Synthetic values — a real session is
+// personal data and does not belong in a public repository — but the shape is
+// faithful, which is the part the parser has to survive.
+{
+  const g = makeGauss(rng(909));
+  const HEAD = [
+    'Date', 'TMD No', 'TMD Filename', 'Player', 'Club', 'Ball', 'Club Speed',
+    'Attack Angle', 'Club Path', 'Low Point', 'Swing Plane', 'Swing Direction',
+    'Dyn. Loft', 'Face Angle', 'Face To Path', 'Ball Speed', 'Smash Factor',
+    'Launch Angle', 'Launch Direction', 'Spin Rate', 'Spin Rate Type', 'Spin Axis',
+    'Max Height - Height', 'Carry Flat - Length', 'Carry Flat - Side',
+    'Carry Flat - Land. Angle', 'Est. Total Flat - Length', 'Est. Total Flat - Side',
+    'Impact Offset', 'Impact Height', 'Curve', 'Spin Loft', 'Low Point Side',
+    'Use In Stat', 'Condition',
+  ];
+  const UNITS = [
+    '', '', '', '', '', '', '[mph]', '[deg]', '[deg]', '[in]', '[deg]', '[deg]',
+    '[deg]', '[deg]', '[deg]', '[mph]', '[]', '[deg]', '[deg]', '[rpm]', '[]',
+    '[deg]', '[ft]', '[yds]', '[yds]', '[deg]', '[yds]', '[yds]', '[mm]', '[mm]',
+    '[ft]', '[deg]', '[mm]', '', '',
+  ];
+
+  const rows = [];
+  for (let i = 0; i < 40; i++) {
+    const r = shot(g, '', '', '7 Iron', { path: -1.0, faceToPath: 2.4, spread: 1.5 });
+    const idx = (name) => HEADERS.indexOf(name);
+    const at = (name) => r[idx(name)];
+
+    const hour = 5;
+    const minute = 20 + Math.floor(i * 1.4);
+    const stamp = `9/2/2026 ${hour}:${String(minute % 60).padStart(2, '0')}:00 PM`;
+    // A couple of practice swings the player told TrackMan to disregard.
+    const useInStat = i === 7 || i === 22 ? 'FALSE' : 'TRUE';
+
+    rows.push([
+      `"${stamp}"`, '', '', '"Sample Player"', '"7 Iron"', '"Premium"',
+      at('Club Speed [mph]'), at('Attack Angle [deg]'), at('Club Path [deg]'),
+      at('Low Point [in]'), g(58, 3).toFixed(3), at('Club Path [deg]'),
+      at('Dynamic Loft [deg]'), at('Face Angle [deg]'), at('Face To Path [deg]'),
+      at('Ball Speed [mph]'), at('Smash Factor'), at('Launch Angle [deg]'),
+      at('Launch Direction [deg]'), at('Spin Rate [rpm]'),
+      i % 20 === 0 ? 'Measured' : 'Estimated', at('Spin Axis [deg]'),
+      at('Height [ft]'), at('Carry [yds]'), at('Side [yds]'),
+      at('Landing Angle [deg]'), at('Total [yds]'), at('Side [yds]'),
+      at('Impact Offset [mm]'), at('Impact Height [mm]'),
+      (Number(at('Curve [yds]')) * 3).toFixed(2), at('Spin Loft [deg]'),
+      g(-4, 4).toFixed(0), useInStat,
+      '"Data are normalized to no wind conditions at 4700 ft altitude"',
+    ]);
+  }
+
+  const body = [
+    'sep=,',
+    HEAD.join(','),
+    UNITS.join(','),
+    ...rows.map((r) => r.join(',')),
+  ].join('\n');
+  writeFileSync(resolve(OUT, '9-shot-analysis-export.csv'), `${body}\n`);
+  console.log(`${'9-shot-analysis-export.csv'.padEnd(34)} ${rows.length} shots`);
+}

@@ -1,104 +1,174 @@
 import type { Club } from '../schema.js';
 
 /**
- * Tour benchmark reference values.
+ * TrackMan PGA and LPGA Tour averages, and how to compare an amateur to them
+ * fairly.
  *
- * PROVENANCE — read before trusting these numbers.
+ * THE PROBLEM WITH RAW TOUR COMPARISON. A tour player swings a 7-iron at
+ * 92 mph. Telling someone who swings it at 80 that they are 24 yards short is
+ * true and useless — they are not short because they strike it badly, they
+ * are short because they swing it slower, and no amount of practice changes
+ * that this week.
  *
- * These are TrackMan's widely republished PGA and LPGA Tour averages. They
- * are a *reference frame*, not a target: telling a 15-handicap that their
- * 7-iron spins 1,500 rpm less than a tour player is context, not a fault.
- * TrackMan has revised the published table (notably in 2024), so before this
- * ships to anyone the values below should be re-checked against TrackMan's
- * current published averages and `revisedAt` bumped.
+ * So the numbers here split into two kinds:
  *
- * Every rule that consumes these treats them as soft context. No finding is
- * ever raised purely because a player differs from a tour average — see
- * `diagnose/` for the windows that actually drive findings.
+ *   - **Speed-independent**: smash factor, attack angle, launch angle, spin.
+ *     Ratios and delivery angles that a 75 mph player can match exactly. These
+ *     are compared directly, and they are where the coaching actually lives.
+ *   - **Speed-dependent**: ball speed, carry, height. Compared only after
+ *     scaling to the player's own club speed — see `speedAdjusted` below.
+ *
+ * PROVENANCE. TrackMan's published tour averages (2024 revision). Ball speed
+ * is derived as club speed × smash factor rather than transcribed, because
+ * the published 3-wood row is internally inconsistent (110 mph at 1.47 smash
+ * is 162 mph of ball speed, not the 169 printed) and a table that disagrees
+ * with itself will eventually be used to "prove" something.
  */
 
-export const TOUR_TABLE_REVISED_AT = '2026-08-31';
-export const TOUR_TABLE_SOURCE =
-  'TrackMan published PGA/LPGA Tour averages; verify against trackman.com before release.';
+export const TOUR_TABLE_REVISED_AT = '2024';
+export const TOUR_TABLE_SOURCE = 'TrackMan published PGA/LPGA Tour averages, 2024 revision.';
 
 export interface TourRow {
   clubSpeed: number;
-  ballSpeed: number;
+  attackAngle: number;
   smashFactor: number;
   launchAngle: number;
   spinRate: number;
+  /** Apex, feet. Published in yards; converted here to match the schema. */
+  apexHeight: number;
+  landingAngle: number;
   carry: number;
 }
 
-export type TourSet = 'pga' | 'lpga';
+/** Ball speed is always club speed × smash, never stored separately. */
+export function tourBallSpeed(row: TourRow): number {
+  return row.clubSpeed * row.smashFactor;
+}
 
 const PGA: Partial<Record<Club, TourRow>> = {
-  Dr: { clubSpeed: 113, ballSpeed: 167, smashFactor: 1.48, launchAngle: 10.9, spinRate: 2686, carry: 275 },
-  '3w': { clubSpeed: 107, ballSpeed: 158, smashFactor: 1.48, launchAngle: 9.2, spinRate: 3655, carry: 243 },
-  '5w': { clubSpeed: 103, ballSpeed: 152, smashFactor: 1.47, launchAngle: 9.4, spinRate: 4350, carry: 230 },
-  '3h': { clubSpeed: 100, ballSpeed: 146, smashFactor: 1.46, launchAngle: 10.2, spinRate: 4437, carry: 225 },
-  '3i': { clubSpeed: 98, ballSpeed: 142, smashFactor: 1.45, launchAngle: 10.4, spinRate: 4630, carry: 212 },
-  '4i': { clubSpeed: 96, ballSpeed: 137, smashFactor: 1.43, launchAngle: 11.0, spinRate: 4836, carry: 203 },
-  '5i': { clubSpeed: 94, ballSpeed: 135, smashFactor: 1.41, launchAngle: 12.1, spinRate: 5361, carry: 194 },
-  '6i': { clubSpeed: 92, ballSpeed: 131, smashFactor: 1.38, launchAngle: 14.1, spinRate: 6231, carry: 183 },
-  '7i': { clubSpeed: 90, ballSpeed: 127, smashFactor: 1.33, launchAngle: 16.3, spinRate: 7097, carry: 172 },
-  '8i': { clubSpeed: 87, ballSpeed: 120, smashFactor: 1.32, launchAngle: 18.1, spinRate: 7998, carry: 160 },
-  '9i': { clubSpeed: 85, ballSpeed: 115, smashFactor: 1.28, launchAngle: 20.4, spinRate: 8647, carry: 148 },
-  PW: { clubSpeed: 83, ballSpeed: 109, smashFactor: 1.23, launchAngle: 24.2, spinRate: 9304, carry: 136 },
+  Dr:   { clubSpeed: 115, attackAngle: -0.9, smashFactor: 1.49, launchAngle: 10.4, spinRate: 2545, apexHeight: 105, landingAngle: 39, carry: 282 },
+  '3w': { clubSpeed: 110, attackAngle: -2.3, smashFactor: 1.47, launchAngle: 9.3,  spinRate: 3663, apexHeight: 96,  landingAngle: 44, carry: 249 },
+  '5w': { clubSpeed: 106, attackAngle: -2.5, smashFactor: 1.47, launchAngle: 9.7,  spinRate: 4322, apexHeight: 99,  landingAngle: 48, carry: 236 },
+  '3h': { clubSpeed: 102, attackAngle: -2.4, smashFactor: 1.47, launchAngle: 10.2, spinRate: 4587, apexHeight: 93,  landingAngle: 49, carry: 231 },
+  '3i': { clubSpeed: 100, attackAngle: -2.5, smashFactor: 1.46, launchAngle: 10.3, spinRate: 4404, apexHeight: 90,  landingAngle: 48, carry: 218 },
+  '4i': { clubSpeed: 98,  attackAngle: -2.9, smashFactor: 1.44, launchAngle: 10.8, spinRate: 4782, apexHeight: 93,  landingAngle: 49, carry: 209 },
+  '5i': { clubSpeed: 96,  attackAngle: -3.4, smashFactor: 1.41, launchAngle: 11.9, spinRate: 5280, apexHeight: 99,  landingAngle: 50, carry: 199 },
+  '6i': { clubSpeed: 94,  attackAngle: -3.7, smashFactor: 1.39, launchAngle: 14.0, spinRate: 6204, apexHeight: 96,  landingAngle: 50, carry: 188 },
+  '7i': { clubSpeed: 92,  attackAngle: -3.9, smashFactor: 1.34, launchAngle: 16.1, spinRate: 7124, apexHeight: 102, landingAngle: 51, carry: 176 },
+  '8i': { clubSpeed: 89,  attackAngle: -4.2, smashFactor: 1.33, launchAngle: 17.8, spinRate: 8078, apexHeight: 99,  landingAngle: 51, carry: 164 },
+  '9i': { clubSpeed: 87,  attackAngle: -4.3, smashFactor: 1.29, launchAngle: 20.0, spinRate: 8793, apexHeight: 96,  landingAngle: 52, carry: 152 },
+  PW:   { clubSpeed: 84,  attackAngle: -4.7, smashFactor: 1.24, launchAngle: 23.7, spinRate: 9316, apexHeight: 96,  landingAngle: 52, carry: 142 },
 };
 
 const LPGA: Partial<Record<Club, TourRow>> = {
-  Dr: { clubSpeed: 94, ballSpeed: 140, smashFactor: 1.48, launchAngle: 13.2, spinRate: 2611, carry: 218 },
-  '3w': { clubSpeed: 90, ballSpeed: 132, smashFactor: 1.47, launchAngle: 11.2, spinRate: 2704, carry: 195 },
-  '5w': { clubSpeed: 88, ballSpeed: 128, smashFactor: 1.47, launchAngle: 12.1, spinRate: 4501, carry: 185 },
-  '7w': { clubSpeed: 85, ballSpeed: 123, smashFactor: 1.45, launchAngle: 12.7, spinRate: 4693, carry: 174 },
-  '4i': { clubSpeed: 80, ballSpeed: 116, smashFactor: 1.45, launchAngle: 14.3, spinRate: 4801, carry: 169 },
-  '5i': { clubSpeed: 79, ballSpeed: 114, smashFactor: 1.44, launchAngle: 14.8, spinRate: 5081, carry: 161 },
-  '6i': { clubSpeed: 78, ballSpeed: 112, smashFactor: 1.43, launchAngle: 17.1, spinRate: 5943, carry: 152 },
-  '7i': { clubSpeed: 76, ballSpeed: 107, smashFactor: 1.41, launchAngle: 19.0, spinRate: 6699, carry: 141 },
-  '8i': { clubSpeed: 74, ballSpeed: 103, smashFactor: 1.39, launchAngle: 20.8, spinRate: 7494, carry: 130 },
-  '9i': { clubSpeed: 72, ballSpeed: 100, smashFactor: 1.38, launchAngle: 23.9, spinRate: 8078, carry: 119 },
-  PW: { clubSpeed: 70, ballSpeed: 93, smashFactor: 1.33, launchAngle: 25.6, spinRate: 8403, carry: 107 },
+  Dr:   { clubSpeed: 94, attackAngle: 3.0,  smashFactor: 1.48, launchAngle: 13.2, spinRate: 2611, apexHeight: 78, landingAngle: 37, carry: 218 },
+  '3w': { clubSpeed: 90, attackAngle: -0.9, smashFactor: 1.47, launchAngle: 11.2, spinRate: 2704, apexHeight: 71, landingAngle: 39, carry: 195 },
+  '5w': { clubSpeed: 88, attackAngle: -1.8, smashFactor: 1.47, launchAngle: 12.1, spinRate: 4501, apexHeight: 72, landingAngle: 43, carry: 185 },
+  '7w': { clubSpeed: 85, attackAngle: -3.0, smashFactor: 1.45, launchAngle: 12.7, spinRate: 4693, apexHeight: 69, landingAngle: 44, carry: 174 },
+  '4i': { clubSpeed: 80, attackAngle: -1.7, smashFactor: 1.45, launchAngle: 14.3, spinRate: 4801, apexHeight: 66, landingAngle: 43, carry: 169 },
+  '5i': { clubSpeed: 79, attackAngle: -1.9, smashFactor: 1.44, launchAngle: 14.8, spinRate: 5081, apexHeight: 69, landingAngle: 45, carry: 161 },
+  '6i': { clubSpeed: 78, attackAngle: -2.3, smashFactor: 1.43, launchAngle: 17.1, spinRate: 5943, apexHeight: 70, landingAngle: 46, carry: 152 },
+  '7i': { clubSpeed: 76, attackAngle: -2.3, smashFactor: 1.41, launchAngle: 19.0, spinRate: 6699, apexHeight: 75, landingAngle: 47, carry: 141 },
+  '8i': { clubSpeed: 74, attackAngle: -3.1, smashFactor: 1.39, launchAngle: 20.8, spinRate: 7494, apexHeight: 75, landingAngle: 47, carry: 130 },
+  '9i': { clubSpeed: 72, attackAngle: -3.1, smashFactor: 1.38, launchAngle: 23.9, spinRate: 8078, apexHeight: 75, landingAngle: 47, carry: 119 },
+  PW:   { clubSpeed: 70, attackAngle: -2.8, smashFactor: 1.33, launchAngle: 25.6, spinRate: 8403, apexHeight: 72, landingAngle: 48, carry: 107 },
 };
 
-export function tourRow(club: Club, set: TourSet): TourRow | null {
+export type TourSet = 'pga' | 'lpga';
+
+export function tourRow(club: Club, set: TourSet = 'pga'): TourRow | null {
   return (set === 'pga' ? PGA : LPGA)[club] ?? null;
 }
 
 /**
- * Realistic smash-factor ceilings by club.
+ * What tour-quality *striking* would produce at the player's own club speed.
  *
- * These are what a *well-struck* shot achieves, not a tour average, and they
- * are the reference the strike-quality rule uses. Smash falls with loft
- * because more loft means more spin loft means less energy transferred
- * forward — a 1.25 smash with a pitching wedge is a good strike, and flagging
- * it against the driver's 1.50 would be nonsense.
+ * This is the fair comparison, and it is the one that turns a benchmark into
+ * something actionable. Ball speed scales with club speed for a given
+ * efficiency, and carry scales with ball speed closely enough over the range
+ * amateurs actually occupy. What comes back is not "how far a tour player
+ * hits it" but "how far *you* would hit it if you found the middle as often
+ * as they do" — a number the player can genuinely go and claim.
+ *
+ * Accuracy falls away at the extremes, since launch and spin stop being
+ * optimal a long way from the reference speed. Treat a gap under about 5%
+ * as noise rather than a finding.
+ */
+export interface SpeedAdjusted {
+  club: Club;
+  /** The player's own median club speed, mph. */
+  clubSpeed: number;
+  tourClubSpeed: number;
+  /** Ball speed a tour-quality strike would produce at this club speed. */
+  expectedBallSpeed: number;
+  /** Carry that ball speed would produce. */
+  expectedCarry: number;
+  /** Player's smash as a share of tour smash. 1.0 means tour-level striking. */
+  efficiency: number;
+  /** Yards between the player's carry and the speed-adjusted expectation. */
+  carryGap: number;
+  /** Ball speed left on the table at the player's current club speed, mph. */
+  ballSpeedGap: number;
+}
+
+export function speedAdjusted(
+  club: Club,
+  playerClubSpeed: number,
+  playerSmash: number,
+  playerCarry: number,
+  set: TourSet = 'pga',
+): SpeedAdjusted | null {
+  const row = tourRow(club, set);
+  if (!row || !Number.isFinite(playerClubSpeed) || playerClubSpeed <= 0) return null;
+
+  const expectedBallSpeed = playerClubSpeed * row.smashFactor;
+  const expectedCarry = row.carry * (playerClubSpeed / row.clubSpeed);
+  const playerBallSpeed = playerClubSpeed * playerSmash;
+
+  return {
+    club,
+    clubSpeed: playerClubSpeed,
+    tourClubSpeed: row.clubSpeed,
+    expectedBallSpeed,
+    expectedCarry,
+    efficiency: Number.isFinite(playerSmash) ? playerSmash / row.smashFactor : Number.NaN,
+    carryGap: Number.isFinite(playerCarry) ? playerCarry - expectedCarry : Number.NaN,
+    ballSpeedGap: Number.isFinite(playerSmash) ? expectedBallSpeed - playerBallSpeed : Number.NaN,
+  };
+}
+
+/**
+ * Realistic smash ceilings, taken from the tour table where one exists.
+ *
+ * Smash is a ratio, so it is the one headline number an amateur can match
+ * outright — a well-struck 7-iron returns about 1.34 whether it is swung at
+ * 92 mph or 75. That makes it the fairest single measure of strike quality
+ * there is, and the reason the strike rules lean on it.
  */
 export const SMASH_CEILING: Partial<Record<Club, number>> = {
-  Dr: 1.50, '2w': 1.49, '3w': 1.48, '4w': 1.48, '5w': 1.47, '7w': 1.46,
-  '2h': 1.46, '3h': 1.46, '4h': 1.45, '5h': 1.45, '6h': 1.44,
-  '1i': 1.46, '2i': 1.45, '3i': 1.45, '4i': 1.43, '5i': 1.41,
-  '6i': 1.38, '7i': 1.35, '8i': 1.32, '9i': 1.28,
-  PW: 1.24, GW: 1.20, SW: 1.16, LW: 1.12,
+  Dr: 1.49, '2w': 1.48, '3w': 1.47, '4w': 1.47, '5w': 1.47, '7w': 1.46,
+  '2h': 1.47, '3h': 1.47, '4h': 1.46, '5h': 1.45, '6h': 1.44,
+  '1i': 1.47, '2i': 1.46, '3i': 1.46, '4i': 1.44, '5i': 1.41,
+  '6i': 1.39, '7i': 1.34, '8i': 1.33, '9i': 1.29,
+  PW: 1.24, GW: 1.21, SW: 1.17, LW: 1.12,
 };
 
 /**
  * Spin windows that indicate a real problem, in rpm.
  *
- * Wide on purpose. These are "this is costing you distance or control"
- * boundaries, not optimisation targets — optimal spin depends on club speed,
- * launch angle and ball, and a fitting is the right tool for that. Only
- * clubs where a spin problem is both common and clearly diagnosable from
- * shot data alone appear here.
+ * Wide on purpose. Optimal spin depends on club speed, launch angle and ball,
+ * so these are "this is costing you distance or control" boundaries rather
+ * than optimisation targets. Anchored on the tour figures with generous room
+ * either side, since a slower swing legitimately spins a little less.
  */
 export const SPIN_WINDOW: Partial<Record<Club, [number, number]>> = {
   Dr: [1800, 3400],
-  '3w': [2600, 4600],
-  '5w': [3200, 5300],
-  '5i': [3800, 6600],
-  '6i': [4500, 7400],
-  '7i': [5200, 8300],
-  '8i': [6000, 9200],
-  '9i': [6800, 10000],
-  PW: [7500, 11000],
+  '3w': [2600, 4800],
+  '5w': [3200, 5600],
+  '5i': [3800, 6800],
+  '6i': [4500, 7600],
+  '7i': [5200, 8600],
+  '8i': [6000, 9600],
+  '9i': [6800, 10400],
+  PW: [7500, 11200],
 };

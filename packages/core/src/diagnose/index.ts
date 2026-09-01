@@ -1,6 +1,6 @@
 import type { Club, SessionKind, Shot, ShotSession } from '../schema.js';
 import { modeForKind, type PracticeMode } from '../practice/modes.js';
-import { prescribePractice, type PracticeSession } from '../practice/prescribe.js';
+import { prescribePractice, type PracticeDuration, type PracticeSession } from '../practice/prescribe.js';
 import { markImplausible, markMishits } from '../stats/outliers.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { DRILLS, type Drill } from './drills.js';
@@ -15,6 +15,18 @@ import {
   smashRule,
 } from './rules-strike.js';
 import { faceConsistencyRule, faceToPathRule, pathRule } from './rules-dplane.js';
+import {
+  dynamicLoftConsistencyRule,
+  lateralDispersionRule,
+  launchWindowRule,
+  spinConsistencyRule,
+  speedAdjustedEfficiencyRule,
+} from './rules-delivery.js';
+import {
+  classifyStrikes, clubConsistency, potential, sessionProgression, shapeBreakdown,
+  type ClubConsistency, type Potential, type Progression, type ShapeBreakdown,
+  type StrikeBreakdown,
+} from '../analysis/index.js';
 import type { Finding, Rule } from './types.js';
 import { impactOf, type Impact } from './impact.js';
 import { prioritise, type Prioritised } from './causes.js';
@@ -36,6 +48,11 @@ const PER_CLUB_RULES: Rule[] = [
   faceConsistencyRule,
   spinWindowRule,
   carryConsistencyRule,
+  dynamicLoftConsistencyRule,
+  launchWindowRule,
+  spinConsistencyRule,
+  lateralDispersionRule,
+  speedAdjustedEfficiencyRule,
 ];
 
 /**
@@ -75,6 +92,40 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
   return total;
 }
 
+/**
+ * Notes about the measurement rather than the golf.
+ *
+ * Things that change how much weight the numbers deserve, and which the
+ * player cannot see from the figures themselves — estimated spin is a model
+ * output, and altitude-normalised carries are not sea-level carries.
+ */
+function dataNotes(session: ShotSession): string[] {
+  const notes: string[] = [];
+  const shots = session.shots;
+  if (shots.length === 0) return notes;
+
+  const withSpinFlag = shots.filter((s) => s.spinMeasured !== null);
+  const estimated = withSpinFlag.filter((s) => s.spinMeasured === false).length;
+  if (withSpinFlag.length > 0 && estimated / withSpinFlag.length > 0.5) {
+    notes.push(
+      `Spin was estimated rather than measured on ${estimated} of ${withSpinFlag.length} shots. ` +
+      `Estimated spin is a model output, so treat the spin findings as indicative and the ` +
+      `strike and direction findings as solid.`,
+    );
+  }
+
+  const excluded = shots.filter((s) => s.flags.includes('mishit')).length;
+  if (excluded > 0) {
+    notes.push(
+      `${excluded} shot${excluded === 1 ? ' was' : 's were'} well outside your normal pattern ` +
+      `and ${excluded === 1 ? 'is' : 'are'} excluded from the medians, but still counted in how ` +
+      `often a bad one shows up.`,
+    );
+  }
+
+  return notes;
+}
+
 /** Findings are unique per rule *and* club, so both belong in the key. */
 export function findingKey(finding: Finding): string {
   return `${finding.id}::${finding.club ?? 'bag'}`;
@@ -106,6 +157,19 @@ export interface SessionReport {
   practicePlan: PracticeItem[];
   /** A full session laid out in TrackMan practice modes, ready to run. */
   practice: PracticeSession;
+
+  /** Where the ball started and which way it bent, across the session. */
+  shape: ShapeBreakdown;
+  /** How each shot was struck, judged against this player's own baseline. */
+  strike: StrikeBreakdown;
+  /** Repeatability per metric for the most-hit club. */
+  consistency: ClubConsistency | null;
+  /** Whether the session improved, faded, or held. */
+  progression: Progression;
+  /** The gap between the player's best golf and their normal golf. */
+  potential: Potential | null;
+  /** Notes about the data itself, rather than the golf. */
+  dataNotes: string[];
 }
 
 export interface PracticeItem {
@@ -117,6 +181,8 @@ export interface PracticeItem {
 }
 
 export interface DiagnoseOptions {
+  /** Which bay slot the practice plan should fill. Defaults to one hour. */
+  practiceDuration?: PracticeDuration;
   /**
    * Hide findings the sample is too small to support. On by default —
    * a confident-sounding diagnosis from four shots is the fastest way to
@@ -137,7 +203,7 @@ export function diagnoseSession(
   session: ShotSession,
   opts: DiagnoseOptions = {},
 ): SessionReport {
-  const { hideLowConfidence = true, maxDrills = 4 } = opts;
+  const { hideLowConfidence = true, maxDrills = 4, practiceDuration = 60 } = opts;
 
   markImplausible(session.shots);
   markMishits(session.shots);
@@ -178,6 +244,10 @@ export function diagnoseSession(
    */
   const rootFindings = priorities.filter((p) => p.explainedBy === null).map((p) => p.finding);
 
+  // The club with the most shots carries the session-level analyses; running
+  // them per club would bury the reading in a session that is mostly one club.
+  const mainProfile = [...profiles].sort((a, b) => b.shotCount - a.shotCount)[0] ?? null;
+
   return {
     sessionId: session.id,
     kind: session.kind,
@@ -190,8 +260,14 @@ export function diagnoseSession(
     impacts,
     priorities,
     strokesAvailable: estimateStrokesAvailable(priorities),
+    shape: shapeBreakdown(session.shots),
+    strike: classifyStrikes(session.shots),
+    consistency: mainProfile ? clubConsistency(mainProfile) : null,
+    progression: sessionProgression(session.shots),
+    potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
+    dataNotes: dataNotes(session),
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
-    practice: prescribePractice(rootFindings, profiles),
+    practice: prescribePractice(rootFindings, profiles, { duration: practiceDuration }),
   };
 }
 

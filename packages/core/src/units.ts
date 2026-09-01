@@ -132,6 +132,14 @@ export function parseNumber(raw: string | undefined | null): number | null {
   s = s.replace(/[−‒–—]/g, '-'); // unicode minus and dashes
   s = s.replace(/[^\d.,+\-eE]/g, '');
 
+  /*
+   * Nothing numeric survived the strip, so the cell was never a number.
+   * Returning it anyway hands `Number('')` back, which is 0 — and a units
+   * row like "[mph],[deg],[rpm]" then parses as a shot where every
+   * measurement is exactly zero.
+   */
+  if (!/\d/.test(s)) return null;
+
   const lastComma = s.lastIndexOf(',');
   const lastDot = s.lastIndexOf('.');
   if (lastComma !== -1 && lastDot !== -1) {

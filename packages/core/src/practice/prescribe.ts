@@ -31,6 +31,11 @@ export interface Prescription {
   targetDistance: number | null;
   shots: number;
   minutes: number;
+  /**
+   * True for blocks whose length is part of their purpose — a warm-up and a
+   * round of nine do not scale. Everything else flexes to fill the slot.
+   */
+  fixedLength?: boolean;
   /** Finding ids this addresses. */
   addresses: string[];
   /** Supporting drills to run inside this block. */
@@ -41,9 +46,22 @@ export interface PracticeSession {
   /** Ordered blocks: build the change, vary it, measure it, take it to a course. */
   blocks: Prescription[];
   totalMinutes: number;
+  /** The slot this plan was built to fill. */
+  duration: PracticeDuration;
   /** Set when the engine had nothing specific to work on. */
   note: string | null;
 }
+
+/**
+ * Simulator bays are booked by the hour, so a plan is only useful if it fits
+ * a slot you can actually reserve. A 95-minute session is not a session
+ * anyone can book — it is a 60-minute one you will rush or a 120-minute one
+ * you will pad.
+ */
+export type PracticeDuration = 60 | 120;
+
+/** Warm-up is a fixed cost, not a block that competes for time. */
+const WARMUP_MINUTES = 10;
 
 const STAGE_ORDER: Record<PracticeMode['stage'], number> = {
   build: 0,
@@ -434,82 +452,35 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-/** Always-available blocks that do not depend on a specific finding. */
-function baselineBlocks(profiles: ClubProfile[], hasFindings: boolean): Prescription[] {
-  const out: Prescription[] = [];
-
-  if (!hasFindings) {
-    out.push({
-      id: 'rx-combine',
-      mode: PRACTICE_MODES.combine,
-      title: 'Take a Combine to get a baseline',
-      rationale:
-        'Nothing in this session was clear enough to act on — either it was a clean day or there were too few shots per club. The Combine is the fastest way to find out where you actually stand, because it scores ten distances in half an hour.',
-      setup: [
-        'TPS → Practice → Test Center → Combine.',
-        'Warm up for ten minutes first. The Combine is a measurement and a cold measurement is worthless.',
-        '60 shots: three at each of 60, 70, 80, 90, 100, 120, 140, 160 and 180 yards plus driver, twice through.',
-      ],
-      success:
-        'A score you can repeat against. The number matters less than which distances scored worst.',
-      club: null,
-      targetDistance: null,
-      shots: 60,
-      minutes: 40,
-      addresses: [],
-      drills: [],
-    });
-  }
-
-  out.push({
-    id: 'rx-transfer',
-    mode: PRACTICE_MODES['virtual-golf'],
-    title: 'Finish on a course',
-    rationale:
-      'Range numbers flatter everyone. Nine holes is the only environment that tests whether anything you just worked on survives a different club, a different target and a consequence on every shot.',
-    setup: [
-      'Virtual Golf → Play → nine holes.',
-      'Full routine on every shot, no mulligans, play the ball where it finishes.',
-      'Note which of the faults you worked on reappears under a card.',
-    ],
-    success: 'The pattern you worked on shows up less than it did before. If it shows up just as much, the change has not transferred yet.',
-    club: null,
-    targetDistance: null,
-    shots: 0,
-    minutes: 45,
-    addresses: [],
-    drills: [],
-  });
-
-  return out;
-}
-
-/**
- * Build a full practice session from the diagnosis.
- *
- * Blocks come out in coaching order — build the change, then vary it, then
- * measure it, then take it to a course — rather than in severity order. A
- * session that opens with a scored test measures a swing the player has not
- * changed yet, which wastes the test and the session.
- */
 export function prescribePractice(
   findings: Finding[],
   profiles: ClubProfile[],
-  opts: { maxBlocks?: number } = {},
+  opts: { duration?: PracticeDuration } = {},
 ): PracticeSession {
-  const { maxBlocks = 4 } = opts;
-  const blocks: Prescription[] = [];
+  const duration: PracticeDuration = opts.duration === 120 ? 120 : 60;
+
+  /*
+   * How many working blocks fit the slot.
+   *
+   * An hour is one warm-up, two pieces of work and something that measures
+   * whether they held. Two hours buys a third piece of work and a proper
+   * round rather than a longer version of the same drill — spending 40
+   * minutes on one fault produces boredom, not learning.
+   */
+  const workingSlots = duration === 120 ? 3 : 2;
+
+  const candidates: Prescription[] = [];
   const seen = new Set<string>();
 
   for (const finding of findings) {
-    if (blocks.length >= maxBlocks) break;
+    if (candidates.length >= workingSlots) break;
     const template = TEMPLATES.find((t) => t.matches(finding.id));
     if (!template) continue;
 
     const rx = template.build(finding, profiles);
     if (!rx) continue;
 
-    const existing = blocks.find((b) => b.id === rx.id);
+    const existing = candidates.find((b) => b.id === rx.id);
     if (existing) {
       // One block can answer several findings; say so rather than repeating it.
       for (const id of rx.addresses) {
@@ -520,20 +491,144 @@ export function prescribePractice(
     if (seen.has(rx.id)) continue;
 
     seen.add(rx.id);
-    blocks.push(rx);
+    candidates.push(rx);
   }
 
-  const withBaseline = [...blocks, ...baselineBlocks(profiles, blocks.length > 0)];
-  withBaseline.sort((a, b) => STAGE_ORDER[a.mode.stage] - STAGE_ORDER[b.mode.stage]);
+  const blocks = [warmUp(profiles), ...candidates, ...closingBlocks(duration, candidates.length > 0)];
+  blocks.sort((a, b) => STAGE_ORDER[a.mode.stage] - STAGE_ORDER[b.mode.stage]);
+
+  fitToSlot(blocks, duration);
 
   return {
-    blocks: withBaseline,
-    totalMinutes: withBaseline.reduce((sum, b) => sum + b.minutes, 0),
+    blocks,
+    totalMinutes: blocks.reduce((sum, b) => sum + b.minutes, 0),
+    duration,
     note:
-      blocks.length === 0
+      candidates.length === 0
         ? 'No specific fault stood out, so this plan is about measurement rather than repair.'
         : null,
   };
+}
+
+/**
+ * Scale the working blocks so the plan lands exactly on the hour.
+ *
+ * Warm-up and the closing block are fixed — they are the parts you cannot
+ * shorten without losing their purpose — so the remainder is distributed
+ * across the working blocks in proportion to what each asked for, then
+ * rounded to five minutes because nobody practises to the minute. Any
+ * rounding error lands on the largest block, where it is proportionally
+ * smallest.
+ */
+function fitToSlot(blocks: Prescription[], duration: PracticeDuration): void {
+  const fixed = blocks.filter((b) => b.fixedLength);
+  const flexible = blocks.filter((b) => !b.fixedLength);
+  if (flexible.length === 0) return;
+
+  const fixedMinutes = fixed.reduce((sum, b) => sum + b.minutes, 0);
+  const budget = duration - fixedMinutes;
+  if (budget <= 0) return;
+
+  const asked = flexible.reduce((sum, b) => sum + b.minutes, 0) || 1;
+
+  let allocated = 0;
+  for (const block of flexible) {
+    const share = (block.minutes / asked) * budget;
+    block.minutes = Math.max(10, Math.round(share / 5) * 5);
+    allocated += block.minutes;
+  }
+
+  // Push the rounding drift onto the biggest block.
+  const drift = budget - allocated;
+  if (drift !== 0) {
+    const largest = [...flexible].sort((a, b) => b.minutes - a.minutes)[0];
+    if (largest) largest.minutes = Math.max(10, largest.minutes + drift);
+  }
+}
+
+function warmUp(profiles: ClubProfile[]): Prescription {
+  const mid = profiles.find((p) => p.club === '7i') ?? profiles[0];
+  return {
+    id: 'rx-warmup',
+    mode: PRACTICE_MODES.range,
+    title: 'Warm up properly',
+    rationale:
+      'Cold measurements are worthless, and the first ten balls of a session are not your golf. Practising on them teaches you to fix a fault you do not have once you are warm.',
+    setup: [
+      'Practice Range. Start with a wedge at half speed.',
+      'Work up through the bag — five shots per club, no target, no swing thoughts.',
+      `Finish the warm-up on the ${mid?.club ?? '7i'} at full speed before anything below counts.`,
+    ],
+    success: 'Two consecutive strikes that feel normal. That is when the session starts.',
+    club: mid?.club ?? null,
+    targetDistance: null,
+    shots: 20,
+    minutes: WARMUP_MINUTES,
+    fixedLength: true,
+    addresses: [],
+    drills: [],
+  };
+}
+
+/**
+ * What closes the session.
+ *
+ * An hour ends on a scored test — enough to find out whether the work held,
+ * without eating the time that produced it. Two hours ends on nine holes,
+ * because a full round is the only thing that tests a change against a
+ * different club and a different target on every shot, and two hours is the
+ * first slot with room for it.
+ */
+function closingBlocks(duration: PracticeDuration, hadWork: boolean): Prescription[] {
+  if (duration === 120) {
+    return [
+      {
+        id: 'rx-transfer',
+        mode: PRACTICE_MODES['virtual-golf'],
+        title: 'Finish on a course',
+        rationale:
+          'Range numbers flatter everyone. Nine holes is the only environment that tests whether anything you just worked on survives a different club, a different target and a consequence on every shot.',
+        setup: [
+          'Virtual Golf → Play → nine holes.',
+          'Full routine on every shot, no mulligans, play the ball where it finishes.',
+          'Note which of the faults you worked on reappears under a card.',
+        ],
+        success:
+          'The pattern you worked on shows up less than it did before. If it shows up just as much, the change has not transferred yet.',
+        club: null,
+        targetDistance: null,
+        shots: 0,
+        minutes: 45,
+        fixedLength: true,
+        addresses: [],
+        drills: [],
+      },
+    ];
+  }
+
+  return [
+    {
+      id: 'rx-checkpoint',
+      mode: PRACTICE_MODES['test-center'],
+      title: hadWork ? 'Check whether it held' : 'Set a baseline you can repeat',
+      rationale: hadWork
+        ? 'Ten scored shots at the end tell you whether the hour changed anything. Without them you only know the drill felt better, which is not the same thing.'
+        : 'Nothing specific stood out, so the most useful thing this hour can produce is a number you can measure the next one against.',
+      setup: [
+        'Test Center → build a custom test, or re-run the one you saved.',
+        'One target at a distance you face often, ten shots.',
+        'Full routine on every ball — this part is meant to feel like the course.',
+      ],
+      success: 'A score you can write down and beat next visit.',
+      club: null,
+      targetDistance: null,
+      shots: 10,
+      minutes: 15,
+      fixedLength: true,
+      addresses: [],
+      drills: [],
+    },
+  ];
 }
 
 export type { PracticeMode, PracticeModeId };

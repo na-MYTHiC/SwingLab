@@ -183,3 +183,67 @@ describe('session kind detection', () => {
     expect(session?.kind).toBe('range');
   });
 });
+
+describe('TrackMan shot-analysis ("Normalized") export', () => {
+  const samples = resolve(here, '../../../../samples');
+  const input = {
+    name: '9-shot-analysis-export.csv',
+    text: readFileSync(resolve(samples, '9-shot-analysis-export.csv'), 'utf8'),
+  };
+
+  it('parses despite the sep= hint and a separate units row', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    expect(session).not.toBeNull();
+    // 40 rows, less the two the player flagged as not counting.
+    expect(session?.shots).toHaveLength(38);
+  });
+
+  it('does not read the units row as a shot', () => {
+    // "[mph],[deg],[rpm]" used to parse as a shot where every measurement
+    // was exactly zero, which then dragged every median down.
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    for (const shot of session?.shots ?? []) {
+      expect(shot.clubSpeed === 0 && shot.ballSpeed === 0).toBe(false);
+    }
+  });
+
+  it('respects TrackMan’s own Use In Stat flag', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    // The player already told the launch monitor to disregard those swings.
+    expect(session?.shots).toHaveLength(38);
+  });
+
+  it('finds carry, total and apex under their real column names', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    const shots = session?.shots ?? [];
+    // These live under "Carry Flat - Length" and "Max Height - Height", and
+    // were silently absent until those aliases existed.
+    expect(shots.every((s) => s.carry !== null)).toBe(true);
+    expect(shots.every((s) => s.total !== null)).toBe(true);
+    expect(shots.every((s) => s.apexHeight !== null)).toBe(true);
+    expect(shots.every((s) => s.landingAngle !== null)).toBe(true);
+  });
+
+  it('reads units from the units row, not the header', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    const first = session?.shots[0];
+    // Curve is published in feet here; the schema stores yards.
+    expect(first?.carry).toBeGreaterThan(80);
+    expect(first?.carry).toBeLessThan(260);
+    expect(first?.apexHeight).toBeGreaterThan(20);
+  });
+
+  it('reads a twelve-hour clock as the evening it was', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    // "5:20:00 PM" is 17:20, not 05:20 — otherwise an evening session sorts
+    // before a morning one on the same day.
+    expect(session?.startedAt?.getHours()).toBeGreaterThanOrEqual(17);
+  });
+
+  it('records whether spin was measured or estimated', () => {
+    const { session } = trackmanCsvAdapter.parse(input, { handedness: 'right' });
+    const shots = session?.shots ?? [];
+    expect(shots.some((s) => s.spinMeasured === true)).toBe(true);
+    expect(shots.some((s) => s.spinMeasured === false)).toBe(true);
+  });
+});

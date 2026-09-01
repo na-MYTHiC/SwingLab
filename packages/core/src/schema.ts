@@ -88,6 +88,12 @@ export interface Shot {
   lowPointDistance: Maybe<number>;
   impactOffset: Maybe<number>;
   impactHeight: Maybe<number>;
+  /** Sideways position of the low point, mm. + = toward the toe side. */
+  lowPointSide: Maybe<number>;
+  /** Radius of the swing arc, inches. */
+  swingRadius: Maybe<number>;
+  /** Lie angle delivered at impact, degrees. */
+  dynamicLie: Maybe<number>;
 
   // --- Ball launch -----------------------------------------------------
   ballSpeed: Maybe<number>;
@@ -118,6 +124,15 @@ export interface Shot {
   proximity: Maybe<number>;
   /** TrackMan's own 0-100 score for the shot, where the mode produces one. */
   shotScore: Maybe<number>;
+
+  /**
+   * Whether spin was measured or estimated.
+   *
+   * TrackMan estimates spin when it cannot read the ball's markings, and an
+   * estimated figure is a model output rather than an observation. Any
+   * finding that leans on spin should say which it had.
+   */
+  spinMeasured: Maybe<boolean>;
 
   /**
    * Set by the outlier pass, not by ingest. A shot flagged here is excluded

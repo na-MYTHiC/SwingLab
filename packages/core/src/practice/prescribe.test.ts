@@ -8,6 +8,7 @@ import { PRACTICE_MODES } from './modes.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = resolve(here, '../../../../fixtures');
+const samples = resolve(here, '../../../../samples');
 
 function report(file: string) {
   const text = readFileSync(resolve(fixtures, file), 'utf8');
@@ -48,8 +49,12 @@ describe('practice prescriptions from a range session', () => {
     }
   });
 
-  it('always finishes on a course, because range numbers flatter everyone', () => {
-    expect(r.practice.blocks.at(-1)?.mode.id).toBe('virtual-golf');
+  it('opens with a warm-up, because cold measurements are worthless', () => {
+    expect(r.practice.blocks[0]?.id).toBe('rx-warmup');
+  });
+
+  it('ends an hour on something scored, so you find out whether it held', () => {
+    expect(r.practice.blocks.at(-1)?.mode.stage).toBe('measure');
   });
 
   it('uses the player’s own carry numbers for target distances', () => {
@@ -74,7 +79,7 @@ describe('practice prescriptions from a range session', () => {
 });
 
 describe('practice prescriptions when nothing is wrong', () => {
-  it('recommends a Combine to get a baseline rather than inventing a fault', () => {
+  it('sets a repeatable baseline rather than inventing a fault', () => {
     const { session } = ingest(
       {
         name: 'clean.csv',
@@ -89,7 +94,56 @@ describe('practice prescriptions when nothing is wrong', () => {
     );
     const r = diagnoseSession(session!);
     expect(r.findings).toHaveLength(0);
-    expect(r.practice.blocks.some((b) => b.mode.id === 'combine')).toBe(true);
+    expect(r.practice.blocks.some((b) => b.id === 'rx-checkpoint')).toBe(true);
     expect(r.practice.note).toContain('measurement');
+  });
+});
+
+describe('practice fits the slot you can actually book', () => {
+  const session = () => {
+    const text = readFileSync(resolve(samples, '1-range-slicer.csv'), 'utf8');
+    const { session } = ingest({ name: '1-range-slicer.csv', text }, { handedness: 'right' });
+    return session!;
+  };
+
+  it('lands exactly on the hour', () => {
+    const r = diagnoseSession(session(), { practiceDuration: 60 });
+    expect(r.practice.totalMinutes).toBe(60);
+    expect(r.practice.duration).toBe(60);
+  });
+
+  it('lands exactly on two hours', () => {
+    const r = diagnoseSession(session(), { practiceDuration: 120 });
+    expect(r.practice.totalMinutes).toBe(120);
+    expect(r.practice.duration).toBe(120);
+  });
+
+  it('defaults to an hour rather than an unbookable length', () => {
+    expect(diagnoseSession(session()).practice.totalMinutes).toBe(60);
+  });
+
+  it('buys another piece of work with the second hour, not a longer drill', () => {
+    const hour = diagnoseSession(session(), { practiceDuration: 60 });
+    const two = diagnoseSession(session(), { practiceDuration: 120 });
+    const working = (r: typeof hour) =>
+      r.practice.blocks.filter((b) => !b.fixedLength).length;
+    expect(working(two)).toBeGreaterThan(working(hour));
+  });
+
+  it('only spends a two-hour slot on a full round', () => {
+    const hour = diagnoseSession(session(), { practiceDuration: 60 });
+    const two = diagnoseSession(session(), { practiceDuration: 120 });
+    expect(hour.practice.blocks.some((b) => b.mode.id === 'virtual-golf')).toBe(false);
+    expect(two.practice.blocks.some((b) => b.mode.id === 'virtual-golf')).toBe(true);
+  });
+
+  it('keeps every block a usable length', () => {
+    for (const duration of [60, 120] as const) {
+      const r = diagnoseSession(session(), { practiceDuration: duration });
+      for (const block of r.practice.blocks) {
+        expect(block.minutes, `${duration}min: ${block.id}`).toBeGreaterThanOrEqual(10);
+        expect(block.minutes % 5, `${duration}min: ${block.id}`).toBe(0);
+      }
+    }
   });
 });

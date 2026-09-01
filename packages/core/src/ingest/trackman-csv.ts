@@ -26,10 +26,18 @@ type Quantity =
   | 'text';
 
 interface FieldSpec {
-  field: keyof Shot | 'club' | 'date' | 'time';
+  field: keyof Shot | 'club' | 'date' | 'time' | 'useInStat' | 'spinType';
   quantity: Quantity;
   /** True if a positive value means "right" and must flip for a lefty. */
   mirrored?: boolean;
+  /**
+   * Which column wins when an export carries several for the same field.
+   * TrackMan's shot-analysis export has three carries — the simulator value,
+   * the flat-ground value, and the raw last-data-point — and picking whichever
+   * happened to be rightmost in the file is not a decision, it is an accident.
+   * Higher wins; default 1.
+   */
+  priority?: number;
 }
 
 /**
@@ -89,6 +97,38 @@ const FIELD_MAP: Record<string, FieldSpec> = {
   curvedistance: { field: 'curve', quantity: 'distance', mirrored: true },
   height: { field: 'apexHeight', quantity: 'apex' },
 
+  // --- TrackMan shot-analysis export ("Normalized") -------------------
+  // A different, much wider layout than the Table View CSV: units live on
+  // their own row, and the distances are named by which model produced them.
+
+  // Simulator values win where present — this is a simulator app, and they
+  // are the numbers the player watched on the screen.
+  carrysim: { field: 'carry', quantity: 'distance', priority: 3 },
+  totalsim: { field: 'total', quantity: 'distance', priority: 3 },
+  carrysidesim: { field: 'side', quantity: 'distance', mirrored: true, priority: 3 },
+  totalsidesim: { field: 'sideTotal', quantity: 'distance', mirrored: true, priority: 3 },
+  curvesim: { field: 'curve', quantity: 'distance', mirrored: true, priority: 3 },
+  spinaxissim: { field: 'spinAxis', quantity: 'angle', mirrored: true, priority: 3 },
+  landinganglesim: { field: 'landingAngle', quantity: 'angle', priority: 3 },
+
+  // Flat-ground values are the fallback and are always populated.
+  carryflatlength: { field: 'carry', quantity: 'distance', priority: 2 },
+  carryflatside: { field: 'side', quantity: 'distance', mirrored: true, priority: 2 },
+  carryflatlandangle: { field: 'landingAngle', quantity: 'angle', priority: 2 },
+  esttotalflatlength: { field: 'total', quantity: 'distance', priority: 2 },
+  esttotalflatside: { field: 'sideTotal', quantity: 'distance', mirrored: true, priority: 2 },
+
+  maxheightheight: { field: 'apexHeight', quantity: 'apex' },
+  lastdatapointtime: { field: 'hangTime', quantity: 'time' },
+
+  lowpointside: { field: 'lowPointSide', quantity: 'impact', mirrored: true },
+  swingradius: { field: 'swingRadius', quantity: 'lowpoint' },
+  dynamiclie: { field: 'dynamicLie', quantity: 'angle' },
+
+  // Not measurements, but they decide whether a row counts at all.
+  useinstat: { field: 'useInStat', quantity: 'text' },
+  spinratetype: { field: 'spinType', quantity: 'text' },
+
   // Target work — Combine, Test Center, Performance Center, Target Practice
   target: { field: 'targetDistance', quantity: 'distance' },
   targetdistance: { field: 'targetDistance', quantity: 'distance' },
@@ -119,6 +159,19 @@ interface Column {
   header: string;
   spec: FieldSpec;
   unit: string | null;
+}
+
+/**
+ * Is this row a units row rather than a shot?
+ *
+ * The shot-analysis export puts units on their own line under the header —
+ * "[mph],[deg],[rpm]" — which is not a shot and must not be read as one. It
+ * used to parse as a shot in which every measurement was exactly zero.
+ */
+function isUnitsRow(row: string[]): boolean {
+  const filled = row.filter((c) => c !== '');
+  if (filled.length < 3) return false;
+  return filled.every((c) => /^\[[^\]]*\]$/.test(c));
 }
 
 /**
@@ -176,6 +229,50 @@ function convert(
   }
 }
 
+type DateOrder = 'mdy' | 'dmy';
+
+/**
+ * Work out day/month order once per file rather than once per row.
+ *
+ * "9/2/2026" is 9 February or 2 September and nothing in the row itself can
+ * say which. But a session usually contains many dates, and one of them
+ * having a part above twelve settles the format for all of them — so the
+ * whole file gets read rather than each row being refused in isolation.
+ *
+ * With no evidence at all, month-first is the right default: TrackMan is a
+ * US-headquartered product and its exports are month-first. A single warning
+ * is raised so the assumption is visible, because dropping every timestamp
+ * instead costs the session ordering, the progression read and the trends,
+ * which is a far worse outcome than a date that is probably right.
+ */
+function detectDateOrder(
+  rows: string[][],
+  dateColumn: number | null,
+  firstDataRow: number,
+  warn: (w: IngestWarning) => void,
+): DateOrder {
+  if (dateColumn === null) return 'mdy';
+
+  for (let r = firstDataRow; r < rows.length; r++) {
+    const cell = rows[r]?.[dateColumn];
+    if (!cell) continue;
+    const m = /^(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})/.exec(cell.trim());
+    if (!m) continue;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a > 12) return 'dmy';
+    if (b > 12) return 'mdy';
+  }
+
+  warn({
+    code: 'ambiguous-date',
+    message:
+      'Every date in this file could be read day-first or month-first. Assuming month-first, ' +
+      'which is what TrackMan exports.',
+  });
+  return 'mdy';
+}
+
 /**
  * Parse a TrackMan date/time pair.
  *
@@ -187,8 +284,7 @@ function convert(
 function parseTimestamp(
   dateStr: string | undefined,
   timeStr: string | undefined,
-  warn: (w: IngestWarning) => void,
-  row: number,
+  order: DateOrder,
 ): Maybe<Date> {
   const d = (dateStr ?? '').trim();
   const t = (timeStr ?? '').trim();
@@ -209,30 +305,39 @@ function parseTimestamp(
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
-  const slash = /^(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(
-    combined,
-  );
+  const slash =
+    /^(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?/i.exec(
+      combined,
+    );
   if (slash) {
     const a = Number(slash[1]);
     const b = Number(slash[2]);
-    if (a > 12 || b > 12) {
-      // One of them must be the day, so the order is determined.
-      const day = a > 12 ? a : b;
-      const month = a > 12 ? b : a;
+    {
+      // A part above twelve settles this row on its own; otherwise use the
+      // order worked out from the whole file.
+      const dayFirst = a > 12 ? true : b > 12 ? false : order === 'dmy';
+      const day = dayFirst ? a : b;
+      const month = dayFirst ? b : a;
       const yearRaw = Number(slash[3]);
       const year = yearRaw < 100 ? 2000 + yearRaw : yearRaw;
+
+      /*
+       * Twelve-hour clocks need the meridiem applied, or an evening range
+       * session lands at five in the morning — which reorders the shots
+       * against any session recorded on the same day and quietly corrupts
+       * every "did this get better as I went" reading.
+       */
+      let hour = Number(slash[4] ?? 0);
+      const meridiem = slash[7]?.toUpperCase();
+      if (meridiem === 'PM' && hour < 12) hour += 12;
+      if (meridiem === 'AM' && hour === 12) hour = 0;
+
       const parsed = new Date(
         year, month - 1, day,
-        Number(slash[4] ?? 0), Number(slash[5] ?? 0), Number(slash[6] ?? 0),
+        hour, Number(slash[5] ?? 0), Number(slash[6] ?? 0),
       );
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
-    warn({
-      code: 'ambiguous-date',
-      message: `Date "${combined}" could be day/month or month/day; timestamp left unset.`,
-      row,
-    });
-    return null;
   }
 
   return null;
@@ -261,6 +366,17 @@ export const trackmanCsvAdapter: IngestAdapter = {
     }
 
     const headers = rows[headerRow] ?? [];
+
+    /*
+     * Units may be in the header ("Carry [yds]") or on their own row beneath
+     * it. Without reading the separate row, a metric export of this format
+     * silently reports metres as yards — the numbers still look plausible,
+     * which is the worst kind of wrong.
+     */
+    const unitsRow = rows[headerRow + 1];
+    const unitsFromRow = unitsRow && isUnitsRow(unitsRow) ? unitsRow : null;
+    const firstDataRow = headerRow + (unitsFromRow ? 2 : 1);
+
     const columns: Column[] = [];
     for (let i = 0; i < headers.length; i++) {
       const header = headers[i] ?? '';
@@ -270,21 +386,32 @@ export const trackmanCsvAdapter: IngestAdapter = {
         warn({ code: 'unrecognised-column', message: `Ignoring column "${header}".` });
         continue;
       }
-      columns.push({ index: i, header, spec, unit: parseUnitToken(header) });
+      const unit =
+        parseUnitToken(header) ??
+        (unitsFromRow ? parseUnitToken(unitsFromRow[i] ?? '') : null);
+      columns.push({ index: i, header, spec, unit });
     }
+
+    const dateColumn = columns.find((c) => c.spec.field === 'date')?.index ?? null;
+    const dateOrder = detectDateOrder(rows, dateColumn, firstDataRow, warn);
 
     const mirror = opts.handedness === 'left' ? -1 : 1;
     const shots: Shot[] = [];
     const unknownClubLabels = new Set<string>();
 
-    for (let r = headerRow + 1; r < rows.length; r++) {
+    for (let r = firstDataRow; r < rows.length; r++) {
       const row = rows[r];
       if (!row || row.every((c) => c === '')) continue;
+
+      if (isUnitsRow(row)) continue;
 
       let rawClub = '';
       let dateStr: string | undefined;
       let timeStr: string | undefined;
+      let excluded = false;
+      let spinMeasured: boolean | null = null;
       const numeric: Partial<Record<keyof Shot, number>> = {};
+      const claimedBy: Partial<Record<keyof Shot, number>> = {};
       let sawAnyNumber = false;
 
       for (const col of columns) {
@@ -293,6 +420,16 @@ export const trackmanCsvAdapter: IngestAdapter = {
           if (col.spec.field === 'club') rawClub = (cell ?? '').trim();
           else if (col.spec.field === 'date') dateStr = cell;
           else if (col.spec.field === 'time') timeStr = cell;
+          else if (col.spec.field === 'useInStat') {
+            // TrackMan's own "count this one" flag. The player already told
+            // the launch monitor to disregard the shot; overriding that would
+            // put practice swings and do-overs into their statistics.
+            if (/^(false|0|no)$/i.test((cell ?? '').trim())) excluded = true;
+          } else if (col.spec.field === 'spinType') {
+            const t = (cell ?? '').trim().toLowerCase();
+            if (t === 'measured') spinMeasured = true;
+            else if (t === 'estimated') spinMeasured = false;
+          }
           continue;
         }
 
@@ -310,8 +447,18 @@ export const trackmanCsvAdapter: IngestAdapter = {
 
         sawAnyNumber = true;
         const signed = col.spec.mirrored ? converted * mirror : converted;
-        numeric[col.spec.field as keyof Shot] = signed;
+
+        // Highest-priority column wins, so a file carrying both a simulator
+        // carry and a flat-ground carry resolves the same way every time.
+        const field = col.spec.field as keyof Shot;
+        const priority = col.spec.priority ?? 1;
+        if ((claimedBy[field] ?? 0) <= priority) {
+          numeric[field] = signed;
+          claimedBy[field] = priority;
+        }
       }
+
+      if (excluded) continue;
 
       if (!sawAnyNumber) {
         warn({ code: 'unparsed-row', message: 'Row contained no readable numbers.', row: r + 1 });
@@ -326,8 +473,9 @@ export const trackmanCsvAdapter: IngestAdapter = {
           sequence: shots.length + 1,
           club,
           rawClub,
-          time: parseTimestamp(dateStr, timeStr, warn, r + 1),
+          time: parseTimestamp(dateStr, timeStr, dateOrder),
           numeric,
+          spinMeasured,
           sourceRef: input.name,
         }),
       );
@@ -407,6 +555,7 @@ function buildShot(args: {
   rawClub: string;
   time: Maybe<Date>;
   numeric: Partial<Record<keyof Shot, number>>;
+  spinMeasured?: boolean | null;
   sourceRef: string;
 }): Shot {
   const n = args.numeric;
@@ -449,6 +598,11 @@ function buildShot(args: {
     landingAngle: get('landingAngle'),
     hangTime: get('hangTime'),
 
+    lowPointSide: get('lowPointSide'),
+    swingRadius: get('swingRadius'),
+    dynamicLie: get('dynamicLie'),
+
+    spinMeasured: args.spinMeasured ?? null,
     targetDistance: get('targetDistance'),
     proximity: get('proximity'),
     shotScore: get('shotScore'),
