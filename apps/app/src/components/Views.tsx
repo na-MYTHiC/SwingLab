@@ -1,4 +1,6 @@
-import type { Prioritised, SessionReport, Prescription, ClubProfile, Trend } from '@swinglab/core';
+import type {
+  Prioritised, SessionReport, Prescription, ClubProfile, Trend, PracticeDuration,
+} from '@swinglab/core';
 import { DispersionChart, TrendChart } from './Charts.js';
 import { minutes, num, shots, speedLabel } from '../format.js';
 
@@ -132,11 +134,31 @@ function PriorityCard({
 }
 
 /** The Practice view — a session laid out in real TrackMan modes. */
-export function PracticeView({ report }: { report: SessionReport }) {
+export function PracticeView({
+  report, duration, onDuration,
+}: {
+  report: SessionReport;
+  duration: PracticeDuration;
+  onDuration: (d: PracticeDuration) => void;
+}) {
   const { practice } = report;
 
   return (
     <>
+      <div className="slot-picker" role="group" aria-label="Session length">
+        <span>Book a</span>
+        {([60, 120] as PracticeDuration[]).map((d) => (
+          <button
+            key={d}
+            className={d === duration ? 'slot slot-on' : 'slot'}
+            onClick={() => onDuration(d)}
+          >
+            {d === 60 ? '1 hour' : '2 hours'}
+          </button>
+        ))}
+        <span className="slot-note">Bays go by the hour, so the plan fills the slot exactly.</span>
+      </div>
+
       <div className="headline">
         <div className="headline-figure">
           <strong>{minutes(practice.totalMinutes)}</strong>

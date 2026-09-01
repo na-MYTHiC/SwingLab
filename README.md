@@ -21,6 +21,11 @@ looking at a cached older build.
 
 ## What it does
 
+**Reads both TrackMan export formats.** The Table View CSV and the wider
+shot-analysis ("Normalized") export, which puts units on their own row, names
+carry `Carry Flat - Length`, carries several competing distance columns, and
+uses twelve-hour timestamps and a `Use In Stat` flag.
+
 **Reads every kind of TrackMan session.** Range, Target Practice, Test Center,
 Combine, Performance Center, the games, course play and putting. The activity
 is detected at ingest, because the same numbers mean different things in
@@ -38,6 +43,16 @@ with what they unlock, symptoms are nested underneath them, and practice is
 built from root causes only, so a session never works the same fault three
 times under three names. Strike still precedes direction on the same club as a
 hard constraint.
+
+**Compares you to tour fairly.** Raw tour comparison is useless — an 87 mph
+7-iron is not "short" against a tour player's 92, it is slower, and no
+practice changes that this week. Smash factor is a ratio and therefore
+directly comparable at any speed, so the benchmark answers what your *own*
+club speed would carry with a tour-quality strike.
+
+**Fits the hour you booked.** Practice plans total exactly 60 or 120 minutes,
+because bays go by the hour and a 95-minute plan is not one anyone can
+reserve. Warm-up and the closing block are fixed; the working blocks scale.
 
 **Prescribes practice in the actual modes.** Every block names the TrackMan
 mode, where to find it, the setup steps, and what a good result looks like —

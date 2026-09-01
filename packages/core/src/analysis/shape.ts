@@ -75,7 +75,10 @@ export function shapeBreakdown(shots: Shot[]): ShapeBreakdown {
 
   const dominant = list[0] && list[0].share >= 0.4 ? list[0] : null;
   // How many shapes it takes to account for 80% of the session — a rough
-  // measure of whether the player has one pattern or several.
+  // measure of whether the player has one pattern or several. Reported as
+  // "most of your session" rather than as a total, because the long tail of
+  // one-off shapes is not the point and quoting it alongside a longer list
+  // reads as a contradiction.
   let cumulative = 0;
   let spreadOfShapes = 0;
   for (const entry of list) {

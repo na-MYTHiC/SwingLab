@@ -8,6 +8,7 @@ import {
   type IngestWarning,
   type SessionReport,
   type ShotSession,
+  type PracticeDuration,
   type Trend,
 } from '@swinglab/core';
 import { clearAll, loadAll, remove, save, type StoredSession } from './storage.js';
@@ -16,10 +17,12 @@ import { applyTheme, loadTheme, type Theme } from './theme.js';
 import { buildStamp, VERSION } from './version.js';
 import { shortDate } from './format.js';
 import { ClubsView, PracticeView, PriorityView, TrendsView } from './components/Views.js';
+import { OverviewView } from './components/Overview.js';
 
-type Tab = 'priority' | 'practice' | 'clubs' | 'trends';
+type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
   { id: 'priority', label: 'Priority' },
   { id: 'practice', label: 'Practice' },
   { id: 'clubs', label: 'Clubs' },
@@ -31,7 +34,8 @@ export default function App() {
   const [handedness, setHandedness] = useState<Handedness>('right');
   const [stored, setStored] = useState<StoredSession[]>(() => loadAll());
   const [activeId, setActiveId] = useState<string | null>(() => loadAll()[0]?.session.id ?? null);
-  const [tab, setTab] = useState<Tab>('priority');
+  const [tab, setTab] = useState<Tab>('overview');
+  const [practiceDuration, setPracticeDuration] = useState<PracticeDuration>(60);
   const [warnings, setWarnings] = useState<IngestWarning[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -49,9 +53,11 @@ export default function App() {
     [stored, activeId],
   );
 
+  const cloned = useMemo(() => (active ? cloneSession(active) : null), [active]);
+
   const report = useMemo<SessionReport | null>(
-    () => (active ? diagnoseSession(cloneSession(active)) : null),
-    [active],
+    () => (cloned ? diagnoseSession(cloned, { practiceDuration }) : null),
+    [cloned, practiceDuration],
   );
 
   const trends = useMemo<Trend[]>(() => {
@@ -224,8 +230,15 @@ export default function App() {
           </nav>
 
           <section className="view">
+            {tab === 'overview' && cloned && <OverviewView report={report} session={cloned} />}
             {tab === 'priority' && <PriorityView report={report} />}
-            {tab === 'practice' && <PracticeView report={report} />}
+            {tab === 'practice' && (
+              <PracticeView
+                report={report}
+                duration={practiceDuration}
+                onDuration={setPracticeDuration}
+              />
+            )}
             {tab === 'clubs' && <ClubsView report={report} />}
             {tab === 'trends' && <TrendsView trends={trends} sessionCount={stored.length} />}
           </section>

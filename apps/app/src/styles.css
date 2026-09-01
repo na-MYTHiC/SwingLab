@@ -551,3 +551,167 @@ tbody tr:hover { background: var(--surface-2); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* ============================================================== overview ===
+ *
+ * The visual half of the app. A launch monitor already hands the player a
+ * table; what earns a second screen is making the pattern legible before any
+ * of the words are read.
+ */
+
+.overview { display: grid; gap: 14px; }
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 24px 26px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 60%),
+    linear-gradient(150deg, var(--surface-2), var(--surface));
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+}
+.hero-main { flex: 1; min-width: 250px; }
+.hero-eyebrow {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text-faint);
+}
+.hero-figure { display: flex; align-items: baseline; gap: 9px; margin: 6px 0 8px; }
+.hero-figure strong {
+  font-size: 52px; line-height: 1; letter-spacing: -0.045em;
+  background: linear-gradient(160deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--text)));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-figure span { font-size: 14px; color: var(--text-dim); }
+.hero p { margin: 0; font-size: 13.5px; color: var(--text-dim); max-width: 54ch; }
+
+/* --- ring ---------------------------------------------------------------- */
+
+.ring { flex: none; text-align: center; }
+.ring svg { display: block; }
+.ring-track { fill: none; stroke: var(--surface-3); }
+.ring-fill { fill: none; stroke: var(--accent); transition: stroke-dasharray .6s cubic-bezier(.4,0,.2,1); }
+.ring-mid .ring-fill { stroke: var(--warn); }
+.ring-bad .ring-fill { stroke: var(--alert); }
+.ring-score { font-size: 30px; font-weight: 650; fill: var(--text); letter-spacing: -0.03em; }
+.ring-unit { font-size: 10px; fill: var(--text-faint); }
+.ring-label { margin-top: 6px; }
+.ring-label strong { display: block; font-size: 13px; }
+.ring-label span { font-size: 11.5px; color: var(--text-faint); }
+
+/* --- callout ------------------------------------------------------------- */
+
+.callout {
+  padding: 20px 22px;
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface) 55%);
+}
+.callout h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.015em; }
+.callout p { margin: 0 0 16px; color: var(--text-dim); font-size: 13.5px; }
+.callout-figures { display: flex; gap: 26px; flex-wrap: wrap; }
+.figure { display: flex; flex-direction: column; }
+.figure strong { font-size: 26px; line-height: 1.1; letter-spacing: -0.03em; }
+.figure span { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .07em; }
+.figure-accent strong { color: var(--accent); }
+
+/* --- panels -------------------------------------------------------------- */
+
+/* align-items: start so a short card keeps its own height instead of being
+ * stretched to match a tall neighbour and trailing dead space. */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.split-wide { grid-template-columns: minmax(260px, 0.85fr) 1.15fr; }
+.split > .card { padding: 18px 20px; }
+
+.panel-title { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
+.panel-sub { margin: 0 0 14px; font-size: 12.5px; color: var(--text-faint); }
+
+/* --- segmented bar ------------------------------------------------------- */
+
+.segbar { margin-top: 12px; }
+.segbar-track {
+  display: flex; height: 12px; border-radius: 999px; overflow: hidden;
+  background: var(--surface-3); gap: 2px;
+}
+.segbar-part { transition: opacity .15s; }
+.segbar-part:hover { opacity: .78; }
+.tone-best { background: var(--accent); }
+.tone-good { background: color-mix(in srgb, var(--accent) 58%, var(--surface-3)); }
+.tone-mid { background: var(--warn); }
+.tone-bad { background: var(--alert); }
+
+.segbar-key {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px;
+}
+.segbar-key li { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+.segbar-key strong { color: var(--text); }
+.dot-key { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.segbar-caption { margin: 12px 0 0; font-size: 12.5px; color: var(--text-faint); }
+
+/* --- consistency bars ---------------------------------------------------- */
+
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 13px; }
+.bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bar-label { font-size: 13px; font-weight: 500; }
+.bar-spread { font-size: 12px; color: var(--text-faint); }
+.bar-track {
+  height: 6px; margin: 6px 0 5px; border-radius: 999px;
+  background: var(--surface-3); overflow: hidden;
+}
+.bar-fill {
+  height: 100%; border-radius: 999px; background: var(--accent);
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+.bar-mid .bar-fill { background: var(--warn); }
+.bar-bad .bar-fill { background: var(--alert); }
+.bar-so-what { margin: 0; font-size: 12px; color: var(--text-faint); }
+
+/* --- progression --------------------------------------------------------- */
+
+.progression { display: flex; gap: 24px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.prog-bars { display: flex; align-items: flex-end; gap: 12px; height: 130px; flex: none; }
+.prog-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.prog-value { font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+.prog-bar {
+  width: 46px; border-radius: 7px 7px 3px 3px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 42%, transparent));
+  transition: height .6s cubic-bezier(.4,0,.2,1);
+}
+.prog-bad .prog-bar { background: linear-gradient(180deg, var(--alert), color-mix(in srgb, var(--alert) 40%, transparent)); }
+.prog-mid .prog-bar { background: linear-gradient(180deg, var(--warn), color-mix(in srgb, var(--warn) 40%, transparent)); }
+.prog-label { font-size: 10.5px; color: var(--text-faint); margin-top: 7px; white-space: nowrap; }
+.prog-text { flex: 1; min-width: 230px; }
+.prog-text h4 { margin: 0 0 6px; font-size: 15px; }
+.prog-text p { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+.notes ul { margin: 10px 0 0; padding-left: 18px; color: var(--text-dim); font-size: 12.5px; }
+.notes li + li { margin-top: 7px; }
+
+/* --- shot dots ----------------------------------------------------------- */
+
+.shot-dot { fill: color-mix(in srgb, var(--accent) 78%, transparent); }
+.shot-dot-off { fill: var(--alert); opacity: .75; }
+.ellipse { fill: color-mix(in srgb, var(--accent) 11%, transparent); stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 1.5; }
+.centre-dot { fill: var(--text); stroke: var(--bg); stroke-width: 2; }
+
+/* --- slot picker --------------------------------------------------------- */
+
+.slot-picker {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  margin-bottom: 16px; font-size: 13px; color: var(--text-dim);
+}
+.slot { border-radius: 999px; padding: 7px 16px; font-size: 13.5px; }
+.slot-on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
+.slot-note { font-size: 12px; color: var(--text-faint); flex-basis: 100%; }
+
+@media (max-width: 720px) {
+  .split, .split-wide { grid-template-columns: 1fr; }
+  .hero { padding: 18px; gap: 18px; }
+  .hero-figure strong { font-size: 40px; }
+  .prog-bars { height: 105px; }
+  .prog-bar { width: 38px; }
+}

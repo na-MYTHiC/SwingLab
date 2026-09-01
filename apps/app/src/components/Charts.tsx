@@ -1,4 +1,4 @@
-import type { ClubProfile, Trend } from '@swinglab/core';
+import type { ClubProfile, Shot, Trend } from '@swinglab/core';
 import { num } from '../format.js';
 
 /**
@@ -16,7 +16,9 @@ import { num } from '../format.js';
  * line. The single most useful picture in golf data — a player who sees
  * their pattern is left and short understands it faster than any table.
  */
-export function DispersionChart({ profile }: { profile: ClubProfile }) {
+export function DispersionChart({
+  profile, shots = [],
+}: { profile: ClubProfile; shots?: Shot[] }) {
   const d = profile.dispersion;
   if (!d || !Number.isFinite(d.centreCarry)) {
     return <p className="chart-empty">Not enough shots with a carry and side reading to plot.</p>;
@@ -35,14 +37,12 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
   const depthCentre = multiTarget ? profile.carryError.median : d.centreCarry;
 
   const width = 320;
-  const height = 380;
-  const padX = 34;
-  const padY = 26;
+  const height = 400;
+  const padX = 30;
+  const padY = 30;
 
-  // Scale to the pattern with headroom, and never narrower than ±15 yards so
-  // a tight pattern does not get magnified into looking scattered.
-  const halfWidth = Math.max(15, d.width / 2 + 6);
-  const depth = Math.max(20, depthSpread + 12);
+  const halfWidth = Math.max(15, d.width / 2 + 8);
+  const depth = Math.max(20, depthSpread + 14);
   const nearCarry = depthCentre - depth / 2;
   const farCarry = depthCentre + depth / 2;
 
@@ -51,32 +51,67 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
   const y = (carry: number) =>
     height - padY - ((carry - nearCarry) / (farCarry - nearCarry)) * (height - padY * 2);
 
+  /*
+   * Plot every shot, not only the summary ellipse.
+   *
+   * The ellipse says how wide the pattern is; the dots say what it is made of
+   * — whether the width comes from a steady bias or from two good shots and
+   * one wild one. That distinction changes the advice, and it is invisible in
+   * any summary statistic.
+   */
+  const plotted = shots
+    .filter((s) => s.carry !== null && s.side !== null)
+    .map((s) => ({
+      shot: s,
+      carryValue: multiTarget && s.targetDistance !== null
+        ? (s.carry as number) - s.targetDistance
+        : (s.carry as number),
+      side: s.side as number,
+      mishit: s.flags.includes('mishit'),
+    }))
+    .filter((p) => Number.isFinite(p.carryValue));
+
+  const rx = Math.max(6, (d.width / 2 / halfWidth) * ((width - padX * 2) / 2));
+  const ry = Math.max(6, (depthSpread / 2 / (farCarry - nearCarry)) * (height - padY * 2));
+
   return (
     <figure className="chart">
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Shot dispersion pattern">
-        <line
-          x1={x(0)} y1={padY - 8} x2={x(0)} y2={height - padY + 4}
-          className="axis-line"
-          strokeDasharray="3 4"
-        />
-        {[nearCarry, depthCentre, farCarry].map((carry, i) => (
-          <g key={i}>
-            <line x1={padX} y1={y(carry)} x2={width - padX} y2={y(carry)} className="grid-line" />
-            <text x={4} y={y(carry) + 4} className="axis-text">
-              {Math.round(carry)}
-            </text>
-          </g>
+        <defs>
+          <radialGradient id="patternFill" cx="50%" cy="50%">
+            <stop offset="0%" className="ellipse-core" />
+            <stop offset="100%" className="ellipse-edge" />
+          </radialGradient>
+        </defs>
+
+        {/* Distance bands, so depth is readable without reading the axis. */}
+        {[0.25, 0.5, 0.75].map((t) => {
+          const carry = nearCarry + (farCarry - nearCarry) * t;
+          return (
+            <line key={t} x1={padX} y1={y(carry)} x2={width - padX} y2={y(carry)}
+                  className="grid-line" />
+          );
+        })}
+        <text x={4} y={y(farCarry) + 10} className="axis-text">{Math.round(farCarry)}</text>
+        <text x={4} y={y(nearCarry)} className="axis-text">{Math.round(nearCarry)}</text>
+
+        {/* The target line. */}
+        <line x1={x(0)} y1={padY - 10} x2={x(0)} y2={height - padY + 6}
+              className="axis-line" strokeDasharray="4 5" />
+
+        <ellipse cx={x(d.centreSide)} cy={y(depthCentre)} rx={rx} ry={ry} className="ellipse" />
+
+        {plotted.map((p, i) => (
+          <circle
+            key={p.shot.id + i}
+            cx={x(p.side)}
+            cy={y(p.carryValue)}
+            r={p.mishit ? 3 : 3.5}
+            className={p.mishit ? 'shot-dot shot-dot-off' : 'shot-dot'}
+          />
         ))}
 
-        {/* Two-sigma pattern: roughly where 95% of shots land. */}
-        <ellipse
-          cx={x(d.centreSide)}
-          cy={y(depthCentre)}
-          rx={Math.max(6, (d.width / 2 / halfWidth) * ((width - padX * 2) / 2))}
-          ry={Math.max(6, (depthSpread / 2 / (farCarry - nearCarry)) * (height - padY * 2))}
-          className="ellipse"
-        />
-        <circle cx={x(d.centreSide)} cy={y(depthCentre)} r={4} className="centre-dot" />
+        <circle cx={x(d.centreSide)} cy={y(depthCentre)} r={4.5} className="centre-dot" />
       </svg>
       <figcaption>
         {multiTarget ? (
@@ -88,8 +123,7 @@ export function DispersionChart({ profile }: { profile: ClubProfile }) {
               {num(Math.abs(profile.carryError.median), 0)} yds{' '}
               {profile.carryError.median >= 0 ? 'past' : 'short of'}
             </strong>{' '}
-            the flag and {num(Math.abs(d.centreSide), 0)} yds{' '}
-            {d.centreSide >= 0 ? 'right' : 'left'} of it. The ring covers about 95% of your shots.
+            the flag.
           </>
         ) : (
           <>

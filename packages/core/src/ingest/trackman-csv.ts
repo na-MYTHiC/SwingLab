@@ -146,6 +146,25 @@ const FIELD_MAP: Record<string, FieldSpec> = {
   hangtime: { field: 'hangTime', quantity: 'time' },
 };
 
+/**
+ * Columns we know about and deliberately do not use.
+ *
+ * Warning about these is worse than useless: a shot-analysis export carries
+ * twenty-odd of them, so every import buried its real warnings — an
+ * unrecognised club, a dropped row — under a wall of notes about the player's
+ * email address. Silence here is the informative choice; a warning should
+ * mean something was unexpected.
+ */
+const KNOWN_UNUSED = new Set([
+  'tmdno', 'tmdfilename', 'player', 'ball', 'email', 'tags', 'condition',
+  'maxheightdist', 'maxheightside',
+  'lastdatapointlength', 'lastdatapointside', 'lastdatapointheight',
+  'carryflatballspeed', 'carryflattime',
+  'lowpointheight', 'dplanetilt', 'gyroangle',
+  'ballspeeddiff', 'smashindex', 'spinratediff', 'spinindex',
+  'swingplane',
+]);
+
 function headerKey(h: string): string {
   return h
     .replace(/\[[^\]]*\]/g, '')
@@ -381,9 +400,12 @@ export const trackmanCsvAdapter: IngestAdapter = {
     for (let i = 0; i < headers.length; i++) {
       const header = headers[i] ?? '';
       if (header === '') continue;
-      const spec = FIELD_MAP[headerKey(header)];
+      const key = headerKey(header);
+      const spec = FIELD_MAP[key];
       if (!spec) {
-        warn({ code: 'unrecognised-column', message: `Ignoring column "${header}".` });
+        if (!KNOWN_UNUSED.has(key)) {
+          warn({ code: 'unrecognised-column', message: `Ignoring column "${header}".` });
+        }
         continue;
       }
       const unit =
