@@ -387,8 +387,17 @@ export function diagnoseSession(
     consistency: report.consistency,
     optimals: report.optimals?.comparisons ?? null,
   });
-  report.achievements = evaluateAchievements(report);
+  /*
+   * Handicap before achievements, not after.
+   *
+   * Two milestones read `report.handicap`, and with the assignments the other
+   * way round it was still null when they were measured — so Single Figures
+   * and Scratch Striker could never be earned by anybody, silently, because a
+   * measure returning null is treated as "not applicable to this session"
+   * rather than as an error.
+   */
   report.handicap = estimateHandicap(mainProfile, report.strike);
+  report.achievements = evaluateAchievements(report);
 
   return report;
 }

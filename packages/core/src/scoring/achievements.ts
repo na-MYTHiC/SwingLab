@@ -122,6 +122,158 @@ const DEFINITIONS: Definition[] = [
       return smash.actual / smash.window.target;
     },
   },
+  {
+    id: 'few-mishits',
+    name: 'Clean Card',
+    requirement: 'Fewer than one shot in ten outside your normal pattern',
+    meaning: 'On the course every stray one is a stroke, sometimes two. Getting the rate under 10% is where a round stops having a hole that ruins it.',
+    tier: 'bronze',
+    measure: (r) => {
+      const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+      if (!main || main.shotCount < 15) return null;
+      // Progress runs from a 30% rate up to the 10% threshold.
+      return (0.3 - main.mishitRate) / 0.2;
+    },
+  },
+  {
+    id: 'finished-strong',
+    name: 'Finished Strong',
+    requirement: 'Not fading over the course of the session',
+    meaning: 'Almost everybody gets worse as a session goes on, and the last third is the part that most resembles the back nine. Holding your golf to the end is a skill on its own.',
+    tier: 'bronze',
+    measure: (r) => {
+      if (r.progression.verdict === 'unknown') return null;
+      return r.progression.verdict === 'faded' ? 0 : 1;
+    },
+  },
+  {
+    id: 'full-bag',
+    name: 'Full Bag',
+    requirement: 'Four clubs in one session with enough shots to read each',
+    meaning: 'One club tells you about one club. Four is where gapping, and whether a fault is in the swing or in that club, become visible at all.',
+    tier: 'bronze',
+    measure: (r) => {
+      const readable = r.profiles.filter((p) => p.representativeCount >= 5).length;
+      return readable / 4;
+    },
+  },
+  {
+    id: 'one-shape',
+    name: 'One Shape',
+    requirement: 'The same shot shape on 60% of your swings',
+    meaning: 'A ball that always moves the same way can be aimed. Good players are not straighter than everyone else so much as more repetitive, and half a golf course opens up once you can commit to a side.',
+    tier: 'silver',
+    measure: (r) => {
+      if (r.shape.total < 15 || !r.shape.dominant) return null;
+      return r.shape.dominant.share / 0.6;
+    },
+  },
+  {
+    id: 'square-face',
+    name: 'Square At Impact',
+    requirement: 'Face angle repeating inside 2 degrees',
+    meaning: 'Face angle decides about three quarters of where the ball starts. Two degrees is roughly the width of a green from 150 yards, so inside that you are aiming at flags rather than at the middle.',
+    tier: 'silver',
+    measure: (r) => {
+      const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+      const spread = main?.faceAngle.mad;
+      if (spread === undefined || !Number.isFinite(spread) || (main?.faceAngle.n ?? 0) < 12) {
+        return null;
+      }
+      // From 5 degrees of spread down to the 2-degree threshold.
+      return (5 - spread) / 3;
+    },
+  },
+  {
+    id: 'low-point-control',
+    name: 'Low Point Control',
+    requirement: 'Low point repeating inside 2 inches',
+    meaning: 'Where the club bottoms out is what separates a flush strike from a thin or a fat one, and it is the single most trainable thing in the golf swing. Two inches is the band good ball strikers live in.',
+    tier: 'silver',
+    measure: (r) => {
+      const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+      const spread = main?.lowPointDistance.mad;
+      if (spread === undefined || !Number.isFinite(spread)
+        || (main?.lowPointDistance.n ?? 0) < 12) {
+        return null;
+      }
+      return (5 - spread) / 3;
+    },
+  },
+  {
+    id: 'distance-control',
+    name: 'Distance Control',
+    requirement: 'Carry repeating inside 8% of the distance',
+    meaning: 'Direction gets the attention and distance costs the shots. Inside 8% you can take a number and trust it, which is what lets you aim past a bunker instead of short of one.',
+    tier: 'silver',
+    measure: (r) => {
+      const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+      const carry = main?.carry.median;
+      const spread = main?.carry.mad;
+      if (!main || carry === undefined || spread === undefined) return null;
+      if (!Number.isFinite(carry) || carry <= 0 || !Number.isFinite(spread)) return null;
+      if (main.carry.n < 12 || main.distinctTargets > 1) return null;
+      const relative = (spread / carry) * 100;
+      // From 16% down to the 8% threshold.
+      return (16 - relative) / 8;
+    },
+  },
+  {
+    id: 'tour-distance-control',
+    name: 'Yardage Book',
+    requirement: 'Carry repeating inside 5% of the distance — tour standard',
+    meaning: 'The level at which a number on a yardage book is a number you will actually hit. Very few amateurs are here and it is worth more strokes than another ten yards of speed.',
+    tier: 'gold',
+    measure: (r) => {
+      const main = [...r.profiles].sort((a, b) => b.shotCount - a.shotCount)[0];
+      const carry = main?.carry.median;
+      const spread = main?.carry.mad;
+      if (!main || carry === undefined || spread === undefined) return null;
+      if (!Number.isFinite(carry) || carry <= 0 || !Number.isFinite(spread)) return null;
+      if (main.carry.n < 12 || main.distinctTargets > 1) return null;
+      const relative = (spread / carry) * 100;
+      return (12 - relative) / 7;
+    },
+  },
+  {
+    id: 'graded-a',
+    name: 'A Grade',
+    requirement: 'A session scoring 75 or better',
+    meaning: 'Everything held together at once — contact, repeatability, delivery and pattern. Sessions like this are the ones worth going back and reading.',
+    tier: 'silver',
+    measure: (r) => (r.score ? r.score.total / 75 : null),
+  },
+  {
+    id: 'graded-s',
+    name: 'Complete Session',
+    requirement: 'A session scoring 88 or better',
+    meaning: 'The top grade. Nothing was carrying anything else, which is rarer than any single good number.',
+    tier: 'gold',
+    measure: (r) => (r.score ? r.score.total / 88 : null),
+  },
+  {
+    id: 'single-figures',
+    name: 'Single Figures',
+    requirement: 'Ball-striking that supports a handicap under 10',
+    meaning: 'The line most golfers spend years trying to cross. This is the ball-striking half of it — the short game still has to hold up its end.',
+    tier: 'silver',
+    measure: (r) => {
+      if (!r.handicap) return null;
+      // Progress runs from 24 down to the 10 threshold.
+      return (24 - r.handicap.estimate) / 14;
+    },
+  },
+  {
+    id: 'scratch-striker',
+    name: 'Scratch Striker',
+    requirement: 'Ball-striking that supports a scratch handicap',
+    meaning: 'Your pattern is as tight as a scratch player\u2019s. Whether you shoot their scores is now a question about the fifty yards around the green.',
+    tier: 'gold',
+    measure: (r) => {
+      if (!r.handicap) return null;
+      return (14 - r.handicap.estimate) / 14;
+    },
+  },
 ];
 
 export function evaluateAchievements(report: SessionReport): Achievement[] {

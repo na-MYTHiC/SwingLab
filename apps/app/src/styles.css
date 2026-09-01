@@ -249,40 +249,105 @@ select { font-size: var(--fs-sm); }
  * comfortable one-handed target, and cramming the counts onto the same line
  * is what forced the old version to scroll sideways on a phone.
  */
-.session-bar {
-  margin: var(--sp-3) 0 var(--sp-4);
-  padding: var(--sp-3);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
+.session-bar { margin: var(--sp-3) 0 var(--sp-4); }
 
-.session-pick select {
+.session-bar select {
   width: 100%;
   height: var(--tap);
   font-size: var(--fs-md);
   font-weight: 550;
-  background: var(--surface-2);
+  background: var(--surface);
+  border-color: var(--line);
   padding: 0 var(--sp-3);
   text-overflow: ellipsis;
 }
 
-.session-meta {
+/* ---------------------------------------------------------------- sheet */
+
+/*
+ * Import and delete, together.
+ *
+ * A bottom sheet rather than a centred modal: it opens from the edge nearest
+ * the thumb, the list scrolls without moving the page behind it, and the
+ * dismiss gesture is the one a phone user already has.
+ */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: fade .16s ease-out;
+}
+
+.sheet {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: var(--card-pad) var(--card-pad) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px -12px rgb(0 0 0 / 0.7);
+  animation: rise .2s cubic-bezier(.2, .8, .3, 1);
+}
+@media (min-width: 640px) {
+  .sheet-backdrop { align-items: center; }
+  .sheet { border-radius: 20px; max-height: 82vh; }
+}
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { transform: translateY(18px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop, .sheet { animation: none; }
+}
+
+.sheet-head {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-1) var(--sp-3);
-  margin-top: var(--sp-2);
-  padding-left: var(--sp-1);
-  font-size: var(--fs-xs);
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.sheet-head h2 { margin: 0; font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.02em; }
+
+.sheet .drop { margin-top: 0; padding: var(--sp-5) var(--sp-4); }
+
+.sheet-sub {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: .08em;
   color: var(--text-faint);
+  font-weight: 600;
 }
-.session-meta > span + span::before {
-  content: '·';
-  margin-right: var(--sp-3);
-  color: var(--line-strong);
+
+.sheet-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.sheet-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
 }
-.session-meta .ghost { margin-left: auto; }
+/* The one you are looking at, so deleting it is a deliberate act. */
+.sheet-list li.is-active {
+  border-color: var(--brand-soft);
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface-2));
+}
+.sheet-list li > div { display: flex; flex-direction: column; min-width: 0; }
+.sheet-list strong { font-size: var(--fs-sm); font-weight: 600; }
+.sheet-list span { font-size: var(--fs-xs); color: var(--text-faint); }
+
+.sheet-note { margin: var(--sp-5) 0 0; font-size: var(--fs-xs); color: var(--text-faint); }
 
 .ghost {
   display: inline-flex;

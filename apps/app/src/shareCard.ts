@@ -88,6 +88,66 @@ function eyebrow(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
   ctx.letterSpacing = '0px';
 }
 
+const STRIKE_TONES: Record<string, string> = {
+  flush: C.good, solid: '#2aa87c', thin: C.bad, heavy: C.bad, 'off-centre': C.warn,
+};
+
+/** Same mapping the app uses, so the card and the screen agree. */
+const SHAPE_TONES: Record<string, string> = {
+  Straight: C.good, Draw: '#2aa87c', Fade: '#2aa87c',
+  Pull: C.warn, Push: C.warn, 'Pull fade': C.warn, 'Push draw': C.warn,
+  'Pull hook': C.bad, 'Push slice': C.bad,
+};
+
+const TIER_COLOURS: Record<string, string> = {
+  bronze: '#c98a55', silver: '#c3ccd4', gold: C.warn,
+};
+
+/**
+ * A labelled segmented bar. Strike and shape are the same picture of two
+ * different things, so they are the same code.
+ */
+function segmentPanel(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  title: string,
+  segments: { label: string; share: number; colour: string }[],
+  caption?: string,
+): number {
+  const trackW = INNER - 68;
+  // Legends wrap to a second line once there are more than four labels.
+  const lines = segments.length > 4 ? 2 : 1;
+  const h = 116 + lines * 34 + (caption ? 40 : 0);
+  panel(ctx, y, h);
+  eyebrow(ctx, title, PAD + 34, y + 40);
+
+  let sx = PAD + 34;
+  for (const seg of segments) {
+    const w = Math.max(seg.share * trackW, 4);
+    ctx.fillStyle = seg.colour;
+    ctx.fillRect(sx, y + 62, w - 3, 20);
+    sx += w;
+  }
+
+  ctx.font = '400 24px system-ui, -apple-system, sans-serif';
+  const labels = segments.map((seg) => `${seg.label} ${Math.round(seg.share * 100)}%`);
+  const half = Math.ceil(labels.length / lines);
+  let ly = y + 120;
+  for (let i = 0; i < lines; i += 1) {
+    ctx.fillStyle = C.dim;
+    ctx.fillText(truncate(ctx, labels.slice(i * half, (i + 1) * half).join('   '), trackW),
+      PAD + 34, ly);
+    ly += 34;
+  }
+
+  if (caption) {
+    ctx.fillStyle = C.faint;
+    ctx.font = '400 22px system-ui, -apple-system, sans-serif';
+    ctx.fillText(truncate(ctx, caption, trackW), PAD + 34, ly + 4);
+  }
+  return y + h + 18;
+}
+
 function toneFor(score: number): string {
   return score >= 68 ? C.good : score >= 45 ? C.warn : C.bad;
 }
@@ -196,8 +256,16 @@ export async function renderShareCard(
     panel(ctx, y, compH);
     eyebrow(ctx, 'What the score is made of', PAD + 34, y + 40);
 
+    /*
+     * Best first, rather than in the order the engine happens to compute
+     * them. Someone reading this card for the first time should see what
+     * held up before what did not — and the weakest component landing last
+     * is where the eye stops, which is the right place for it.
+     */
+    const ordered = [...score.components].sort((a, b) => b.score - a.score);
+
     let cy = y + 74;
-    for (const c of score.components) {
+    for (const c of ordered) {
       ctx.fillStyle = C.text;
       ctx.font = '550 28px system-ui, -apple-system, sans-serif';
       ctx.fillText(c.label, PAD + 34, cy + 22);
@@ -271,16 +339,6 @@ export async function renderShareCard(
     y += pairH + 18;
   }
 
-  // ------------------------------------------------ the pattern, drawn
-  const plotted = main ? shotsFor(shots, main) : [];
-  if (main?.dispersion && plotted.length >= 5) {
-    const plotBand = 620;
-    panel(ctx, y, plotBand);
-    eyebrow(ctx, `Every ${main.club} you hit`, PAD + 34, y + 40);
-    drawPattern(ctx, main, plotted, PAD + 34, y + 66, INNER - 68, plotBand - 100);
-    y += plotBand + 18;
-  }
-
   // ------------------------------------------ your numbers against target
   const comps = report.optimals?.comparisons.filter((c) => c.status !== 'unknown') ?? [];
   if (comps.length > 0) {
@@ -338,51 +396,85 @@ export async function renderShareCard(
 
   // ------------------------------------------------------- how you struck it
   if (report.strike.total > 0 && report.strike.counts.length > 0) {
-    const strikeH = 150;
-    panel(ctx, y, strikeH);
-    eyebrow(ctx, 'How you struck it', PAD + 34, y + 40);
-
-    const tones: Record<string, string> = {
-      flush: C.good, solid: '#2aa87c', thin: C.bad, heavy: C.bad, 'off-centre': C.warn,
-    };
-    let sx = PAD + 34;
-    const trackW = INNER - 68;
-    for (const c of report.strike.counts) {
-      const seg = Math.max(c.share * trackW, 4);
-      ctx.fillStyle = tones[c.klass] ?? C.warn;
-      ctx.fillRect(sx, y + 62, seg - 3, 20);
-      sx += seg;
-    }
-
-    ctx.fillStyle = C.dim;
-    ctx.font = '400 24px system-ui, -apple-system, sans-serif';
-    const legend = report.strike.counts
-      .map((c) => `${c.label} ${Math.round(c.share * 100)}%`)
-      .join('   ');
-    ctx.fillText(truncate(ctx, legend, trackW), PAD + 34, y + 122);
-    y += strikeH + 18;
+    y = segmentPanel(
+      ctx, y, 'How you struck it',
+      report.strike.counts.map((c) => ({
+        label: c.label, share: c.share, colour: STRIKE_TONES[c.klass] ?? C.warn,
+      })),
+    );
   }
 
-  // ----------------------------------------------------------- what to fix
-  const top = report.priorities.find((p) => p.explainedBy === null);
-  if (top) {
-    const fixH = 172;
-    panel(ctx, y, fixH, C.panel2);
-    ctx.fillStyle = C.brand;
-    ctx.fillRect(PAD, y + 22, 5, fixH - 44);
-
-    eyebrow(ctx, 'Working on next', PAD + 34, y + 44);
-    ctx.fillStyle = C.text;
-    ctx.font = '650 32px system-ui, -apple-system, sans-serif';
-    wrapText(ctx, top.finding.title, PAD + 34, y + 90, INNER - 68, 40);
-
-    ctx.fillStyle = C.good;
-    ctx.font = '550 26px system-ui, -apple-system, sans-serif';
-    ctx.fillText(
-      `Worth about ${top.leverageStrokes.toFixed(1)} shots a round`,
-      PAD + 34, y + fixH - 28,
+  /*
+   * Where it went.
+   *
+   * The companion to the strike bar and the thing a reader asks next: a
+   * player can strike it beautifully and still miss every green in the same
+   * direction, and one shape on most swings is a completely different
+   * problem — an easier one — from six shapes in equal measure.
+   */
+  if (report.shape.total > 0 && report.shape.counts.length > 0) {
+    y = segmentPanel(
+      ctx, y, 'Where it went',
+      report.shape.counts.map((c) => ({
+        label: c.label, share: c.share, colour: SHAPE_TONES[c.label] ?? C.warn,
+      })),
+      report.shape.dominant
+        ? `${report.shape.dominant.label.toLowerCase()} on ${Math.round(report.shape.dominant.share * 100)}% of shots — a pattern, which is far easier to fix than randomness`
+        : `no single shape dominates; it takes ${report.shape.spreadOfShapes} of them to cover the session`,
     );
-    y += fixH + 18;
+  }
+
+  /*
+   * Milestones.
+   *
+   * What the player has actually crossed, and what is nearly in reach. These
+   * are the part of the card somebody else can read without knowing any of
+   * the numbers — thresholds that mean something in golf, rather than a score
+   * that means something inside this app.
+   */
+  const earned = report.achievements.filter((a) => a.earned);
+  const near = report.achievements.filter((a) => !a.earned).slice(0, 3);
+  const shown = [...earned, ...near];
+  if (shown.length > 0) {
+    const rowH = 64;
+    const milesH = 78 + shown.length * rowH;
+    panel(ctx, y, milesH);
+    eyebrow(
+      ctx,
+      `Milestones — ${earned.length} of ${report.achievements.length}`,
+      PAD + 34, y + 40,
+    );
+
+    let my = y + 84;
+    for (const a of shown) {
+      const tierColour = TIER_COLOURS[a.tier] ?? C.faint;
+      ctx.fillStyle = a.earned ? tierColour : C.faint;
+      ctx.beginPath();
+      ctx.arc(PAD + 44, my - 8, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = a.earned ? C.text : C.dim;
+      ctx.font = `${a.earned ? 650 : 500} 28px system-ui, -apple-system, sans-serif`;
+      ctx.fillText(a.name, PAD + 66, my);
+
+      ctx.textAlign = 'right';
+      if (a.earned) {
+        ctx.fillStyle = tierColour;
+        ctx.font = '600 22px system-ui, -apple-system, sans-serif';
+        ctx.fillText(a.tier.toUpperCase(), W - PAD - 34, my);
+      } else {
+        ctx.fillStyle = C.faint;
+        ctx.font = '500 22px system-ui, -apple-system, sans-serif';
+        ctx.fillText(`${Math.round(a.progress * 100)}%`, W - PAD - 34, my);
+      }
+      ctx.textAlign = 'left';
+
+      ctx.fillStyle = C.faint;
+      ctx.font = '400 22px system-ui, -apple-system, sans-serif';
+      ctx.fillText(truncate(ctx, a.requirement, INNER - 140), PAD + 66, my + 28);
+      my += rowH;
+    }
+    y += milesH + 18;
   }
 
   // ---------------------------------------------- crop to what was drawn

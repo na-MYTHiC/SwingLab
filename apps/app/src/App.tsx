@@ -51,6 +51,7 @@ export default function App() {
   const [warnings, setWarnings] = useState<IngestWarning[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [managing, setManaging] = useState(false);
   const [watching, setWatching] = useState(false);
 
   const handednessRef = useRef(handedness);
@@ -205,19 +206,13 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <label className="import-btn" title="Import a TrackMan export">
-            <input
-              type="file"
-              accept=".csv,.tsv,.txt"
-              multiple
-              hidden
-              onChange={(e) => {
-                if (e.target.files?.length) void handleFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
+          <button
+            className="import-btn"
+            onClick={() => setManaging(true)}
+            title="Import a TrackMan export, or remove one"
+          >
             Import
-          </label>
+          </button>
 
           <button
             className="icon-btn"
@@ -253,13 +248,7 @@ export default function App() {
             content — and because a full-width control is reachable one-handed
             in a way a shrunk-to-fit dropdown in a crowded header is not.
           */}
-          <SessionBar
-            stored={stored}
-            activeId={activeId}
-            onSelect={setActiveId}
-            report={report}
-            onDelete={() => deleteSession(active.id)}
-          />
+          <SessionBar stored={stored} activeId={activeId} onSelect={setActiveId} />
 
           <section className="view">
             {tab === 'overview' && cloned && (
@@ -284,6 +273,16 @@ export default function App() {
         </main>
       ) : (
         <Empty />
+      )}
+
+      {managing && (
+        <ImportDialog
+          stored={stored}
+          activeId={activeId}
+          onFiles={handleFiles}
+          onDelete={deleteSession}
+          onClose={() => setManaging(false)}
+        />
       )}
 
       <footer className="footer">
@@ -318,39 +317,149 @@ export default function App() {
   );
 }
 
+/**
+ * Which session is on screen.
+ *
+ * Only the picker. The counts and the delete control that used to sit under
+ * it were a second row of chrome above every view, and deleting is not
+ * something anybody does often enough to earn permanent space — it lives in
+ * the import dialog now, next to the list it acts on.
+ */
 function SessionBar({
-  stored, activeId, onSelect, report, onDelete,
+  stored, activeId, onSelect,
 }: {
   stored: StoredSession[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  report: SessionReport;
-  onDelete: () => void;
 }) {
   return (
     <div className="session-bar">
-      <div className="session-pick">
-        <select
-          aria-label="Session"
-          value={activeId ?? ''}
-          onChange={(e) => onSelect(e.target.value)}
-        >
-          {stored.map((s) => (
-            <option key={s.session.id} value={s.session.id}>
-              {shortDate(s.session.startedAt)} · {sessionKindLabel(s.session.kind)} ·{' '}
-              {s.session.shots.length} shots
-            </option>
-          ))}
-        </select>
-      </div>
+      <select
+        aria-label="Session"
+        value={activeId ?? ''}
+        onChange={(e) => onSelect(e.target.value)}
+      >
+        {stored.map((s) => (
+          <option key={s.session.id} value={s.session.id}>
+            {shortDate(s.session.startedAt)} · {sessionKindLabel(s.session.kind)} ·{' '}
+            {s.session.shots.length} shots
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
-      <div className="session-meta">
-        <span>{plural(report.shotCount, 'shot')}</span>
-        <span>{plural(report.clubsSeen.length, 'club')}</span>
-        <span>{plural(report.findings.length, 'finding')}</span>
-        <button className="ghost" onClick={onDelete} title="Delete this session">
-          Delete
-        </button>
+/**
+ * Import and remove sessions, in one place.
+ *
+ * Both halves of the same job — getting files in and taking them back out —
+ * so they belong on the same screen rather than having delete permanently
+ * parked under the picker where it is one mis-tap from losing a session.
+ */
+function ImportDialog({
+  stored, activeId, onFiles, onDelete, onClose,
+}: {
+  stored: StoredSession[];
+  activeId: string | null;
+  onFiles: (files: FileList | File[]) => void;
+  onDelete: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    // The page behind must not scroll while a sheet is over it — on a phone
+    // that reads as the dialog itself having come apart.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [onClose]);
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sessions"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sheet-head">
+          <h2>Sessions</h2>
+          <button ref={closeRef} className="icon-btn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <label
+          className={dragging ? 'drop drop-active' : 'drop'}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            if (e.dataTransfer.files.length > 0) {
+              onFiles(e.dataTransfer.files);
+              onClose();
+            }
+          }}
+        >
+          <input
+            type="file"
+            accept=".csv,.tsv,.txt"
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files?.length) {
+                onFiles(e.target.files);
+                onClose();
+              }
+              e.target.value = '';
+            }}
+          />
+          <strong>Add a TrackMan export</strong>
+          <span>TPS → Table View → File Options → TrackMan CSV. Or drop a file here.</span>
+        </label>
+
+        {stored.length > 0 && (
+          <>
+            <h3 className="sheet-sub">{plural(stored.length, 'session')} on this device</h3>
+            <ul className="sheet-list">
+              {stored.map((s) => (
+                <li key={s.session.id} className={s.session.id === activeId ? 'is-active' : ''}>
+                  <div>
+                    <strong>{shortDate(s.session.startedAt)}</strong>
+                    <span>
+                      {sessionKindLabel(s.session.kind)} · {plural(s.session.shots.length, 'shot')}
+                    </span>
+                  </div>
+                  <button
+                    className="ghost"
+                    onClick={() => onDelete(s.session.id)}
+                    aria-label={`Delete the session from ${shortDate(s.session.startedAt)}`}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <p className="sheet-note">Everything stays on this device. Nothing is uploaded.</p>
       </div>
     </div>
   );
