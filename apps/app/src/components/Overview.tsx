@@ -1,37 +1,41 @@
 import type { SessionComparison, SessionReport, ShotSession, Streak } from '@swinglab/core';
 import { useState } from 'react';
+import type { Tab } from '../App.js';
 import {
-  AchievementPanel, ConsistencyBars, HandicapPanel, OptimalBands, ProgressionPanel, ScorePanel,
-  ShapePanel, StreakBadge, StrikePanel,
+  AchievementPanel, HandicapPanel, ProgressionPanel, ScorePanel, ShapePanel, StreakBadge,
+  StrikePanel,
 } from './Visuals.js';
 import { shareCard } from '../shareCard.js';
 import { DispersionChart } from './Charts.js';
-import { shots as fmtShots } from '../format.js';
+import { shots } from '../format.js';
 
 /**
- * The Overview.
+ * The Session view.
  *
- * Answers, in order: how did I strike it, how repeatable was I, what shape
- * was the miss, and what is that costing. The priority list and the practice
- * plan follow from this — but a player wants to *see* the session before they
- * are told what to do about it, and a wall of findings skips that step.
+ * Read top to bottom it answers the questions in the order a player asks
+ * them: how did I do, what should I do about it, did last time's work land,
+ * what actually happened out there, where does that put me — and only then
+ * the reference numbers. Anything that is looked up rather than read is
+ * pushed below the things that are read every single time.
  */
 export function OverviewView({
-  report, session, comparison, streak,
+  report, session, comparison, streak, onGoTo,
 }: {
   report: SessionReport;
   session: ShotSession;
   comparison: SessionComparison | null;
   streak: Streak;
+  onGoTo: (tab: Tab) => void;
 }) {
   const [sharing, setSharing] = useState(false);
   const main = report.profiles.length
     ? [...report.profiles].sort((a, b) => b.shotCount - a.shotCount)[0]
     : null;
   const mainShots = main ? session.shots.filter((s) => s.club === main.club) : [];
+  const top = report.priorities.find((p) => p.explainedBy === null) ?? null;
 
   return (
-    <div className="overview">
+    <div className="stack">
       {report.score && (
         <section className="card score-card">
           <div className="score-card-head">
@@ -48,26 +52,38 @@ export function OverviewView({
                 }
               }}
             >
-              {sharing ? 'Making image…' : 'Save summary image'}
+              {sharing ? 'Making image…' : 'Save image'}
             </button>
           </div>
           <ScorePanel score={report.score} />
-          {report.handicap && <HandicapPanel handicap={report.handicap} />}
-          <StreakBadge streak={streak} />
+        </section>
+      )}
+
+      {/*
+        The bridge between the two halves of the app. Without it the score is
+        a verdict with no next move, and the work of ranking the findings is
+        sitting behind a tab the player has no particular reason to open.
+      */}
+      {top && (
+        <section className="card next-up">
+          <span className="next-eyebrow">Next up</span>
+          <h3>{top.finding.title}</h3>
+          <p>
+            Worth about <strong>{shots(top.leverageStrokes)} shots a round</strong> and the highest
+            leverage thing in this session.
+          </p>
+          <div className="next-actions">
+            <button className="cta" onClick={() => onGoTo('practice')}>
+              See the practice plan →
+            </button>
+            <button className="link-btn" onClick={() => onGoTo('priority')}>
+              All findings
+            </button>
+          </div>
         </section>
       )}
 
       {comparison && <DidItWork comparison={comparison} />}
-
-      {report.optimals && (
-        <section className="card">
-          <h3 className="panel-title">
-            Your optimal numbers — {report.optimals.club} at{' '}
-            {report.optimals.clubSpeed.toFixed(0)} mph
-          </h3>
-          <OptimalBands optimals={report.optimals} />
-        </section>
-      )}
 
       <div className="split">
         <section className="card">
@@ -81,32 +97,12 @@ export function OverviewView({
       </div>
 
       {main && (
-        <div className="split split-wide">
-          <section className="card">
-            <h3 className="panel-title">{main.club} shot pattern</h3>
-            <DispersionChart profile={main} shots={mainShots} />
-          </section>
-          {report.consistency && (
-            <section className="card">
-              <h3 className="panel-title">What is repeatable, and what is not</h3>
-              <p className="panel-sub">
-                Worst first. Averages say what you usually do; these say whether you can be
-                relied on to do it.
-              </p>
-              <ConsistencyBars consistency={report.consistency} />
-            </section>
-          )}
-        </div>
-      )}
-
-      {report.achievements.length > 0 && (
         <section className="card">
-          <h3 className="panel-title">Milestones</h3>
+          <h3 className="panel-title">{main.club} shot pattern</h3>
           <p className="panel-sub">
-            Thresholds that mean something in golf. Nothing here rewards hitting more balls or one
-            big swing — those are easy to farm and neither makes anybody better.
+            Every shot you hit, and the ring that holds 95% of them.
           </p>
-          <AchievementPanel achievements={report.achievements} />
+          <DispersionChart profile={main} shots={mainShots} />
         </section>
       )}
 
@@ -114,6 +110,29 @@ export function OverviewView({
         <h3 className="panel-title">How the session went</h3>
         <ProgressionPanel progression={report.progression} />
       </section>
+
+      {/*
+        The player, rather than the session. These are the numbers that make
+        somebody open the app on a day they did not practise, so they sit
+        together and away from the shot-by-shot detail above.
+      */}
+      {(report.handicap || streak.totalDays > 0 || report.achievements.length > 0) && (
+        <section className="card">
+          <h3 className="panel-title">Where you stand</h3>
+          {report.handicap && <HandicapPanel handicap={report.handicap} />}
+          <StreakBadge streak={streak} />
+          {report.achievements.length > 0 && (
+            <>
+              <h4 className="block-sub">Milestones</h4>
+              <p className="panel-sub">
+                Thresholds that mean something in golf. Nothing here rewards hitting more balls or
+                one big swing — those are easy to farm and neither makes anybody better.
+              </p>
+              <AchievementPanel achievements={report.achievements} />
+            </>
+          )}
+        </section>
+      )}
 
       {(report.discardedCount > 0 || report.dataNotes.length > 0) && (
         <details className="notes">
@@ -133,16 +152,6 @@ export function OverviewView({
           </ul>
         </details>
       )}
-
-    </div>
-  );
-}
-
-function Figure({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
-  return (
-    <div className={accent ? 'figure figure-accent' : 'figure'}>
-      <strong>{value}</strong>
-      <span>{label}</span>
     </div>
   );
 }

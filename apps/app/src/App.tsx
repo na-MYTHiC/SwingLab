@@ -18,14 +18,19 @@ import { clearAll, loadAll, remove, save, type StoredSession } from './storage.j
 import { isDesktop, watchExportFolder } from './desktop.js';
 import { applyTheme, loadTheme, type Theme } from './theme.js';
 import { buildStamp, VERSION } from './version.js';
-import { shortDate } from './format.js';
+import { plural, sessionKindLabel, shortDate } from './format.js';
 import { ClubsView, PracticeView, PriorityView, TrendsView } from './components/Views.js';
 import { OverviewView } from './components/Overview.js';
 
-type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
+export type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
 
+/*
+ * Tab order follows the order the questions are actually asked: how did I do,
+ * what is wrong, what do I do about it — then the reference material. The
+ * first three are the session loop; Clubs and Trends get looked up, not read.
+ */
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'overview', label: 'Overview', icon: '◎' },
+  { id: 'overview', label: 'Session', icon: '◎' },
   { id: 'priority', label: 'Fix', icon: '▲' },
   { id: 'practice', label: 'Practice', icon: '◷' },
   { id: 'clubs', label: 'Clubs', icon: '▦' },
@@ -34,9 +39,11 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 export default function App() {
   const [theme, setTheme] = useState<Theme>(loadTheme);
-  const [handedness, setHandedness] = useState<Handedness>('right');
-  const [stored, setStored] = useState<StoredSession[]>(() => loadAll());
-  const [activeId, setActiveId] = useState<string | null>(() => loadAll()[0]?.session.id ?? null);
+  const [handedness] = useState<Handedness>('right');
+  const [stored, setStored] = useState<StoredSession[]>(() => byDate(loadAll()));
+  const [activeId, setActiveId] = useState<string | null>(
+    () => byDate(loadAll())[0]?.session.id ?? null,
+  );
   const [tab, setTab] = useState<Tab>('overview');
   const [practiceDuration, setPracticeDuration] = useState<PracticeDuration>(60);
   const [warnings, setWarnings] = useState<IngestWarning[]>([]);
@@ -50,6 +57,12 @@ export default function App() {
 
   useEffect(() => applyTheme(theme), [theme]);
   useEffect(() => () => stopWatchRef.current?.(), []);
+
+  // Changing tab mid-scroll and landing halfway down the next view is
+  // disorienting on a phone, where the nav sits at the far end of the page.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [tab]);
 
   const active = useMemo(
     () => stored.find((s) => s.session.id === activeId)?.session ?? null,
@@ -102,21 +115,25 @@ export default function App() {
     setError(null);
     const collected: IngestWarning[] = [];
     let lastId: string | null = null;
-    let next = loadAll();
+    let next = byDate(loadAll());
 
     for (const input of inputs) {
       const result = ingest(input, { handedness: handednessRef.current });
       collected.push(...result.warnings);
       if (result.session) {
-        next = save(result.session);
+        next = byDate(save(result.session));
         lastId = result.session.id;
       }
     }
 
     setStored(next);
     setWarnings(collected);
-    if (lastId) setActiveId(lastId);
-    else if (collected.length > 0) setError('No shots could be read from that file.');
+    if (lastId) {
+      setActiveId(lastId);
+      setTab('overview');
+    } else if (collected.length > 0) {
+      setError('No shots could be read from that file.');
+    }
   }, []);
 
   const handleFiles = useCallback(
@@ -137,19 +154,12 @@ export default function App() {
    */
   const deleteSession = useCallback(
     (id: string) => {
-      const next = remove(id);
+      const next = byDate(remove(id));
       setStored(next);
       setActiveId((current) => (current === id ? (next[0]?.session.id ?? null) : current));
     },
     [],
   );
-
-  const handleClearAll = useCallback(() => {
-    setStored(clearAll());
-    setActiveId(null);
-    setWarnings([]);
-    setError(null);
-  }, []);
 
   const startWatching = useCallback(async () => {
     const stop = await watchExportFolder((files) => ingestRaw(files));
@@ -161,6 +171,12 @@ export default function App() {
 
   return (
     <div className="app">
+      {/*
+        One row, at every width. The identity is small because it is never the
+        reason the app is open; the two things a player actually reaches for —
+        getting this session in, and making it readable in a dark bay — are
+        the controls.
+      */}
       <header className="topbar">
         <div className="brand">
           <span className="mark" aria-hidden="true" />
@@ -173,21 +189,6 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          {stored.length > 0 && (
-            <select
-              className="session-select"
-              aria-label="Session"
-              value={activeId ?? ''}
-              onChange={(e) => setActiveId(e.target.value)}
-            >
-              {stored.map((s) => (
-                <option key={s.session.id} value={s.session.id}>
-                  {shortDate(s.session.startedAt)} · {s.session.kind} · {s.session.shots.length}
-                </option>
-              ))}
-            </select>
-          )}
-
           <label className="import-btn" title="Import a TrackMan export">
             <input
               type="file"
@@ -230,7 +231,19 @@ export default function App() {
 
       {report && active ? (
         <main>
-          <SessionSummary report={report} onDelete={() => deleteSession(active.id)} />
+          {/*
+            Which session is on screen, and how big it was. The picker lives
+            here rather than in the top bar because it is a property of the
+            content — and because a full-width control is reachable one-handed
+            in a way a shrunk-to-fit dropdown in a crowded header is not.
+          */}
+          <SessionBar
+            stored={stored}
+            activeId={activeId}
+            onSelect={setActiveId}
+            report={report}
+            onDelete={() => deleteSession(active.id)}
+          />
 
           <section className="view">
             {tab === 'overview' && cloned && (
@@ -239,9 +252,10 @@ export default function App() {
                 session={cloned}
                 comparison={comparison}
                 streak={streak}
+                onGoTo={setTab}
               />
             )}
-            {tab === 'priority' && <PriorityView report={report} />}
+            {tab === 'priority' && <PriorityView report={report} onGoTo={setTab} />}
             {tab === 'practice' && (
               <PracticeView
                 report={report}
@@ -249,7 +263,7 @@ export default function App() {
                 onDuration={setPracticeDuration}
               />
             )}
-            {tab === 'clubs' && <ClubsView report={report} />}
+            {tab === 'clubs' && cloned && <ClubsView report={report} session={cloned} />}
             {tab === 'trends' && <TrendsView trends={trends} sessionCount={stored.length} />}
           </section>
         </main>
@@ -258,8 +272,8 @@ export default function App() {
       )}
 
       <footer className="footer">
-        <span>{buildStamp()}</span>
         <span>Everything runs on this device. Nothing is uploaded.</span>
+        <span className="footer-build">{buildStamp()}</span>
       </footer>
 
       {/*
@@ -290,27 +304,40 @@ export default function App() {
   );
 }
 
-function SessionSummary({ report, onDelete }: { report: SessionReport; onDelete: () => void }) {
+function SessionBar({
+  stored, activeId, onSelect, report, onDelete,
+}: {
+  stored: StoredSession[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  report: SessionReport;
+  onDelete: () => void;
+}) {
   return (
-    <div className="summary card">
-      <strong className="summary-mode">{report.mode?.name ?? 'Session'}</strong>
-      <div className="summary-stats">
-        <Stat value={String(report.shotCount)} label="shots" />
-        <Stat value={String(report.clubsSeen.length)} label="clubs" />
-        <Stat value={String(report.findings.length)} label="findings" />
+    <div className="session-bar">
+      <div className="session-pick">
+        <select
+          aria-label="Session"
+          value={activeId ?? ''}
+          onChange={(e) => onSelect(e.target.value)}
+        >
+          {stored.map((s) => (
+            <option key={s.session.id} value={s.session.id}>
+              {shortDate(s.session.startedAt)} · {sessionKindLabel(s.session.kind)} ·{' '}
+              {s.session.shots.length} shots
+            </option>
+          ))}
+        </select>
       </div>
-      <button className="ghost" onClick={onDelete}>
-        Delete
-      </button>
-    </div>
-  );
-}
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="stat">
-      <strong>{value}</strong>
-      <span>{label}</span>
+      <div className="session-meta">
+        <span>{plural(report.shotCount, 'shot')}</span>
+        <span>{plural(report.clubsSeen.length, 'club')}</span>
+        <span>{plural(report.findings.length, 'finding')}</span>
+        <button className="ghost" onClick={onDelete} title="Delete this session">
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -386,6 +413,22 @@ function Empty() {
       </p>
     </main>
   );
+}
+
+/**
+ * Newest practice first.
+ *
+ * The store keeps import order, which is not the same thing: importing an
+ * export from three weeks ago should not put it at the top of a list a player
+ * reads as a history. Undated sessions fall to the end rather than jumping the
+ * queue on a null date.
+ */
+function byDate(sessions: StoredSession[]): StoredSession[] {
+  return [...sessions].sort((a, b) => {
+    const at = a.session.startedAt?.getTime() ?? -Infinity;
+    const bt = b.session.startedAt?.getTime() ?? -Infinity;
+    return bt - at;
+  });
 }
 
 /**

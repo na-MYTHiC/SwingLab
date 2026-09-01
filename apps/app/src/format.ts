@@ -37,3 +37,22 @@ export function speedLabel(speed: 'immediate' | 'weeks' | 'months'): string {
       return 'Months';
   }
 }
+
+/** TrackMan's own name for a session type, for the session picker. */
+export function sessionKindLabel(kind: string): string {
+  switch (kind) {
+    case 'range': return 'Practice Range';
+    case 'target': return 'Target Practice';
+    case 'test': return 'Test Center';
+    case 'combine': return 'Combine';
+    case 'performance': return 'Performance Center';
+    case 'course': return 'Virtual Golf';
+    case 'putting': return 'Putting';
+    default: return 'Session';
+  }
+}
+
+/** "1 club" / "3 clubs" — pluralising inline is where typos live. */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
