@@ -3,7 +3,7 @@ import type { ClubConsistency } from '../analysis/consistency.js';
 import type { StrikeBreakdown } from '../analysis/strike.js';
 import type { OptimalComparison } from '../benchmarks/personal.js';
 import type { ClubProfile } from '../stats/dispersion.js';
-import { dispersionScore, tourWidthFor, TOUR_WIDTH_PCT } from '../benchmarks/skill.js';
+import { axisScore, tourWidthFor, TOUR_AXIS_PCT } from '../benchmarks/skill.js';
 
 /**
  * Session scoring.
@@ -80,49 +80,83 @@ export function scoreSession(args: {
   strike: StrikeBreakdown;
   consistency: ClubConsistency | null;
   optimals: OptimalComparison[] | null;
+  /** Shots thrown out as unusable, and the session they came from. */
+  discarded?: number;
+  shotCount?: number;
 }): SessionScore | null {
-  const { profile, strike, consistency, optimals } = args;
+  const { profile, strike, consistency, optimals, discarded = 0, shotCount = 0 } = args;
   if (!profile || strike.total < 6) return null;
 
   const components: ScoreComponent[] = [];
+  const carry = profile.carry.median;
+  const hasCarry = Number.isFinite(carry) && carry > 0;
 
   // --- Contact. The largest single driver of amateur scoring. -----------
-  const strikeScore = clamp(strike.qualityShare * 100);
   components.push({
     id: 'strike',
     label: 'Contact',
-    score: strikeScore,
-    weight: 0.35,
+    score: clamp(strike.qualityShare * 100),
+    weight: 0.24,
     detail: `${Math.round(strike.qualityShare * 100)}% of your strikes were solid or better.`,
   });
 
-  // --- Repeatability. Whether today's good swing is available tomorrow.
-  if (consistency) {
-    components.push({
-      id: 'repeatability',
-      label: 'Repeatability',
-      score: clamp(consistency.overall),
-      weight: 0.3,
-      detail: consistency.weakest
-        ? `Held together everywhere except ${consistency.weakest.label.toLowerCase()}.`
-        : 'Measured across every metric with enough shots behind it.',
-    });
+  /*
+   * --- Distance control. -------------------------------------------------
+   *
+   * Promoted out of Repeatability, where it was one metric among eight and
+   * carried a fraction of the weight of the thing it actually decides. Half
+   * of proximity to the hole is distance error, so scoring only the sideways
+   * half of the pattern told a player who sprayed it a consistent distance
+   * that they were fine, and punished a straight hitter with no yardage
+   * control twice over — once here and not at all anywhere else.
+   *
+   * Skipped when a club was deliberately played to several targets: in a
+   * Combine the carry is *supposed* to vary, and reading that as a fault
+   * would be scoring the protocol rather than the player.
+   */
+  if (hasCarry && profile.carry.n >= 8 && profile.distinctTargets <= 1) {
+    const score = axisScore(profile.carry.mad, carry);
+    if (Number.isFinite(score)) {
+      const pct = (profile.carry.mad / carry) * 100;
+      components.push({
+        id: 'distance',
+        label: 'Distance control',
+        score: clamp(score),
+        weight: 0.16,
+        detail:
+          `Carry repeats to within ±${profile.carry.mad.toFixed(1)} yards, ` +
+          `${pct.toFixed(1)}% of the shot. Tour is about ${TOUR_AXIS_PCT.toFixed(1)}%.`,
+      });
+    }
+  }
+
+  // --- Direction. The other half of proximity. --------------------------
+  const d = profile.dispersion;
+  if (d && hasCarry && Number.isFinite(profile.side.mad)) {
+    const score = axisScore(profile.side.mad, carry);
+    if (Number.isFinite(score)) {
+      components.push({
+        id: 'dispersion',
+        label: 'Direction',
+        score: clamp(score),
+        weight: 0.16,
+        detail:
+          `${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard shot. Tour standard ` +
+          `at that distance is about ${Math.round(tourWidthFor(carry))} yards.`,
+      });
+    }
   }
 
   /*
    * --- Delivery against the player's own optimal windows. ---------------
    *
-   * Graded by distance from the target, not by band membership.
-   *
-   * Counting how many numbers land inside their window gave 100/100 to a
-   * player sitting at the very edge of all six of them, which is not a
-   * hundred-point delivery by any reading — and it made the component
-   * jump between round numbers as a value crossed a line. So each metric
-   * scores on how far it sits from its target, measured in units of the
-   * band's own half-width: exactly on target is 100, at the edge of the
-   * band is 60, and it falls away from there. A perfect delivery score
-   * now means what it says — every number identical to what the tour
-   * tables say your swing speed should produce.
+   * Graded by distance from the target, not by band membership. Counting how
+   * many numbers land inside their window gave 100/100 to a player sitting at
+   * the very edge of all six of them, which is not a hundred-point delivery
+   * by any reading — and it made the component jump between round numbers as
+   * a value crossed a line. So each metric scores on how far it sits from its
+   * target, measured in units of the band's own half-width: exactly on target
+   * is 100, at the edge of the band is 60, and it falls away from there.
    */
   if (optimals && optimals.length > 0) {
     const judged = optimals.filter((o) => o.status !== 'unknown');
@@ -130,8 +164,6 @@ export function scoreSession(args: {
       const per = judged.map((o) => {
         const half = Math.max((o.window.max - o.window.min) / 2, 1e-9);
         const offBy = Math.abs(o.actual - o.window.target) / half;
-        // 0 off target -> 100, 1 half-width off (the band edge) -> 60,
-        // 2.5 half-widths off -> 0.
         return Math.max(0, 100 - offBy * 40);
       });
       const mean = per.reduce((a, b) => a + b, 0) / per.length;
@@ -141,7 +173,7 @@ export function scoreSession(args: {
         id: 'delivery',
         label: 'Delivery',
         score: clamp(mean),
-        weight: 0.2,
+        weight: 0.16,
         detail:
           perfect === judged.length
             ? `All ${judged.length} numbers are on the tour figure for your swing speed.`
@@ -152,29 +184,53 @@ export function scoreSession(args: {
   }
 
   /*
-   * --- Dispersion. What the player actually sees on the ground. ---------
+   * --- Repeatability, minus what now has its own component. -------------
    *
-   * Scored against the researched tour-to-30-handicap scale in
-   * `benchmarks/skill.ts`, so 100 means a pattern as tight as a tour
-   * player's and 0 means a 30 handicap's. The previous version invented
-   * its own range — 10% of carry for full marks, 30% for none — which put
-   * full marks well inside tour standard and gave zero to patterns that
-   * are ordinary for a mid handicap.
+   * Carry spread is excluded: it is scored above as Distance control, and
+   * leaving it here would count the same fault twice and quietly make it the
+   * heaviest thing in the whole score.
    */
-  const d = profile.dispersion;
-  const carry = profile.carry.median;
-  if (d && Number.isFinite(d.width) && Number.isFinite(carry) && carry > 0) {
-    const score = dispersionScore(d.width, carry);
-    const tourWidth = tourWidthFor(carry);
+  if (consistency) {
+    const kept = consistency.scores.filter((c) => c.metric !== 'carry');
+    if (kept.length > 0) {
+      const mean = kept.reduce((sum, c) => sum + c.score, 0) / kept.length;
+      const worst = [...kept].sort((a, b) => a.score - b.score)[0];
+      components.push({
+        id: 'repeatability',
+        label: 'Repeatability',
+        score: clamp(mean),
+        weight: 0.18,
+        detail: worst
+          ? `Held together everywhere except ${worst.label.toLowerCase()}.`
+          : 'Measured across every delivery metric with enough shots behind it.',
+      });
+    }
+  }
+
+  /*
+   * --- Reliability. The shots that were thrown out. ---------------------
+   *
+   * A hole the score had until now: tops and shanks are excluded from every
+   * statistic, which is right — a topped 7-iron says nothing about a 7-iron —
+   * but it meant a player could shank three balls and the score would not
+   * notice, because the filter that keeps the numbers honest was also hiding
+   * the cost. On a course each of those is a stroke and sometimes two, so the
+   * rate is scored directly. Most clean sessions get full marks here; that is
+   * the point, it is a penalty rather than a ladder.
+   */
+  if (shotCount >= 15) {
+    const rate = discarded / shotCount;
     components.push({
-      id: 'dispersion',
-      label: 'Dispersion',
-      score: clamp(score),
-      weight: 0.15,
+      id: 'reliability',
+      label: 'Reliability',
+      // Full marks at none, nothing at one shot in ten.
+      score: clamp((1 - rate / 0.1) * 100),
+      weight: 0.1,
       detail:
-        `${Math.round(d.width)} yards wide on a ${Math.round(carry)}-yard shot. Tour standard ` +
-        `at that distance is about ${Math.round(tourWidth)} yards ` +
-        `(${TOUR_WIDTH_PCT.toFixed(0)}% of carry).`,
+        discarded === 0
+          ? 'Not one shot bad enough to throw out. On a course that is a round without a wasted stroke.'
+          : `${discarded} of ${shotCount} shots were tops or duffs — ` +
+            `${(rate * 100).toFixed(0)}% of the session, and a stroke each on a course.`,
     });
   }
 
@@ -193,6 +249,11 @@ export function scoreSession(args: {
   const headroom = weakest
     ? Math.round((100 - weakest.score) * (weakest.weight / totalWeight))
     : 0;
+
+  // Best first, so what held up reads before what did not and the weakest
+  // lands where the eye stops. Sorted once here rather than at each of the
+  // three places that render it.
+  components.sort((a, b) => b.score - a.score);
 
   const grade = gradeFor(total);
   return { total, grade, verdict: VERDICTS[grade], components, weakest, headroom };

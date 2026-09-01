@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   dispersionScore, handicapFromPattern, meanRadius, radialPercent, skillBand,
-  tourWidthFor, widthPctForHandicap, FLOOR_WIDTH_PCT, TOUR_WIDTH_PCT, SCALE_FLOOR_HANDICAP,
+  tourWidthFor, widthPctForHandicap, greenHoldRate, axisScore, GREEN_RADIUS_YDS,
+  FLOOR_WIDTH_PCT, TOUR_WIDTH_PCT, SCALE_FLOOR_HANDICAP,
 } from './skill.js';
 
 /**
@@ -117,5 +118,74 @@ describe('nothing contradicts the scale', () => {
     // The old milestone asked for 30 yards on any club. On a 170-yard iron
     // that is tighter than tour, so nobody could ever earn it.
     expect(tourWidthFor(170)).toBeGreaterThan(30);
+  });
+});
+
+/**
+ * The pattern turned into the question a golfer actually asks. Anchored on the
+ * USGA's average American green of about 5,500 square feet.
+ */
+describe('green hold rate', () => {
+  const at = (side: number, depth: number) =>
+    greenHoldRate({ sigmaSide: side, sigmaCarry: depth, carry: 160 });
+
+  it('reads a green as a circle of about 14 yards', () => {
+    // 5,500 sq ft is 611 square yards, so a radius just under 14.
+    expect(GREEN_RADIUS_YDS).toBeGreaterThan(13);
+    expect(GREEN_RADIUS_YDS).toBeLessThan(15);
+  });
+
+  it('puts a tour pattern well above a mid-handicap one', () => {
+    const tour = at(7.42, 7.42);
+    const mid = at(13.29, 13.29);
+    expect(tour).toBeGreaterThan(0.75);
+    expect(tour).toBeLessThan(0.95);
+    expect(mid).toBeLessThan(tour - 0.2);
+  });
+
+  it('counts both axes, so a straight hitter with no yardage control is not flattered', () => {
+    const balanced = at(10, 10);
+    const straightButWild = at(5, 18);
+    expect(straightButWild).toBeLessThan(balanced);
+  });
+
+  it('falls monotonically as the pattern widens', () => {
+    const rates = [6, 9, 12, 16, 22].map((s) => at(s, s));
+    for (let i = 1; i < rates.length; i += 1) {
+      expect(rates[i] as number).toBeLessThan(rates[i - 1] as number);
+    }
+  });
+
+  it('is a ceiling, not a greens-in-regulation prediction', () => {
+    /*
+     * MyGolfSpy's on-course data has a 15 handicap hitting a green with a
+     * 7-iron about 20% of the time. This model puts the same player's pattern
+     * near 40%, and it must — the gap is rough, wind, slopes and tucked pins.
+     * If this ever drops to the on-course figure the model has quietly started
+     * claiming something it cannot see.
+     */
+    expect(at(13.29, 13.29)).toBeGreaterThan(0.3);
+  });
+
+  it('survives a degenerate pattern instead of returning NaN', () => {
+    expect(greenHoldRate({ sigmaSide: 0, sigmaCarry: 0, carry: 150 })).toBe(1);
+    expect(Number.isNaN(greenHoldRate({ sigmaSide: NaN, sigmaCarry: NaN, carry: 150 }))).toBe(true);
+  });
+});
+
+describe('per-axis scoring', () => {
+  it('gives full marks only at tour spread', () => {
+    const carry = 170;
+    // Tour is 4.63% of carry per axis.
+    expect(axisScore(carry * 0.0463, carry)).toBeCloseTo(100, 0);
+    expect(axisScore(carry * 0.055, carry)).toBeLessThan(100);
+    expect(axisScore(carry * 0.02, carry)).toBe(100);
+  });
+
+  it('agrees with the width scale it is derived from', () => {
+    const carry = 170;
+    const sigma = 12;
+    // dispersionScore takes a 95% width, which is four sigma.
+    expect(axisScore(sigma, carry)).toBeCloseTo(dispersionScore(sigma * 4, carry), 6);
   });
 });

@@ -94,6 +94,7 @@ export function OverviewView({
             Every shot you hit, and the ring that holds 95% of them.
           </p>
           <DispersionChart profile={main} shots={mainShots} />
+          {report.greenRate !== null && <GreenRate rate={report.greenRate} club={main.club} />}
         </section>
       )}
 
@@ -143,6 +144,31 @@ export function OverviewView({
           </ul>
         </details>
       )}
+    </div>
+  );
+}
+
+/**
+ * The pattern, turned into the question a golfer actually asks.
+ *
+ * A width in yards is an abstraction; "this holds a green two times in five"
+ * is not. The caveat is not optional — it assumes a flat lie, no wind and
+ * aiming at the middle, which is what a bay gives you and a golf course
+ * almost never does.
+ */
+function GreenRate({ rate, club }: { rate: number; club: string }) {
+  const pct = Math.round(rate * 100);
+  const tone = pct >= 65 ? 'good' : pct >= 40 ? 'mid' : 'bad';
+  return (
+    <div className={`green-rate green-${tone}`}>
+      <strong>{pct}%</strong>
+      <div>
+        <b>of these {club}s would hold a green</b>
+        <span>
+          An average green is about 5,500 sq ft. Off a flat lie, no wind, aimed at the middle —
+          so treat this as your ceiling rather than as a greens-in-regulation number.
+        </span>
+      </div>
     </div>
   );
 }

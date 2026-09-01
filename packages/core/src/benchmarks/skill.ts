@@ -170,6 +170,73 @@ export function tourWidthFor(carry: number): number {
   return (TOUR_WIDTH_PCT / 100) * carry;
 }
 
+/**
+ * One axis of the pattern, scored 0-100 against the same tour-to-30-handicap
+ * line. Carry spread and lateral spread are the same question asked twice, so
+ * they are scored by the same function rather than two invented ones.
+ */
+export const TOUR_AXIS_PCT = TOUR_RADIAL_PCT / MEAN_RADIUS_PER_SIGMA;
+export const FLOOR_AXIS_PCT = FLOOR_RADIAL_PCT / MEAN_RADIUS_PER_SIGMA;
+
+export function axisScore(sigma: number, carry: number): number {
+  if (!Number.isFinite(sigma) || !Number.isFinite(carry) || carry <= 0) return Number.NaN;
+  const pct = (sigma / carry) * 100;
+  const t = (FLOOR_AXIS_PCT - pct) / (FLOOR_AXIS_PCT - TOUR_AXIS_PCT);
+  return Math.max(0, Math.min(100, t * 100));
+}
+
+/**
+ * How often this pattern would hold a green.
+ *
+ * The USGA puts the average American green at about 5,500 square feet, which
+ * as a circle is a radius of just under 14 yards. Treating it as a circle is a
+ * simplification — real greens are lozenges and are approached from an angle —
+ * but it converts a dispersion ellipse into the one number a golfer actually
+ * cares about, and it is far more meaningful than a width in yards.
+ *
+ * READ THIS AS A CEILING, NOT AS A PREDICTION. It assumes a flat lie, no wind,
+ * and aiming at the middle — which is what a simulator bay measures and what a
+ * golf course almost never gives you. MyGolfSpy's on-course data has a 15
+ * handicap hitting the green with a 7-iron about 20% of the time; this model
+ * puts the same player's *pattern* nearer 40%. That gap is not an error in
+ * either number, it is the cost of rough, wind, slopes and tucked pins, and
+ * quoting the bay figure as a green-in-regulation rate would be dishonest.
+ */
+export const GREEN_RADIUS_YDS = 13.9;
+
+export function greenHoldRate(spread: PatternSpread): number {
+  const { sigmaSide, sigmaCarry } = spread;
+  const side = Number.isFinite(sigmaSide) ? sigmaSide : sigmaCarry;
+  const depth = Number.isFinite(sigmaCarry) ? sigmaCarry : sigmaSide;
+  if (!Number.isFinite(side) || !Number.isFinite(depth)) return Number.NaN;
+  if (side <= 0 || depth <= 0) return 1;
+
+  /*
+   * Numerically, rather than with the Rayleigh closed form, because that only
+   * holds when the two axes are equal and a golf pattern's rarely are — a
+   * player can be tight sideways and wild for distance, and the closed form
+   * would quietly average that away.
+   */
+  const R = GREEN_RADIUS_YDS;
+  const steps = 120;
+  let inside = 0;
+  let total = 0;
+  for (let i = 0; i < steps; i += 1) {
+    // Sample each axis on a grid of standard-normal quantiles.
+    const zx = -3 + (6 * (i + 0.5)) / steps;
+    const wx = Math.exp(-0.5 * zx * zx);
+    for (let j = 0; j < steps; j += 1) {
+      const zy = -3 + (6 * (j + 0.5)) / steps;
+      const w = wx * Math.exp(-0.5 * zy * zy);
+      total += w;
+      const x = zx * side;
+      const y = zy * depth;
+      if (x * x + y * y <= R * R) inside += w;
+    }
+  }
+  return total > 0 ? inside / total : Number.NaN;
+}
+
 /** Plain-language band for a handicap number, for captions. */
 export function skillBand(handicap: number): string {
   if (handicap <= 0) return 'tour and elite amateur territory';

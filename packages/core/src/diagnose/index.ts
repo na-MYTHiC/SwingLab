@@ -10,6 +10,7 @@ import {
   type Achievement, type HandicapEstimate, type SessionScore,
 } from '../scoring/index.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
+import { greenHoldRate } from '../benchmarks/skill.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
 import { distanceBiasFindings, weakDistanceFindings } from './rules-target.js';
@@ -238,6 +239,12 @@ export interface SessionReport {
   discardedCount: number;
   /** How the session scored, and what dragged it down. */
   score: SessionScore | null;
+  /**
+   * How often this pattern would hold an average green from its own carry
+   * distance, off a flat lie with no wind. A ceiling rather than a
+   * greens-in-regulation prediction — see `benchmarks/skill.ts`.
+   */
+  greenRate: number | null;
   /** Thresholds crossed this session, and what is nearly in reach. */
   achievements: Achievement[];
   /**
@@ -370,6 +377,7 @@ export function diagnoseSession(
     optimals: buildOptimals(mainProfile, baseline),
     discardedCount: discarded(session.shots).length,
     score: null,
+    greenRate: null,
     achievements: [],
     handicap: null,
     practicePlan: buildPracticePlan(rootFindings, maxDrills),
@@ -386,6 +394,8 @@ export function diagnoseSession(
     strike: report.strike,
     consistency: report.consistency,
     optimals: report.optimals?.comparisons ?? null,
+    discarded: report.discardedCount,
+    shotCount: report.shotCount,
   });
   /*
    * Handicap before achievements, not after.
@@ -397,6 +407,14 @@ export function diagnoseSession(
    * rather than as an error.
    */
   report.handicap = estimateHandicap(mainProfile, report.strike);
+  report.greenRate = mainProfile && Number.isFinite(mainProfile.carry.median)
+    ? greenHoldRate({
+      sigmaSide: mainProfile.side.mad,
+      sigmaCarry: mainProfile.carry.mad,
+      carry: mainProfile.carry.median,
+    })
+    : null;
+  if (report.greenRate !== null && !Number.isFinite(report.greenRate)) report.greenRate = null;
   report.achievements = evaluateAchievements(report);
 
   return report;

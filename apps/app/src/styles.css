@@ -819,6 +819,30 @@ tbody tr:hover { background: var(--surface-2); }
   .wide-only { display: block; }
 }
 
+/* --- green rate --------------------------------------------------------- */
+
+.green-rate {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.green-rate > strong {
+  flex: none;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  color: var(--data);
+}
+.green-good > strong { color: var(--good); }
+.green-bad > strong { color: var(--warn); }
+.green-rate > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.green-rate b { font-size: var(--fs-sm); font-weight: 600; }
+.green-rate span { font-size: var(--fs-xs); color: var(--text-faint); }
+
 /* ---------------------------------------------------------------- charts */
 
 .chart-grid { display: grid; gap: var(--gap); }

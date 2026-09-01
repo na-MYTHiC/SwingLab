@@ -256,16 +256,10 @@ export async function renderShareCard(
     panel(ctx, y, compH);
     eyebrow(ctx, 'What the score is made of', PAD + 34, y + 40);
 
-    /*
-     * Best first, rather than in the order the engine happens to compute
-     * them. Someone reading this card for the first time should see what
-     * held up before what did not — and the weakest component landing last
-     * is where the eye stops, which is the right place for it.
-     */
-    const ordered = [...score.components].sort((a, b) => b.score - a.score);
-
+    // Already best-first: the engine sorts once so the card, the app and any
+    // future surface cannot disagree about the order.
     let cy = y + 74;
-    for (const c of ordered) {
+    for (const c of score.components) {
       ctx.fillStyle = C.text;
       ctx.font = '550 28px system-ui, -apple-system, sans-serif';
       ctx.fillText(c.label, PAD + 34, cy + 22);
@@ -330,11 +324,18 @@ export async function renderShareCard(
       ctx.font = '400 23px system-ui, -apple-system, sans-serif';
       ctx.fillText(`${Math.round(d.depth)} yds deep`, px, y + 146);
       ctx.fillStyle = C.faint;
-      const centre = d.centreSide >= 0 ? 'right' : 'left';
-      ctx.fillText(
-        `Centre ${Math.abs(Math.round(d.centreSide))} yds ${centre} of target`,
-        px, y + 182,
-      );
+      if (report.greenRate !== null) {
+        ctx.fillText(
+          `Holds a green ${Math.round(report.greenRate * 100)}% from a flat lie`,
+          px, y + 182,
+        );
+      } else {
+        const centre = d.centreSide >= 0 ? 'right' : 'left';
+        ctx.fillText(
+          `Centre ${Math.abs(Math.round(d.centreSide))} yds ${centre} of target`,
+          px, y + 182,
+        );
+      }
     }
     y += pairH + 18;
   }
