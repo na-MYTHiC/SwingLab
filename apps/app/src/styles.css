@@ -849,6 +849,32 @@ tbody tr:hover { background: var(--surface-2); }
   .wide-only { display: block; }
 }
 
+
+/* --- yardage book -------------------------------------------------------- */
+
+/* The one table in the app that must fit a phone without scrolling: a player
+ * checks it standing on a tee box, and a sideways scroll there is a table
+ * nobody reads. It overrides the global 660px table min-width for that reason,
+ * and sheds its sea-level column below the tablet breakpoint. */
+.yardage-wrap { overflow: hidden; }
+.yardage-table { min-width: 0; width: 100%; font-size: var(--fs-xs); }
+.yardage-table th,
+.yardage-table td { padding: var(--sp-2) var(--sp-1); }
+.yardage-table .l { text-align: left; }
+.yardage-table .plays {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.yardage-table .muted { color: var(--text-faint); }
+.yardage-table .ego-wide { color: var(--warn); }
+.yardage-table tr.thin td { opacity: 0.6; }
+@media (min-width: 560px) {
+  .yardage-table { font-size: var(--fs-sm); }
+  .yardage-table th, .yardage-table td { padding: var(--sp-2) var(--sp-2); }
+}
+.yardage-call { color: var(--text); }
+
 /* --- conditions, form, TrackMan verdict --------------------------------- */
 
 .cond-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: var(--sp-3) var(--sp-2); margin-top: var(--sp-3); }

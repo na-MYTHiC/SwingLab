@@ -6,3 +6,12 @@ export * from './potential.js';
 export * from './didItWork.js';
 export * from './baseline.js';
 export * from './windows.js';
+export {
+  buildYardageBook,
+  yardageAdvice,
+  YARDAGE_CLUB_ORDER,
+  type YardageBook,
+  type ClubYardage,
+  type YardageGap,
+  type MissSide,
+} from './yardagebook.js';

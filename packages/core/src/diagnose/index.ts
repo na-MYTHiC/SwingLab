@@ -13,6 +13,7 @@ import {
 } from '../scoring/index.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { greenHoldRate } from '../benchmarks/skill.js';
+import { buildYardageBook, type YardageBook } from '../analysis/yardagebook.js';
 import { carryFactor, NO_CONDITIONS, type Conditions } from '../benchmarks/conditions.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
@@ -293,6 +294,12 @@ export interface SessionReport {
   /** Thresholds crossed this session, and what is nearly in reach. */
   achievements: Achievement[];
   /**
+   * What to do with each club on the course: the carry to club off, where to
+   * aim, and how much room to leave. The only part of this report that is
+   * usable standing over a ball rather than standing on a range.
+   */
+  yardageBook: YardageBook;
+  /**
    * The handicap this player's ball-striking would support. Ball-striking
    * only — a range session cannot see the short game, which is most of
    * scoring — so it is a range with the caveat attached.
@@ -430,6 +437,7 @@ export function diagnoseSession(
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
     conditions: session.conditions ?? NO_CONDITIONS,
+    yardageBook: buildYardageBook(session.shots, session.conditions),
     optimals: buildOptimals(mainProfile, baseline, session.conditions ?? NO_CONDITIONS),
     discardedCount: discardedShots.length,
     unreadableCount: unreadableShots.length,

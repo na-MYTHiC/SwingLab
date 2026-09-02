@@ -367,9 +367,130 @@ function clock(minute: number): string {
  * to drag sideways on a phone, so below the breakpoint each club renders as
  * a card instead and nothing sits off the edge of the screen.
  */
+
+/**
+ * The yardage book.
+ *
+ * Placed at the very top of Clubs, above the raw numbers, because it is the
+ * only screen in the app a player can act on without changing their swing.
+ * The two columns that matter sit next to each other on purpose: the number
+ * they remember and the number to club off. Seeing the gap is the point.
+ */
+/**
+ * Clubs share their reason for having no number far more often than not — a
+ * Combine refuses all seven for the same cause — so they are grouped rather
+ * than listed, which would print one identical sentence per club.
+ */
+function groupOmitted(omitted: { club: string; reason: string }[]): string[] {
+  const byReason = new Map<string, string[]>();
+  for (const o of omitted) {
+    const clubs = byReason.get(o.reason);
+    if (clubs) clubs.push(o.club);
+    else byReason.set(o.reason, [o.club]);
+  }
+  return [...byReason].map(([reason, clubs]) => `${clubs.join(', ')}: ${reason}`);
+}
+
+function YardageBookCard({ report }: { report: SessionReport }) {
+  const book = report.yardageBook;
+  if (book.clubs.length === 0) {
+    return (
+      <section className="card">
+        <h3 className="panel-title">Yardage book</h3>
+        <p className="panel-sub">
+          {book.omitted.length > 0
+            ? `No playing numbers from this session. ${groupOmitted(book.omitted).join('. ')}.`
+            : 'Hit at least four full shots with a club and its playing number appears here.'}
+        </p>
+      </section>
+    );
+  }
+
+  const worst = [...book.clubs].sort((a, b) => b.egoGap - a.egoGap)[0]!;
+
+  return (
+    <section className="card yardage">
+      <h3 className="panel-title">Yardage book</h3>
+      <p className="panel-sub">
+        <strong>Plays</strong> is the carry you beat four shots in five — club off that.{' '}
+        <strong>Flushed</strong> is the one you remember. Mishits are left in, because the course
+        does not throw them out.
+      </p>
+
+      <div className="yardage-wrap">
+        <table className="yardage-table">
+          <thead>
+            <tr>
+              <th className="l">Club</th>
+              <th>Plays</th>
+              <th>Flushed</th>
+              <th>Aim</th>
+              <th>Room</th>
+            </tr>
+          </thead>
+          <tbody>
+            {book.clubs.map((c) => (
+              <tr key={c.club} className={c.confidence === 'thin' ? 'thin' : undefined}>
+                <td className="club l">{c.club}</td>
+                {/* Only the club the callout names is highlighted. Amber on
+                    every row is amber on none. */}
+                <td className={c.club === worst.club && worst.egoGap >= 8 ? 'plays ego-wide' : 'plays'}>
+                  {c.plays}
+                </td>
+                <td className="muted">{c.flushed}</td>
+                <td>
+                  {c.aimSide === 'straight'
+                    ? 'at it'
+                    : `${Math.abs(c.aimYards).toFixed(0)}${c.aimSide === 'left' ? 'L' : 'R'}`}
+                </td>
+                <td>
+                  {c.missSide === 'straight' || c.missYards < 4
+                    ? '\u2014'
+                    : `${c.missYards}${c.missSide === 'left' ? 'L' : 'R'}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {worst.egoGap >= 8 && (
+        <p className="panel-sub yardage-call">
+          Your {worst.club} is the one costing you. You will remember it as {worst.flushed}, but
+          it plays {worst.plays} — {worst.egoGap} yards of club. Take the extra one.
+        </p>
+      )}
+
+      {book.gaps.length > 0 && (
+        <p className="panel-sub">
+          Playing gaps:{' '}
+          {book.gaps.map((g) => `${g.longer}→${g.shorter} ${g.gap}y`).join(' · ')}
+        </p>
+      )}
+
+      {book.conditionsNote && (
+        <p className="panel-sub">
+          {book.conditionsNote}{' '}
+          {book.clubs
+            .filter((c) => c.playsAtSeaLevel !== null)
+            .map((c) => `${c.club} ${c.playsAtSeaLevel}`)
+            .join(' · ')}
+        </p>
+      )}
+
+      {book.omitted.length > 0 && (
+        <p className="panel-sub muted">
+          {groupOmitted(book.omitted).join('. ')}.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function ClubsView({ report, session }: { report: SessionReport; session: ShotSession }) {
   return (
     <div className="stack">
+      <YardageBookCard report={report} />
       {report.conditions.raw && <ConditionsCard report={report} />}
 
 
