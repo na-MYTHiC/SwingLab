@@ -254,14 +254,27 @@ function DidItWork({ comparison }: { comparison: SessionComparison }) {
         <ul className="diw-list">
           {comparison.meaningful.map((d) => {
             const dp = d.unit === '' ? 3 : d.unit === 'rpm' || d.unit === 'yds' ? 0 : 1;
+            /*
+             * Three states, not two. `improved` is null for a metric that
+             * moved without that being good or bad news — carry is the one —
+             * and null is falsy, so a plain ternary quietly painted it red and
+             * labelled it "worse", which is the opposite of the point.
+             */
+            const tone = d.improved === true ? 'diw-up'
+              : d.improved === false ? 'diw-down'
+              : 'diw-flat';
+            const mark = d.improved === true ? '▲' : d.improved === false ? '▼' : '•';
+            const verdict = d.improved === true ? 'better'
+              : d.improved === false ? 'worse'
+              : 'changed';
             return (
-              <li key={d.metric} className={d.improved ? 'diw-up' : 'diw-down'}>
-                <span className="diw-arrow" aria-hidden="true">{d.improved ? '▲' : '▼'}</span>
+              <li key={d.metric} className={tone}>
+                <span className="diw-arrow" aria-hidden="true">{mark}</span>
                 <span className="diw-metric">{d.label}</span>
                 <span className="diw-change">
                   {d.previous.toFixed(dp)} → <strong>{d.current.toFixed(dp)}{d.unit}</strong>
                 </span>
-                <span className="diw-verdict">{d.improved ? 'better' : 'worse'}</span>
+                <span className="diw-verdict">{verdict}</span>
               </li>
             );
           })}

@@ -1,6 +1,7 @@
 import type { Club, ShotSession } from '../schema.js';
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { toReferenceFrame } from '../benchmarks/conditions.js';
+import { plural } from '../units.js';
 import { markImplausible, markMishits, markUnusable } from '../stats/outliers.js';
 
 /**
@@ -28,8 +29,14 @@ export interface MetricDelta {
   change: number;
   /** True when the change is larger than the noise it has to clear. */
   meaningful: boolean;
-  improved: boolean;
-  direction: 'higher-better' | 'lower-better' | 'toward-zero';
+  /**
+   * Better, worse, or not a verdict at all.
+   *
+   * `null` for metrics that moved without that being good or bad news. Carry
+   * is the one that matters: see the `carry` spec below.
+   */
+  improved: boolean | null;
+  direction: 'higher-better' | 'lower-better' | 'toward-zero' | 'context';
 }
 
 export interface SessionComparison {
@@ -52,8 +59,24 @@ interface Spec {
 }
 
 const SPECS: Record<string, Spec> = {
+  /*
+   * Carry is reported and deliberately NOT scored.
+   *
+   * It used to be 'higher-better', so a 7-iron that went six yards further
+   * than last week was counted as a win in a card asking whether practice had
+   * worked. Nothing else in this app believes that. The yardage book exists to
+   * stop players clubbing off their longest one, `potential` tells them they
+   * are not missing distance but missing it consistently, and the whole
+   * conditions system exists so that thin air is not mistaken for improvement.
+   * Six extra yards with a mid-iron between two sessions is usually a harder
+   * swing, and a harder swing widens the pattern — which is the opposite of
+   * the thing being practised.
+   *
+   * It stays on the card because it is useful to know the club went further.
+   * It just does not get a verdict, and it does not count in the tally.
+   */
   carry: {
-    label: 'Carry', unit: 'yds', direction: 'higher-better', floor: 4,
+    label: 'Carry', unit: 'yds', direction: 'context', floor: 4,
     read: (p) => ({ value: p.carry.median, n: p.carry.n }),
   },
   carrySpread: {
@@ -86,11 +109,16 @@ const SPECS: Record<string, Spec> = {
   },
 };
 
-function improvedBy(direction: MetricDelta['direction'], prev: number, curr: number): boolean {
+function improvedBy(
+  direction: MetricDelta['direction'],
+  prev: number,
+  curr: number,
+): boolean | null {
   switch (direction) {
     case 'higher-better': return curr > prev;
     case 'lower-better': return curr < prev;
     case 'toward-zero': return Math.abs(curr) < Math.abs(prev);
+    case 'context': return null;
   }
 }
 
@@ -138,22 +166,41 @@ export function compareSessions(
     });
   }
 
+  /*
+   * Wins first, then losses, then the unscored context rows at the bottom —
+   * so the card reads as a verdict with the background underneath it, rather
+   * than mixing a number that has no verdict into the middle of the list.
+   */
+  const rank = (d: MetricDelta) => (d.improved === true ? 0 : d.improved === false ? 1 : 2);
   const meaningful = deltas
     .filter((d) => d.meaningful)
-    .sort((a, b) => Number(b.improved) - Number(a.improved));
+    .sort((a, b) => rank(a) - rank(b));
 
-  const gains = meaningful.filter((d) => d.improved).length;
-  const losses = meaningful.length - gains;
+  // Only scored rows count. Carry moving is not a win, and counting it as one
+  // turned "2 better, 2 worse" into "3 better, 2 worse".
+  const gains = meaningful.filter((d) => d.improved === true).length;
+  const losses = meaningful.filter((d) => d.improved === false).length;
+  const scored = gains + losses;
 
   let headline: string;
-  if (meaningful.length === 0) {
-    headline = `Nothing moved further than your normal shot-to-shot variation. Two sessions is a small sample — that is not the same as nothing having changed.`;
-  } else if (gains > 0 && losses === 0) {
-    headline = `${gains} thing${gains === 1 ? '' : 's'} moved the right way since last time.`;
+  if (scored === 0) {
+    headline = 'Nothing moved further than your normal shot-to-shot variation. Two sessions is '
+      + 'a small sample — that is not the same as nothing having changed.';
+  } else if (losses === 0) {
+    headline = `${plural(gains, 'thing')} moved the right way since last time.`;
   } else if (gains === 0) {
-    headline = `${losses} thing${losses === 1 ? '' : 's'} went backwards since last time. Worth knowing before you repeat the same practice.`;
+    headline = `${plural(losses, 'thing')} went backwards since last time. Worth knowing before `
+      + 'you repeat the same practice.';
   } else {
-    headline = `${gains} better, ${losses} worse. Mixed sessions usually mean a change is still bedding in rather than that it failed.`;
+    /*
+     * No reassurance here that the data does not support. This used to end
+     * "mixed sessions usually mean a change is still bedding in rather than
+     * that it failed", which assumes the player made a change and then
+     * explains away the half that got worse before they have read it.
+     */
+    headline = `${gains} better, ${losses} worse — so the picture is mixed rather than a `
+      + 'verdict either way. Two sessions cannot separate a change that is bedding in from '
+      + 'one that is not working; a third will.';
   }
 
   return {
