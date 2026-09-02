@@ -218,3 +218,95 @@ export function trackManIndices(shots: Shot[]): TrackManIndices {
     spinCount: spin.length,
   };
 }
+
+
+/**
+ * Where today sits inside everything you have ever hit.
+ *
+ * The percentile reading a launch monitor app usually gets from a population
+ * database — except the population is the player's own history, which is both
+ * the only data that actually exists and arguably the more useful comparison.
+ * "Better than 68% of every 7-iron you have hit" is a sentence a golfer can do
+ * something with; "34th percentile of a dataset you are not in" is not.
+ *
+ * Compares this session's median against the distribution of individual past
+ * shots rather than past session medians. With four sessions on record there
+ * are only four session medians and a percentile over four points is noise,
+ * whereas there are hundreds of shots.
+ */
+export interface SelfPercentile {
+  metric: string;
+  label: string;
+  unit: string;
+  /** This session's median. */
+  value: number;
+  /** 0-100. Higher always means better, whichever way the metric runs. */
+  percentile: number;
+  /** Shots in the historical distribution. */
+  n: number;
+  detail: string;
+}
+
+const SELF: {
+  metric: string; label: string; unit: string; dp: number; higherBetter: boolean;
+  read: (s: Shot) => number | null;
+}[] = [
+  { metric: 'smash', label: 'Strike efficiency', unit: '', dp: 3, higherBetter: true,
+    read: (s) => s.smashFactor },
+  { metric: 'carry', label: 'Carry', unit: 'yds', dp: 0, higherBetter: true,
+    read: (s) => s.carry },
+  { metric: 'offline', label: 'How straight', unit: 'yds', dp: 1, higherBetter: false,
+    read: (s) => (s.side === null ? null : Math.abs(s.side)) },
+  { metric: 'clubSpeed', label: 'Club speed', unit: 'mph', dp: 1, higherBetter: true,
+    read: (s) => s.clubSpeed },
+];
+
+export function selfPercentiles(
+  history: ShotSession[],
+  current: ShotSession,
+  club: Club,
+  minHistory = 40,
+): SelfPercentile[] {
+  const past = history.filter((s) => s.id !== current.id);
+  if (past.length === 0) return [];
+
+  const pastShots = past.flatMap(
+    (s) => toReferenceFrame(s.shots.filter((x) => x.club === club), s.conditions),
+  );
+  const nowShots = toReferenceFrame(
+    current.shots.filter((x) => x.club === club),
+    current.conditions,
+  );
+  if (pastShots.length < minHistory || nowShots.length < 5) return [];
+
+  const out: SelfPercentile[] = [];
+  for (const spec of SELF) {
+    const historical = pastShots
+      .map(spec.read)
+      .filter((v): v is number => v !== null && Number.isFinite(v))
+      .sort((a, b) => a - b);
+    const today = nowShots
+      .map(spec.read)
+      .filter((v): v is number => v !== null && Number.isFinite(v));
+    if (historical.length < minHistory || today.length < 5) continue;
+
+    const value = median(today);
+    // Share of history this session's median beats, then flipped where lower
+    // is the better direction, so 90 always reads as "one of your best".
+    const below = historical.filter((v) => v < value).length / historical.length;
+    const percentile = Math.round((spec.higherBetter ? below : 1 - below) * 100);
+
+    out.push({
+      metric: spec.metric,
+      label: spec.label,
+      unit: spec.unit,
+      value: Math.round(value * 10 ** spec.dp) / 10 ** spec.dp,
+      percentile,
+      n: historical.length,
+      detail: percentile >= 50
+        ? `Better than ${percentile}% of the ${club}s you have hit.`
+        : `Below ${100 - percentile}% of the ${club}s you have hit.`,
+    });
+  }
+  return out.sort((a, b) => b.percentile - a.percentile);
+}

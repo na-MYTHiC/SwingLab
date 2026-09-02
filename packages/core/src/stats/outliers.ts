@@ -32,18 +32,68 @@ const HARD_LIMITS: Partial<Record<keyof Shot, [number, number]>> = {
   apexHeight: [0, 300],
   landingAngle: [0, 90],
   hangTime: [0, 15],
+
+  /*
+   * The directional fields, which had no limits at all.
+   *
+   * That was the more dangerous half of the gap: `side` feeds the dispersion
+   * ellipse, and the ellipse feeds the Direction score, the green rate and the
+   * handicap. One corrupt side value would have moved all four at once, and
+   * because a median is robust to a *plausible* outlier but not to a value of
+   * minus two billion, nothing downstream would have absorbed it.
+   */
+  faceToPath: [-45, 45],
+  launchDirection: [-45, 45],
+  spinAxis: [-90, 90],
+  spinLoft: [-10, 90],
+  lowPointDistance: [-24, 24],
+  impactOffset: [-80, 80],
+  impactHeight: [-80, 80],
+  side: [-250, 250],
+  curve: [-250, 250],
+  swingRadius: [0, 100],
+  dynamicLie: [20, 100],
 };
+
+/**
+ * A number no golf measurement can ever be.
+ *
+ * Launch monitors write sentinel values when a sensor fails, and they arrive
+ * as ordinary numbers in an ordinary column. The public 10,000-shot TrackMan
+ * dataset carries a spin rate of −21,474,836,480 — a scaled 32-bit integer
+ * overflow — sitting in the same column as real spin rates.
+ *
+ * Range checks catch it wherever a field has a range, but they cannot catch it
+ * in a field whose plausible range is wide, and they would not catch a new
+ * sentinel in a field added later. Nothing in golf is measured in billions, so
+ * this is the backstop that does not need to know what the field means.
+ */
+const NON_PHYSICAL = 1e9;
 
 export function markImplausible(shots: Shot[]): void {
   for (const shot of shots) {
-    for (const [field, range] of Object.entries(HARD_LIMITS) as [keyof Shot, [number, number]][]) {
-      const v = shot[field];
-      if (typeof v !== 'number') continue;
-      if (v < range[0] || v > range[1]) {
-        if (!shot.flags.includes('implausible')) shot.flags.push('implausible');
+    let bad = false;
+
+    // The backstop first: any field at all, not just the ones with ranges.
+    for (const value of Object.values(shot)) {
+      if (typeof value === 'number' && (!Number.isFinite(value) || Math.abs(value) >= NON_PHYSICAL)) {
+        bad = true;
         break;
       }
     }
+
+    if (!bad) {
+      for (const [field, range] of Object.entries(HARD_LIMITS) as [keyof Shot, [number, number]][]) {
+        const v = shot[field];
+        if (typeof v !== 'number') continue;
+        if (v < range[0] || v > range[1]) {
+          bad = true;
+          break;
+        }
+      }
+    }
+
+    if (bad && !shot.flags.includes('implausible')) shot.flags.push('implausible');
   }
 }
 

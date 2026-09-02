@@ -4,6 +4,7 @@ import {
   buildTrends,
   buildWindows,
   readForm,
+  selfPercentiles,
   compareSessions,
   evaluateTargets,
   practiceStreak,
@@ -18,6 +19,7 @@ import {
   type PlayerBaseline,
   type PracticeDuration,
   type FormRead,
+  type SelfPercentile,
   type PracticeTarget,
   type TargetResult,
   type WindowProfile,
@@ -163,13 +165,20 @@ export default function App() {
    * The windows can, and it is the question a player actually has after a poor
    * afternoon.
    */
-  const windows = useMemo<{ windows: WindowProfile[]; form: FormRead[] } | null>(() => {
-    if (!report || report.profiles.length === 0 || stored.length < 2) return null;
+  const windows = useMemo<{
+    windows: WindowProfile[]; form: FormRead[]; percentiles: SelfPercentile[];
+  } | null>(() => {
+    if (!report || !active || report.profiles.length === 0 || stored.length < 2) return null;
     const club = [...report.profiles].sort((x, y) => y.shotCount - x.shotCount)[0]?.club;
     if (!club) return null;
-    const built = buildWindows(stored.map((x) => x.session), club);
-    return { windows: built, form: readForm(built) };
-  }, [report, stored]);
+    const sessions = stored.map((x) => x.session);
+    const built = buildWindows(sessions, club);
+    return {
+      windows: built,
+      form: readForm(built),
+      percentiles: selfPercentiles(sessions, active, club),
+    };
+  }, [report, stored, active]);
 
   const trends = useMemo<Trend[]>(() => {
     const sessions = stored.map((s) => s.session);
@@ -362,9 +371,15 @@ export default function App() {
               />
             )}
             {tab === 'clubs' && cloned && (
-              <ClubsView report={report} session={cloned} windows={windows} />
+              <ClubsView report={report} session={cloned} />
             )}
-            {tab === 'trends' && <TrendsView trends={trends} sessionCount={stored.length} />}
+            {tab === 'trends' && (
+              <TrendsView
+                trends={trends}
+                sessionCount={stored.length}
+                windows={windows}
+              />
+            )}
           </section>
         </main>
       ) : (

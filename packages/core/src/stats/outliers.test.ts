@@ -177,3 +177,62 @@ describe('shots there is nothing to learn from', () => {
     expect(shots[14]?.flags).not.toContain('unusable');
   });
 });
+
+/**
+ * Sentinel values, found in the wild.
+ *
+ * The public 10,000-shot TrackMan dataset carries a spin rate of
+ * −21,474,836,480 — a scaled 32-bit integer overflow — in the same column as
+ * real spin rates. These lock the guard against that whole class of value.
+ */
+describe('corrupt sensor values', () => {
+  const base = (over: Partial<Shot>): Shot => ({
+    id: 's', source: 'trackman-csv', time: null, club: '7i',
+    clubSpeed: 87, ballSpeed: 115, smashFactor: 1.32, attackAngle: -3.4, clubPath: 0.2,
+    faceAngle: 0.3, faceToPath: 0.1, dynamicLoft: 25, spinLoft: 28, lowPointDistance: 3,
+    impactOffset: 0, impactHeight: 0, launchAngle: 17, launchDirection: 0.3,
+    spinRate: 6800, spinAxis: 0, carry: 169, total: 178, side: 0, curve: 0,
+    apexHeight: 30, landingAngle: 47, targetDistance: null, proximity: null,
+    shotScore: null, spinMeasured: true, smashIndex: null, spinIndex: null,
+    lowPointSide: null, swingRadius: null, dynamicLie: null, flags: [],
+    ...over,
+  } as Shot);
+
+  it('rejects the exact value the public dataset contains', () => {
+    const shots = [base({ spinRate: -21474836480 })];
+    markImplausible(shots);
+    expect(shots[0]!.flags).toContain('implausible');
+  });
+
+  it('rejects a sentinel in a field with no range of its own', () => {
+    /*
+     * `side` had no hard limit, and it feeds the dispersion ellipse — which
+     * feeds the Direction score, the green rate and the handicap. A median is
+     * robust to a plausible outlier and helpless against minus two billion.
+     */
+    const shots = [base({ side: -2147483648 })];
+    markImplausible(shots);
+    expect(shots[0]!.flags).toContain('implausible');
+  });
+
+  it('rejects non-finite readings', () => {
+    for (const bad of [Number.NaN, Infinity, -Infinity]) {
+      const shots = [base({ curve: bad })];
+      markImplausible(shots);
+      expect(shots[0]!.flags).toContain('implausible');
+    }
+  });
+
+  it('leaves a perfectly ordinary shot alone', () => {
+    const shots = [base({})];
+    markImplausible(shots);
+    expect(shots[0]!.flags).toEqual([]);
+  });
+
+  it('still accepts a wide but real miss', () => {
+    // 60 yards offline is a terrible shot, not a broken sensor.
+    const shots = [base({ side: -60, curve: 45 })];
+    markImplausible(shots);
+    expect(shots[0]!.flags).toEqual([]);
+  });
+});

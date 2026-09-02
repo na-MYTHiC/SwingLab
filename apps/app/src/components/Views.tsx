@@ -1,6 +1,6 @@
 import type {
   Prioritised, SessionReport, Prescription, ClubProfile, Shot, ShotSession, Trend,
-  PracticeDuration, FormRead, WindowProfile,
+  PracticeDuration, FormRead, WindowProfile, SelfPercentile,
 } from '@swinglab/core';
 import { DispersionChart, TrendChart } from './Charts.js';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
@@ -367,26 +367,11 @@ function clock(minute: number): string {
  * to drag sideways on a phone, so below the breakpoint each club renders as
  * a card instead and nothing sits off the edge of the screen.
  */
-export function ClubsView({
-  report, session, windows,
-}: {
-  report: SessionReport;
-  session: ShotSession;
-  windows: { windows: WindowProfile[]; form: FormRead[] } | null;
-}) {
+export function ClubsView({ report, session }: { report: SessionReport; session: ShotSession }) {
   return (
     <div className="stack">
       {report.conditions.raw && <ConditionsCard report={report} />}
 
-      {windows && windows.form.length > 0 && (
-        <>
-          <h2 className="section-head">
-            Form
-            <span>your last twenty against your all-time</span>
-          </h2>
-          <FormCard form={windows.form} windows={windows.windows} />
-        </>
-      )}
 
       {report.profiles.length > 1 && (
         <div className="table-scroll card wide-only">
@@ -511,6 +496,47 @@ function ConditionsCard({ report }: { report: SessionReport }) {
   );
 }
 
+/**
+ * Percentiles against the player's own history.
+ *
+ * The reading a launch monitor app usually takes from a population database,
+ * except the population is the player. That is both the only data that
+ * actually exists — there is no public shot-level dataset worth benchmarking
+ * against — and arguably the better comparison: "better than 68% of every
+ * 7-iron you have hit" is a sentence you can act on.
+ */
+function PercentileCard({ rows }: { rows: SelfPercentile[] }) {
+  return (
+    <section className="card">
+      <ul className="pct-list">
+        {rows.map((r) => {
+          const tone = r.percentile >= 66 ? 'good' : r.percentile >= 34 ? 'mid' : 'bad';
+          return (
+            <li key={r.metric}>
+              <div className="pct-head">
+                <strong>{r.label}</strong>
+                <span>
+                  {r.value}
+                  {r.unit}
+                </span>
+              </div>
+              <div className="pct-track">
+                <div className={`pct-fill pct-${tone}`} style={{ width: `${r.percentile}%` }} />
+                <span className="pct-mark" style={{ left: '50%' }} />
+              </div>
+              <em>{r.detail}</em>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="panel-sub cond-note">
+        Measured against {rows[0]?.n ?? 0} of your own past shots with that club, all put into
+        common air first. The line marks your usual.
+      </p>
+    </section>
+  );
+}
+
 /** Recent form against the long run: a bad day, or a new normal. */
 function FormCard({ form, windows }: { form: FormRead[]; windows: WindowProfile[] }) {
   const counted = windows.filter((w) => w.profile !== null);
@@ -620,15 +646,59 @@ function Cell({
 }
 
 /** The Trends view — the only thing a single session cannot tell you. */
-export function TrendsView({ trends, sessionCount }: { trends: Trend[]; sessionCount: number }) {
+export function TrendsView({
+  trends, sessionCount, windows,
+}: {
+  trends: Trend[];
+  sessionCount: number;
+  windows: {
+    windows: WindowProfile[]; form: FormRead[]; percentiles: SelfPercentile[];
+  } | null;
+}) {
+  /*
+   * Form and percentiles live here rather than on Clubs.
+   *
+   * Both answer "how am I changing", which is what this tab is for — Clubs is
+   * reference data about the equipment in your hands. It also stops Clubs from
+   * running to five and a half thousand pixels while this tab sat almost
+   * empty, which is a layout telling you the information is in the wrong room.
+   */
+  const extras = windows && (windows.form.length > 0 || windows.percentiles.length > 0) ? (
+    <>
+      {windows.form.length > 0 && (
+        <>
+          <h2 className="section-head">
+            Form
+            <span>your last twenty against your all-time</span>
+          </h2>
+          <FormCard form={windows.form} windows={windows.windows} />
+        </>
+      )}
+      {windows.percentiles.length > 0 && (
+        <>
+          <h2 className="section-head">
+            Against yourself
+            <span>where this session sits in everything you have hit</span>
+          </h2>
+          <PercentileCard rows={windows.percentiles} />
+        </>
+      )}
+    </>
+  ) : null;
+
   if (sessionCount < 3) {
     return (
-      <div className="empty-state">
-        <h2>Import {3 - sessionCount} more session{3 - sessionCount === 1 ? '' : 's'}</h2>
-        <p>
-          Trends need at least three sessions with the same club before they mean anything. Two
-          points is a line through noise, not a direction.
-        </p>
+      <div className="stack">
+        {extras}
+        <div className="empty-state">
+          <h2>
+            Import {3 - sessionCount} more session{3 - sessionCount === 1 ? '' : 's'} for trends
+          </h2>
+          <p>
+            Trend lines need at least three sessions with the same club before they mean anything.
+            Two points is a line through noise, not a direction.
+          </p>
+        </div>
       </div>
     );
   }
@@ -638,6 +708,7 @@ export function TrendsView({ trends, sessionCount }: { trends: Trend[]; sessionC
 
   return (
     <div className="stack">
+      {extras}
       {significant.length === 0 && (
         <p className="plan-note">
           Nothing has moved further than your shot-to-shot noise yet. That is not a failure — most

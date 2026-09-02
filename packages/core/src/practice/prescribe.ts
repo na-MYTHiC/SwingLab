@@ -126,6 +126,211 @@ interface Template {
 }
 
 const TEMPLATES: Template[] = [
+  // ------------------------------------------------------------ dispersion
+  {
+    /*
+     * The pattern itself.
+     *
+     * This one was missing, which was the worst gap in the library: the app
+     * would tell a player their 7-iron pattern is 57 yards wide and then hand
+     * them an hour that never mentioned it. Width is also the fault that most
+     * often survives tidy delivery numbers — a player can have a face and path
+     * they would be pleased with and still spray it, because width comes from
+     * strike location and aim as much as from the club's direction.
+     */
+    matches: (id) => id === 'dispersion-wide',
+    build(finding, profiles) {
+      const club = finding.club;
+      const carry = carryOf(profiles, club);
+      const width = finding.evidence.find((e) => e.label === 'Pattern width')?.value ?? null;
+      const gate = carry ? Math.max(15, Math.round((carry * 0.12) / 5) * 5) : 20;
+      return {
+        id: `rx-dispersion-${club}`,
+        mode: PRACTICE_MODES['target-practice'],
+        title: `Shrink the ${club} pattern`,
+        rationale:
+          width !== null
+            ? `Your pattern is ${width} yards wide, and a green is about thirty across — so you are relying on the good half of it to hold a target. Width is the fault that survives tidy delivery numbers, because it comes from where you strike it and where you aim as much as from where the club is going.`
+            : 'Your pattern is wide enough that you are relying on the good half of it to hold a target.',
+        setup: [
+          'Target Practice, one target, and pick a window you have to keep the ball inside.',
+          `Start with a window about ${gate} yards wide — narrow enough to fail, wide enough to pass most of the time.`,
+          'Re-aim from behind the ball every third shot. Aim drifts within a session and is invisible from inside the stance.',
+          'Count hits and misses out loud. A width you are not counting is a width you are guessing at.',
+        ],
+        success: `Seven of ten inside the ${gate}-yard window, with no more than one miss on the same side twice running.`,
+        club,
+        targetDistance: carry,
+        shots: 25,
+        minutes: 20,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['target-window', 'aim-reset', 'gate-path']),
+      };
+    },
+  },
+
+  // ------------------------------------------------------------- efficiency
+  {
+    /*
+     * Distance the player has already paid for with speed but is not
+     * collecting. Deliberately not a "swing harder" block: smash is a ratio,
+     * so this is entirely about where on the face the ball is meeting it and
+     * what loft is being delivered when it does.
+     */
+    matches: (id) => id === 'below-tour-efficiency',
+    build(finding, profiles) {
+      const club = finding.club;
+      const carry = carryOf(profiles, club);
+      const gap = finding.evidence.find((e) => e.label === 'Carry available')?.value ?? null;
+      return {
+        id: `rx-efficiency-${club}`,
+        mode: PRACTICE_MODES.range,
+        title: `Collect the ${club} distance your speed already buys`,
+        rationale:
+          gap !== null
+            ? `You are swinging fast enough for roughly ${gap} more yards than you are getting. That gap is not speed — it is where the ball is meeting the face and what loft is on it when it does, and both are trainable without swinging any harder.`
+            : 'You are swinging fast enough for more carry than you are getting. That is a strike and delivery problem, not a speed one.',
+        setup: [
+          'Practice Range with the club, face sprayed before every fifth shot.',
+          'Hit at about 80% effort. Speed hides strike quality rather than improving it, and this block is about strike.',
+          'Watch smash factor only. Ignore where the ball finishes for now.',
+          'After every set of five, look at the face before you look at the screen.',
+        ],
+        success:
+          'Smash factor up by 0.02 or better across the block, with the strike marks clustering rather than scattering.',
+        club,
+        targetDistance: carry,
+        shots: 30,
+        minutes: 20,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['foot-spray-strike', 'toe-heel-gate', 'one-flight']),
+      };
+    },
+  },
+
+  // --------------------------------------------------------- iron attack up
+  {
+    /*
+     * Hitting up on an iron. A distinct fault from a wandering low point: the
+     * low point can be perfectly repeatable and still be in the wrong place,
+     * and the fix is positional rather than a matter of control.
+     */
+    matches: (id) => id === 'iron-positive-aoa',
+    build(finding, profiles) {
+      const club = finding.club;
+      const carry = carryOf(profiles, club);
+      const aoa = finding.evidence.find((e) => e.label === 'Attack angle')?.value ?? null;
+      return {
+        id: `rx-aoa-${club}`,
+        mode: PRACTICE_MODES.range,
+        title: `Hit down on the ${club}`,
+        rationale:
+          aoa !== null
+            ? `You are delivering the ${club} at ${aoa}° — upward, when an iron off the deck wants to be coming down. Hitting up adds loft and spin at impact and costs you compression, which is why the ball flies high and lands soft without going anywhere.`
+            : 'You are hitting up on an iron off the deck, which adds loft and spin at impact and costs compression.',
+        setup: [
+          'Practice Range, ball on the mat rather than a tee.',
+          'Move the ball one ball-width back in your stance and set your hands ahead of it.',
+          'Hit punchy three-quarter shots and watch attack angle only — not the ball.',
+          'Every fifth shot, go back to your normal ball position and see whether the number holds.',
+        ],
+        success: `Attack angle negative on eight of ten, with the divot starting after the ball rather than before it.`,
+        club,
+        targetDistance: carry,
+        shots: 25,
+        minutes: 20,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['shaft-lean-irons', 'tee-forward-low-point', 'towel-behind-ball']),
+      };
+    },
+  },
+
+  // ------------------------------------------------------ delivery variance
+  {
+    /*
+     * One block for three findings on purpose.
+     *
+     * Delivered loft, launch angle and spin are not three faults — they are
+     * one fault read off three instruments. Loft at impact drives launch, and
+     * launch and loft together drive spin, so a session that worked all three
+     * separately would spend an hour practising the same thing and call it
+     * variety. The causal engine already nests them; this makes the practice
+     * plan agree with it.
+     */
+    matches: (id) =>
+      id === 'dynamic-loft-inconsistent' || id === 'launch-window-wide' || id === 'spin-inconsistent',
+    build(finding, profiles) {
+      const club = finding.club;
+      const carry = carryOf(profiles, club);
+      return {
+        id: `rx-delivery-${club}`,
+        mode: PRACTICE_MODES.range,
+        title: `Deliver the same ${club} every time`,
+        rationale:
+          'Delivered loft, launch and spin are one fault read off three instruments — loft at impact drives launch, and the two together drive spin. Working them separately spends an hour practising the same thing three times, so this block treats them as one: hold a single flight, and all three settle.',
+        setup: [
+          'Practice Range. Pick a window on the screen or in the net and commit to it.',
+          'Every shot goes through that window. Not near it — through it.',
+          'Hold your finish until the ball lands. Steering the club at the last moment is what makes loft vary.',
+          'Change nothing else. This block is about repeating one delivery, not finding a better one.',
+        ],
+        success:
+          'Delivered loft repeating inside ±1.5° across the block, with launch following it. Spin will settle last.',
+        club,
+        targetDistance: carry,
+        shots: 27,
+        minutes: 20,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['one-flight', 'spin-loft-control', 'towel-behind-ball']),
+      };
+    },
+  },
+
+  // ---------------------------------------------------------------- low spin
+  {
+    /*
+     * Low spin, which the driver-launch block does not answer. On an iron it
+     * is the reason a good-looking shot runs through the back of a green, and
+     * it is a different problem from too much spin: you cannot fix it by
+     * striking it better, because a flush strike low on the face is exactly
+     * what produces it.
+     */
+    matches: (id) => id === 'spin-too-low',
+    build(finding, profiles) {
+      const club = finding.club;
+      const carry = carryOf(profiles, club);
+      const spin = finding.evidence.find((e) => e.label === 'Spin rate')?.value ?? null;
+      return {
+        id: `rx-spin-low-${club}`,
+        mode: PRACTICE_MODES.range,
+        title: `Put spin back on the ${club}`,
+        rationale:
+          spin !== null
+            ? `At ${spin} rpm the ball is coming down too shallow to stop. That is not a strike problem — a flush strike low on the face is exactly what produces it — so the fix is where on the face you are catching it and how much loft is left on the club at impact.`
+            : 'Your spin is low enough that the ball is landing too shallow to stop on a green.',
+        setup: [
+          'Practice Range, ball on the mat, face sprayed.',
+          'Aim to catch the ball a groove higher on the face than you have been. Check the spray, not the feel.',
+          'Keep your hands from running too far ahead at impact — de-lofting is what is stripping the spin off it.',
+          'Watch spin and landing angle together. Spin alone can mislead; the pair tells you whether it will hold.',
+        ],
+        success:
+          'Spin up by 400 rpm or better with no loss of carry, and a landing angle steep enough to stop on a green.',
+        club,
+        targetDistance: carry,
+        shots: 25,
+        minutes: 20,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['spin-loft-control', 'foot-spray-strike', 'one-flight']),
+      };
+    },
+  },
+
   // ---------------------------------------------------------------- strike
   {
     matches: (id) =>
