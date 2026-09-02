@@ -15,7 +15,21 @@ export function loadTheme(): Theme {
     const stored = localStorage.getItem(KEY);
     if (stored === 'light' || stored === 'dark') return stored;
   } catch {
-    // Private browsing or blocked storage — dark is still the right default.
+    // Private browsing or blocked storage. Fall through to the system.
+  }
+  /*
+   * Follow the device on a first visit rather than insisting on dark.
+   *
+   * A choice the player has made is honoured above everything, which is why
+   * the stored value is read first. But somebody who has never opened this
+   * before has still expressed a preference — in their phone settings — and
+   * handing them a dark app on a device set to light is the app telling them
+   * their preference does not count.
+   */
+  try {
+    if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
+  } catch {
+    // No matchMedia (very old browsers, some embedded webviews).
   }
   return 'dark';
 }

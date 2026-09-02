@@ -1,5 +1,6 @@
 import type { ClubProfile, SessionReport, Shot } from '@swinglab/core';
 import { VERSION } from './version.js';
+import { plural } from './format.js';
 
 /**
  * Renders a session as a full phone-sized scorecard the player can send.
@@ -212,7 +213,7 @@ export async function renderShareCard(
   ctx.font = '500 25px system-ui, -apple-system, sans-serif';
   const bits = [
     report.mode?.name ?? 'Session',
-    `${report.shotCount} shots`,
+    plural(report.shotCount, 'shot'),
     main ? `${main.club} · ${Math.round(main.carry.median)} yds` : null,
   ].filter(Boolean);
   ctx.fillText(bits.join('   ·   '), PAD, y + 22);

@@ -877,6 +877,27 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .yardage-call { color: var(--text); }
 
+/* --- the way in for somebody with no data yet ---------------------------- */
+
+.sample-btn {
+  margin: var(--sp-4) auto 0;
+  padding: var(--sp-3) var(--sp-5);
+  min-height: var(--tap);
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--brand);
+  font-weight: 600;
+  cursor: pointer;
+}
+.sample-btn:hover { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.sample-note {
+  margin: var(--sp-3) auto 0;
+  max-width: 34ch;
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
 /* --- what aiming is worth ------------------------------------------------ */
 
 .aim-card { border-left: 3px solid var(--good); }
@@ -1056,7 +1077,17 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* ----------------------------------------------------------------- empty */
 
-.empty-state { margin-top: var(--sp-6); text-align: center; }
+.empty-state { margin-top: var(--sp-5); text-align: center; }
+.empty-or {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-6) 0 var(--sp-3);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+.empty-or::before,
+.empty-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 .empty-state h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-xl); }
 .empty-state p { margin: 0 auto; max-width: 50ch; color: var(--text-dim); font-size: var(--fs-sm); }
 

@@ -31,6 +31,7 @@ import {
 } from './storage.js';
 import { isDesktop, watchExportFolder } from './desktop.js';
 import { applyTheme, loadTheme, type Theme } from './theme.js';
+import { SAMPLE_SESSIONS, isSampleSession } from './sample.js';
 import { buildStamp, VERSION } from './version.js';
 import { plural, sessionKindLabel, shortDate } from './format.js';
 import { ClubsView, PracticeView, PriorityView, TrendsView } from './components/Views.js';
@@ -213,6 +214,41 @@ export default function App() {
   }, []);
 
   /**
+   * Load the bundled demo session.
+   *
+   * Goes through exactly the same ingest path as a real file rather than a
+   * shortcut that writes a session straight into storage, so what a tester
+   * sees is what an import produces — including the parser warnings, which
+   * are part of the product.
+   */
+  const loadSample = useCallback(() => {
+    ingestRaw(SAMPLE_SESSIONS);
+  }, [ingestRaw]);
+
+  /**
+   * Take the demo back out in one action.
+   *
+   * Five sessions is five taps of Delete otherwise, and leaving them in is
+   * worse than tedious: trends, form and the speed baseline all read across
+   * sessions, so a tester who loads the sample and then imports their own
+   * range session gets their golf averaged with invented golf and no sign
+   * that it happened.
+   */
+  const clearSample = useCallback(() => {
+    let next = byDate(loadAll());
+    for (const s of next.filter((x) => isSampleSession(x.session.sourceRef))) {
+      next = byDate(remove(s.session.id));
+    }
+    setStored(next);
+    setActiveId(next[0]?.session.id ?? null);
+    // The demo's own import notes go with it; leaving them on screen after
+    // the sessions are gone is a note about a file that no longer exists.
+    setWarnings([]);
+    setError(null);
+    setNotice('Sample sessions removed.');
+  }, []);
+
+  /**
    * Everything that arrives as a file, however it arrived.
    *
    * A folder drop hands over every file inside it, including whatever else the
@@ -327,9 +363,6 @@ export default function App() {
         </div>
       </header>
 
-      {stored.length === 0 && (
-        <DropZone dragging={dragging} setDragging={setDragging} onFiles={handleFiles} />
-      )}
 
       {isDesktop() && (
         <button className="watch" onClick={startWatching} disabled={watching}>
@@ -383,7 +416,12 @@ export default function App() {
           </section>
         </main>
       ) : (
-        <Empty />
+        <Empty
+          onSample={loadSample}
+          dragging={dragging}
+          setDragging={setDragging}
+          onFiles={handleFiles}
+        />
       )}
 
       {managing && (
@@ -393,6 +431,9 @@ export default function App() {
           onFiles={handleFiles}
           onDelete={deleteSession}
           onBackup={downloadBackup}
+          onSample={loadSample}
+          onClearSample={clearSample}
+          hasSample={stored.some((s) => isSampleSession(s.session.sourceRef))}
           notice={notice}
           onClose={() => { setManaging(false); setNotice(null); }}
         />
@@ -455,7 +496,7 @@ function SessionBar({
         {stored.map((s) => (
           <option key={s.session.id} value={s.session.id}>
             {shortDate(s.session.startedAt)} · {sessionKindLabel(s.session.kind)} ·{' '}
-            {s.session.shots.length} shots
+            {plural(s.session.shots.length, 'shot')}
           </option>
         ))}
       </select>
@@ -471,13 +512,17 @@ function SessionBar({
  * parked under the picker where it is one mis-tap from losing a session.
  */
 function ImportDialog({
-  stored, activeId, onFiles, onDelete, onBackup, notice, onClose,
+  stored, activeId, onFiles, onDelete, onBackup, onSample, onClearSample, hasSample,
+  notice, onClose,
 }: {
   stored: StoredSession[];
   activeId: string | null;
   onFiles: (files: FileList | File[]) => void;
   onDelete: (id: string) => void;
   onBackup: () => void;
+  onSample: () => void;
+  onClearSample: () => void;
+  hasSample: boolean;
   notice: string | null;
   onClose: () => void;
 }) {
@@ -577,6 +622,20 @@ function ImportDialog({
           </button>
         </div>
 
+        {/* Reachable after the empty state is gone, for anyone who wants to
+            see the demo again or lost it. */}
+        <div className="sheet-row">
+          {hasSample ? (
+            <button className="ghost-btn" onClick={onClearSample}>
+              Remove the sample sessions
+            </button>
+          ) : (
+            <button className="ghost-btn" onClick={() => { onSample(); onClose(); }}>
+              Load a sample session
+            </button>
+          )}
+        </div>
+
         {notice && <p className="sheet-notice">{notice}</p>}
 
         {stored.length > 0 && (
@@ -657,10 +716,19 @@ function Warnings({ warnings }: { warnings: IngestWarning[] }) {
   const grouped = new Map<string, number>();
   for (const w of warnings) grouped.set(w.message, (grouped.get(w.message) ?? 0) + 1);
 
+  /*
+   * Count the distinct notes, not the occurrences.
+   *
+   * The list below already collapses repeats into one line with a "×5", but
+   * the summary counted every copy — so importing five files that each raise
+   * the same ambiguous-date note announced "5 notes from the import" and
+   * looked like five separate problems. A folder of thirty exports announced
+   * thirty. There is one thing wrong, and it is worth saying once.
+   */
   return (
     <details className="warnings">
       <summary>
-        {warnings.length} note{warnings.length === 1 ? '' : 's'} from the import
+        {plural(grouped.size, 'note')} from the import
       </summary>
       <ul>
         {[...grouped.entries()].map(([message, count]) => (
@@ -674,14 +742,41 @@ function Warnings({ warnings }: { warnings: IngestWarning[] }) {
   );
 }
 
-function Empty() {
+/**
+ * The first screen, ordered by what most people opening it can actually do.
+ *
+ * It used to lead with a drop zone for a TrackMan CSV, which is the one thing
+ * a first-time visitor almost certainly does not have. The sample comes first
+ * now and the import is the alternative underneath it; anybody who owns an
+ * export will find a drop zone without being shown it first.
+ */
+function Empty({
+  onSample, dragging, setDragging, onFiles,
+}: {
+  onSample: () => void;
+  dragging: boolean;
+  setDragging: (v: boolean) => void;
+  onFiles: (files: FileList | File[]) => void;
+}) {
   return (
     <main className="empty-state">
-      <h2>No sessions yet</h2>
+      <h2>Read your simulator session properly</h2>
       <p>
-        Import a TrackMan export to get a ranked read on your game and a practice session laid out
-        in real TrackMan modes. Everything is computed on this device from your own numbers.
+        SwingLab ranks what is actually costing you shots, works out what to practise, and lays
+        out a session in real TrackMan modes. Everything is computed on this device from your own
+        numbers.
       </p>
+
+      <button type="button" className="sample-btn" onClick={onSample}>
+        Look around with a sample session
+      </button>
+      <p className="sample-note">
+        Made-up data, so you can see what it does before you have your own. Delete it any time
+        from Import.
+      </p>
+
+      <div className="empty-or"><span>or bring your own</span></div>
+      <DropZone dragging={dragging} setDragging={setDragging} onFiles={onFiles} />
     </main>
   );
 }

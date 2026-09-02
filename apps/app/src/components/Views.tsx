@@ -5,7 +5,7 @@ import type {
 import { DispersionChart, TrendChart } from './Charts.js';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
 import { carryFactor, trackManIndices } from '@swinglab/core';
-import { minutes, num, shots, speedLabel } from '../format.js';
+import { minutes, num, plural, shots, speedLabel } from '../format.js';
 
 /**
  * The Fix view — the answer to "what do I do next".
@@ -735,7 +735,7 @@ function ClubCard({ profile: p, shots }: { profile: ClubProfile; shots: Shot[] }
       <div className="club-card-head">
         <strong>{p.club}</strong>
         <span>
-          {p.shotCount} shots
+          {plural(p.shotCount, 'shot')}
           {p.mishitCount > 0 && <em className="mishits"> · {p.mishitCount} off</em>}
         </span>
       </div>

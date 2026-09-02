@@ -3,8 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f1512" />
-    <title>SwingLab</title>
+    <!-- Two, so the browser chrome matches whichever scheme the device is in.
+         A single dark value put a black bar above a light-mode page. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f8f6" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1512" />
+    <title>SwingLab — read your simulator session properly</title>
+    <meta
+      name="description"
+      content="Turn a TrackMan export into a ranked read on your game and a practice session
+               laid out in real TrackMan modes. Free, and it runs entirely on your device."
+    />
+
+    <!-- Link previews. Without these a shared link arrives as a bare URL, which
+         is most of what a link sent to somebody to try actually is. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SwingLab" />
+    <meta property="og:title" content="SwingLab — read your simulator session properly" />
+    <meta
+      property="og:description"
+      content="Ranks what is costing you shots and what to practise. TrackMan CSV in, a practice
+               plan out. Free, and nothing leaves your device."
+    />
+    <meta property="og:image" content="https://na-mythic.github.io/swinglab/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://na-mythic.github.io/swinglab/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SwingLab — read your simulator session properly" />
+    <meta
+      name="twitter:description"
+      content="Ranks what is costing you shots and what to practise. Free, and nothing leaves
+               your device."
+    />
+    <meta name="twitter:image" content="https://na-mythic.github.io/swinglab/og.png" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SwingLab" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <base href="./" />
