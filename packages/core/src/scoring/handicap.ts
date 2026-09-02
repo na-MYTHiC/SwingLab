@@ -71,13 +71,14 @@ export interface HandicapEstimate {
 export function estimateHandicapAcrossBag(
   profiles: ClubProfile[],
   strike: StrikeBreakdown,
+  blowUpRate: number | null = null,
 ): HandicapEstimate | null {
   const usable = profiles.filter((p) => p.representativeCount >= 10);
   if (usable.length === 0) return null;
-  if (usable.length === 1) return estimateHandicap(usable[0] as ClubProfile, strike);
+  if (usable.length === 1) return estimateHandicap(usable[0] as ClubProfile, strike, blowUpRate);
 
   const parts = usable
-    .map((p) => ({ profile: p, estimate: estimateHandicap(p, strike) }))
+    .map((p) => ({ profile: p, estimate: estimateHandicap(p, strike, blowUpRate) }))
     .filter((x): x is { profile: ClubProfile; estimate: HandicapEstimate } => x.estimate !== null);
   if (parts.length === 0) return null;
 
@@ -115,9 +116,52 @@ export function estimateHandicapAcrossBag(
   };
 }
 
+/** Full swings in a round where a duff costs a stroke: tee shots and approaches. */
+const FULL_SWINGS_PER_ROUND = 14;
+/** What one of them costs when it does not come off. */
+const STROKES_PER_BLOW_UP = 0.75;
+
+/**
+ * Say what went into the number, in the order a player would ask.
+ *
+ * Built as a sentence at a time rather than one template, because the aim
+ * clause only makes sense when there is an aim error worth naming and the
+ * duff clause only when something was duffed.
+ */
+function buildCaveat(
+  profile: ClubProfile,
+  pct: number,
+  biasSide: number,
+  blowUpRate: number | null,
+): string {
+  const parts = [
+    `Your ${profile.club} finishes an average of ${pct.toFixed(1)}% of its carry from the ` +
+    `target; a tour player is nearer 5.8%.`,
+  ];
+  if (Math.abs(biasSide) >= 4) {
+    parts.push(
+      `That counts the ${Math.abs(biasSide).toFixed(0)} yards your pattern sits ` +
+      `${biasSide > 0 ? 'right' : 'left'} of the line, because the tour figure counts theirs ` +
+      `too. It is also the cheapest of these to fix — see the yardage book.`,
+    );
+  }
+  if (blowUpRate !== null && blowUpRate > 0.02) {
+    parts.push(
+      `${(blowUpRate * 100).toFixed(1)}% of the session was topped or duffed, which the ` +
+      `pattern cannot see and a scorecard certainly can.`,
+    );
+  }
+  parts.push(
+    'Ball-striking only — around 45% of scoring happens inside 100 yards and none of it shows ' +
+    'up on a range, so a sharp short game plays better than this and a shaky one plays worse.',
+  );
+  return parts.join(' ');
+}
+
 export function estimateHandicap(
   profile: ClubProfile | null,
   strike: StrikeBreakdown,
+  blowUpRate: number | null = null,
 ): HandicapEstimate | null {
   if (!profile) return null;
 
@@ -130,7 +174,13 @@ export function estimateHandicap(
   const shots = profile.representativeCount;
   if (shots < 10) return null;
 
-  const spread = { sigmaSide, sigmaCarry, carry };
+  /*
+   * The pattern as the benchmark measures it: distance from the target line,
+   * bias included. `side` is signed against the target line the launch
+   * monitor was set up on, so its median is the aim error directly.
+   */
+  const biasSide = Number.isFinite(profile.side.median) ? profile.side.median : 0;
+  const spread = { sigmaSide, sigmaCarry, carry, biasSide };
   const pct = radialPercent(spread);
   if (!Number.isFinite(pct)) return null;
 
@@ -145,6 +195,24 @@ export function estimateHandicap(
    */
   const strikePenalty = strike.total >= 10 ? (1 - strike.qualityShare) * 5 : 0;
   handicap += strikePenalty;
+
+  /*
+   * And a charge for the shots that never came off at all.
+   *
+   * A topped or duffed approach is not a wide shot, it is a lost stroke, and
+   * the pattern cannot see it because the pattern is built from the shots
+   * that flew. From 175 yards a duff that travels 50 leaves the player 125 out
+   * having spent a stroke, where the normal shot would have left a putt —
+   * about three-quarters of a stroke gone, and more once the recovery is
+   * counted. A round holds roughly fourteen swings where that can happen.
+   *
+   * Handicap is strokes over the rating, so strokes per round converts to
+   * handicap strokes about one for one. At 8.6% of a session topped that is
+   * a full stroke a round, which is on its own the difference between single
+   * figures and not.
+   */
+  const blowUpPenalty = blowUpRate !== null ? blowUpRate * FULL_SWINGS_PER_ROUND * STROKES_PER_BLOW_UP : 0;
+  handicap += blowUpPenalty;
   handicap = Math.max(-6, Math.min(SCALE_FLOOR_HANDICAP + 6, handicap));
 
   /*
@@ -177,10 +245,6 @@ export function estimateHandicap(
       handicap <= 0
         ? 'Your ball-striking is at scratch level or better'
         : `Your ball-striking supports roughly a ${Math.round(low)}-${Math.round(high)} handicap`,
-    caveat:
-      `Your ${profile.club} finishes an average of ${pct.toFixed(1)}% of its carry from the ` +
-      `middle of your own pattern; a tour player is nearer 5.8%. Ball-striking only — around ` +
-      `45% of scoring happens inside 100 yards and none of it shows up on a range, so a sharp ` +
-      `short game plays better than this and a shaky one plays worse.`,
+    caveat: buildCaveat(profile, pct, biasSide, blowUpRate),
   };
 }

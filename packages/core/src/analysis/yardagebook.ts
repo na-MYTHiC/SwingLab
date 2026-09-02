@@ -3,6 +3,7 @@ import { CLUB_ORDER, clubRank, compareClubs } from '../clubs.js';
 import { median, percentile, pluck } from '../stats/robust.js';
 import { usable } from '../stats/outliers.js';
 import { toReference, type Conditions } from '../benchmarks/conditions.js';
+import { plural } from '../units.js';
 
 /**
  * The yardage book: what to actually do with a club on the course.
@@ -273,7 +274,8 @@ export function yardageAdvice(entry: ClubYardage): string {
   const parts: string[] = [`Club it as ${entry.plays}, not ${entry.flushed}.`];
   if (entry.aimSide !== 'straight') {
     parts.push(
-      `Aim ${Math.abs(entry.aimYards).toFixed(0)} yards ${entry.aimSide} of the flag (${Math.abs(entry.aimDegrees).toFixed(1)}°).`,
+      `Aim ${plural(Math.round(Math.abs(entry.aimYards)), 'yard')} ${entry.aimSide} of the flag ` +
+      `(${Math.abs(entry.aimDegrees).toFixed(1)}°).`,
     );
   }
   if (entry.missSide !== 'straight' && entry.missYards >= 4) {

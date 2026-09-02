@@ -19,6 +19,50 @@ import { minutes, num, shots, speedLabel } from '../format.js';
  * identical weight is a list to read; one card that dominates, two that
  * support it and the rest folded away is an instruction.
  */
+/**
+ * What aiming is worth.
+ *
+ * Sits above the findings on Fix, and above them for a reason: everything
+ * below it needs weeks of practice, and this needs thirty seconds behind the
+ * ball. It would be perverse to lead a player into a swing rebuild without
+ * first telling them their pattern is not pointed at the target.
+ */
+function AimCard({ report }: { report: SessionReport }) {
+  const aim = report.aim;
+  if (!aim.worthSaying || !aim.worst) return null;
+  const w = aim.worst;
+
+  return (
+    <section className="card aim-card">
+      <h3 className="panel-title">Before you practise anything</h3>
+      <div className="aim-figure">
+        <strong>{aim.strokesFromAim.toFixed(1)}</strong>
+        <span>shots a round from aim alone</span>
+      </div>
+      <p className="aim-move">
+        Aim <strong>{Math.round(w.moveYards)} yards {w.moveSide}</strong> with the {w.club}.
+      </p>
+      <div className="aim-bars">
+        <div className="aim-bar">
+          <span className="aim-bar-label">Greens held now</span>
+          <div className="aim-track">
+            <div className="aim-fill now" style={{ width: `${Math.round(w.greenNow * 100)}%` }} />
+          </div>
+          <span className="aim-bar-value">{Math.round(w.greenNow * 100)}%</span>
+        </div>
+        <div className="aim-bar">
+          <span className="aim-bar-label">Aimed correctly</span>
+          <div className="aim-track">
+            <div className="aim-fill aimed" style={{ width: `${Math.round(w.greenAimed * 100)}%` }} />
+          </div>
+          <span className="aim-bar-value">{Math.round(w.greenAimed * 100)}%</span>
+        </div>
+      </div>
+      <p className="panel-sub">{aim.detail}</p>
+    </section>
+  );
+}
+
 export function PriorityView({ report }: { report: SessionReport }) {
   if (report.findings.length === 0) {
     return (
@@ -44,6 +88,8 @@ export function PriorityView({ report }: { report: SessionReport }) {
 
   return (
     <div className="stack">
+      <AimCard report={report} />
+
       <div className="headline">
         <div className="headline-figure">
           <strong>{shots(report.strokesAvailable)}</strong>

@@ -256,21 +256,46 @@ export interface OptimalComparison {
   status: OptimalStatus;
   /** Distance outside the window, in the metric's own unit. Zero when inside. */
   miss: number;
+  /** Shot-to-shot spread of this metric, one sigma, in the metric's own unit. */
+  spread: number;
+  /**
+   * Does a typical shot land in the window, rather than only the middle one?
+   *
+   * The median can sit dead centre while the shots either side of it are
+   * nowhere near. A session with a spin median of 6,028 inside a 5,946-8,045
+   * window looks settled until you notice the shots ran from 3,509 to 7,193.
+   * This asks the stronger question, and it is what a claim like "every
+   * number is dialled in" has to be built on — otherwise the app hands out a
+   * gold medal reading "nothing left to correct" to a session with three
+   * duffs and a fifty-yard pattern, which it did.
+   */
+  repeatablyInside: boolean;
 }
 
 /** Compare one measured median against its window. */
 export function compareToOptimal(
   window: OptimalWindow,
   actual: number,
+  spread = Number.NaN,
 ): OptimalComparison {
+  const inside = (v: number) => v >= window.min && v <= window.max;
+  // Unknown spread must not be read as a tight one, so it fails the test.
+  const repeatablyInside =
+    Number.isFinite(actual) && Number.isFinite(spread) &&
+    inside(actual) && inside(actual - spread) && inside(actual + spread);
+
   if (!Number.isFinite(actual)) {
-    return { window, actual, status: 'unknown', miss: 0 };
+    return { window, actual, status: 'unknown', miss: 0, spread, repeatablyInside: false };
   }
   if (actual < window.min) {
-    return { window, actual, status: 'below', miss: window.min - actual };
+    return {
+      window, actual, status: 'below', miss: window.min - actual, spread, repeatablyInside,
+    };
   }
   if (actual > window.max) {
-    return { window, actual, status: 'above', miss: actual - window.max };
+    return {
+      window, actual, status: 'above', miss: actual - window.max, spread, repeatablyInside,
+    };
   }
-  return { window, actual, status: 'on-target', miss: 0 };
+  return { window, actual, status: 'on-target', miss: 0, spread, repeatablyInside };
 }

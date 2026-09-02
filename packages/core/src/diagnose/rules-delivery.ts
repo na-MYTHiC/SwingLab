@@ -3,6 +3,13 @@ import { speedAdjusted } from '../benchmarks/tour.js';
 import { downgrade, spinIsModelled } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
+/** A signed offset from the target line, said the way a golfer would say it. */
+function describeSide(yards: number): string {
+  const n = Math.abs(round(yards, 0));
+  if (n === 0) return 'dead straight';
+  return `${n} yard${n === 1 ? '' : 's'} ${yards > 0 ? 'right' : 'left'}`;
+}
+
 /**
  * Delivery-consistency rules.
  *
@@ -164,7 +171,10 @@ export const lateralDispersionRule: Rule = {
           : confidenceFor(side.n),
         title: `Your ${profile.club} pattern is ${round(d.width, 0)} yards wide`,
         detail:
-          `From ${round(side.min, 0)} to ${round(side.max, 0)} yards off line across ` +
+          // Both ends said in words. Printing the signed minimum put a bare
+          // minus sign in the middle of a sentence — "From -16 to 50 yards off
+          // line" — which reads as a typo rather than as sixteen yards left.
+          `${describeSide(side.min)} to ${describeSide(side.max)} across ` +
           `${side.n} shots, centred ${round(Math.abs(d.centreSide), 0)} yards ` +
           `${d.centreSide >= 0 ? 'right' : 'left'}. A green is about thirty yards across, so a ` +
           `pattern this wide means you are relying on the good half of it to hold a target.`,

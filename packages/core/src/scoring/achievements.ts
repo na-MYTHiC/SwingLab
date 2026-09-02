@@ -61,13 +61,20 @@ const DEFINITIONS: Definition[] = [
   {
     id: 'dialled-in',
     name: 'Dialled In',
-    requirement: 'Every measured number inside your optimal window',
-    meaning: 'Your delivery matches what your own swing speed should produce. Nothing left to correct, only to repeat.',
+    requirement: 'Every measured number repeating inside your optimal window',
+    meaning: 'Your delivery matches what your own swing speed should produce, shot after shot rather than on average. Nothing left to correct, only to repeat.',
     tier: 'gold',
+    /*
+     * Counts a number as dialled in only when a typical shot lands in the
+     * window, not merely the median. Judging medians handed this gold medal —
+     * "nothing left to correct" — to a session with three duffs, a fifty-yard
+     * pattern and spin running from 3,500 to 7,200 rpm, because the middle of
+     * every one of those ranges happened to sit in the right place.
+     */
     measure: (r) => {
       const judged = r.optimals?.comparisons.filter((c) => c.status !== 'unknown') ?? [];
       if (judged.length < 4) return null;
-      return judged.filter((c) => c.status === 'on-target').length / judged.length;
+      return judged.filter((c) => c.repeatablyInside).length / judged.length;
     },
   },
   {

@@ -1,6 +1,7 @@
 import type { Shot } from '../schema.js';
 import { representative } from '../stats/outliers.js';
 import { median, pluck } from '../stats/robust.js';
+import { plural } from '../units.js';
 
 /**
  * How the session went, start to finish.
@@ -64,7 +65,7 @@ export function sessionProgression(shots: Shot[]): Progression {
   if (carryChange >= MEANINGFUL) {
     return {
       thirds, carryChange, verdict: 'warmed-up',
-      headline: `You got ${Math.round(carryChange)} yards longer as the session went on`,
+      headline: `You got ${plural(Math.round(carryChange), 'yard')} longer as the session went on`,
       detail:
         'Your best golf was at the end, which usually means the warm-up was too short rather than that the session was good. On the course you only get the first tee shot once — a longer warm-up moves this ground into the round instead of the range.',
     };
@@ -73,7 +74,7 @@ export function sessionProgression(shots: Shot[]): Progression {
   if (carryChange <= -MEANINGFUL) {
     return {
       thirds, carryChange, verdict: 'faded',
-      headline: `You lost ${Math.round(Math.abs(carryChange))} yards over the session`,
+      headline: `You lost ${plural(Math.round(Math.abs(carryChange)), 'yard')} over the session`,
       detail:
         'Contact fell away as you went. That is usually fatigue or a change being drilled past the point where it was still being absorbed. Shorter sessions, or a break in the middle, will get you more out of the same hour.',
     };

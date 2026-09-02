@@ -162,9 +162,11 @@ body {
   z-index: 15;
   margin: 0 calc(var(--gutter) * -1);
   padding: var(--sp-2) var(--gutter);
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  /* Opaque, not translucent. A 90% background let bold headings scroll
+   * underneath and stay perfectly legible, so a section title and the bar's
+   * own controls occupied the same pixels and both became hard to read. A
+   * blurred backdrop is not enough to hide large type; only opacity is. */
+  background: var(--bg);
   box-shadow: 0 10px 18px -16px rgb(0 0 0 / 0.9);
 }
 
@@ -875,6 +877,33 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .yardage-call { color: var(--text); }
 
+/* --- what aiming is worth ------------------------------------------------ */
+
+.aim-card { border-left: 3px solid var(--good); }
+.aim-figure { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.aim-figure strong {
+  /* Matches .headline-figure so the two big numbers on the page are the
+     same size — an undefined --fs-3xl silently rendered this at body size. */
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--good);
+}
+.aim-figure span { color: var(--text-dim); font-size: var(--fs-sm); }
+.aim-move { margin: 0 0 var(--sp-3); font-size: var(--fs-md); }
+.aim-bars { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.aim-bar { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-2); align-items: center; }
+.aim-bar-label { font-size: var(--fs-xs); color: var(--text-faint); grid-column: 1; }
+.aim-bar-value { font-size: var(--fs-sm); font-weight: 600; grid-column: 2; grid-row: 1 / 3; }
+.aim-track {
+  grid-column: 1; height: 8px; border-radius: 999px;
+  background: var(--surface-3); overflow: hidden;
+}
+.aim-fill { height: 100%; border-radius: 999px; }
+.aim-fill.now { background: var(--text-faint); }
+.aim-fill.aimed { background: var(--good); }
+
 /* --- conditions, form, TrackMan verdict --------------------------------- */
 
 .cond-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: var(--sp-3) var(--sp-2); margin-top: var(--sp-3); }
@@ -1461,10 +1490,19 @@ tbody tr:hover { background: var(--surface-2); }
   justify-content: center;
   gap: 2px;
   padding: 5px var(--sp-2) calc(10px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  background: var(--bg);
   border-top: 1px solid var(--line);
+}
+
+/* A short fade above the bar so scrolling content dissolves into it instead
+ * of being sliced off mid-letter at a hard edge. */
+.bottom-nav::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 100%;
+  height: 20px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--bg), transparent);
 }
 
 .nav-item {

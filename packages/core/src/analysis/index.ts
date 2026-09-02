@@ -6,6 +6,7 @@ export * from './potential.js';
 export * from './didItWork.js';
 export * from './baseline.js';
 export * from './windows.js';
+export { aimValue, type AimValue, type ClubAim } from './aim.js';
 export {
   buildYardageBook,
   yardageAdvice,

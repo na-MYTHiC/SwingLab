@@ -5,8 +5,18 @@ import type { Shot } from '../schema.js';
 /** A tidy, repeatable 7-iron session with enough shots to judge. */
 function session(over: Partial<Shot> = {}, n = 30): Shot[] {
   return Array.from({ length: n }, (_, i) => {
-    // Deterministic wobble, so the fixture cannot drift between runs.
-    const j = Math.sin(i * 12.9898) * 0.5;
+    /*
+     * Deterministic wobble on a fixed ten-shot cycle.
+     *
+     * The period matters. An open-ended `sin(i * 12.9898)` is deterministic
+     * but not stationary: over twenty shots its spread came out at 83 rpm of
+     * spin and over thirty at 106. That silently broke the premise of the
+     * volume test below, which needs "the same session, only longer" and was
+     * instead comparing two sessions of different consistency. A repeating
+     * cycle gives every multiple of ten the identical multiset of values, so
+     * length genuinely changes nothing but length.
+     */
+    const j = Math.sin((i % 10) * 12.9898) * 0.5;
     return {
       id: `s${i}`,
       source: 'trackman-csv' as const,
@@ -79,6 +89,43 @@ describe('milestones', () => {
     expect(earned(tidy, 'distance-control')).toBe(true);
     expect(earned(scattered, 'distance-control')).toBe(false);
     expect(earned(scattered, 'tight-pattern')).toBe(false);
+  });
+
+  it('will not call a session dialled in when only its medians are', () => {
+    /*
+     * The regression. A real 35-shot session had every delivery median inside
+     * its optimal window while spin ran from 3,500 to 7,200 rpm, and the app
+     * awarded a gold medal reading "nothing left to correct, only to repeat"
+     * alongside a Reliability score of 14 out of 100.
+     *
+     * Same medians here, spread blown out around them.
+     */
+    const wobbly = diagnoseShots(
+      session().map((s, i) => ({
+        ...s,
+        // Added around each shot's own value, so the medians survive intact
+        // and the only thing that changed is the spread.
+        spinRate: (s.spinRate as number) + (i % 2 === 0 ? 1 : -1) * 2200,
+        launchAngle: (s.launchAngle as number) + (i % 2 === 0 ? 1 : -1) * 5,
+        attackAngle: (s.attackAngle as number) + (i % 2 === 0 ? 1 : -1) * 4,
+      })),
+    );
+    const tidy = diagnoseShots(session());
+
+    const dialled = (r: typeof tidy) =>
+      r.achievements.find((a) => a.id === 'dialled-in')?.earned ?? false;
+
+    const spin = (r: typeof tidy) => r.profiles[0]!.spinRate.median;
+    const spinSpread = (r: typeof tidy) => r.profiles[0]!.spinRate.mad;
+
+    // The middle barely moves — well under a percent — so a check that looks
+    // only at medians cannot tell these two sessions apart.
+    expect(Math.abs(spin(wobbly) - spin(tidy)) / spin(tidy)).toBeLessThan(0.01);
+    // The spread is a different session entirely.
+    expect(spinSpread(wobbly)).toBeGreaterThan(spinSpread(tidy) * 5);
+
+    expect(dialled(tidy)).toBe(true);
+    expect(dialled(wobbly)).toBe(false);
   });
 
   it('never rewards volume — twice the balls is not a milestone', () => {

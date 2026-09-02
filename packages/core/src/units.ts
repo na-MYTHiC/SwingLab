@@ -154,3 +154,15 @@ export function parseNumber(raw: string | undefined | null): number | null {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+
+/**
+ * A count and its unit, agreeing in number.
+ *
+ * Interpolating a rounded value straight in front of a plural noun works
+ * until the value rounds to one, and then the app says "1 yards of headroom"
+ * and looks like it was written by a machine — which it was, and which is
+ * precisely what the writing is meant to hide.
+ */
+export function plural(count: number, singular: string, plural_ = `${singular}s`): string {
+  return `${count} ${Math.abs(count) === 1 ? singular : plural_}`;
+}

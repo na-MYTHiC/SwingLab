@@ -46,6 +46,24 @@
  * convention stated. Using it as a 95% band, as the first version of this file
  * effectively did, makes every amateur look three times better than they are.
  *
+ * AN ATTEMPT TO WIDEN THIS, AND WHY IT WAS ABANDONED. The anchor set above is
+ * thin, so Arccos and Shot Scope proximity tables were sought to extend it.
+ * Every golf domain is blocked by this environment's network policy, so no
+ * primary table could be opened. The search summaries that were readable
+ * contradicted each other and the figures already here: one reported a 5
+ * handicap 23.7 yards from the hole and a 10 handicap 22.3, against the 16.7
+ * yards cited above for a 15 handicap. A 5 handicap is not further from the
+ * flag than a 15, so those summaries are measuring something else — a
+ * different distance bracket, or all approaches rather than approaches from
+ * the fairway. Re-sloping this line on them would have been worse than
+ * leaving it alone. Nothing here has been changed on unverified figures.
+ *
+ * WHAT DID CHANGE. The scale was never the problem; what was fed to it was.
+ * Every dataset above measures distance from the TARGET. The app measured
+ * spread about the player's own centre, from shots with the mishits already
+ * removed — a player's precision against everybody else's accuracy. See
+ * `PatternSpread.biasSide` and `calibration.test.ts`.
+ *
  * ================================ THE CONVERSION ===========================
  *
  * The app measures two independent spreads: `side.mad` and `carry.mad`, both
@@ -60,7 +78,7 @@
  */
 
 /** Mean radius of a two-axis normal pattern, as a multiple of sigma. */
-const MEAN_RADIUS_PER_SIGMA = Math.sqrt(Math.PI / 2);
+export const MEAN_RADIUS_PER_SIGMA = Math.sqrt(Math.PI / 2);
 
 /**
  * Radial proximity as a percentage of carry distance, at two known skill
@@ -107,15 +125,84 @@ export interface PatternSpread {
   sigmaCarry: number;
   /** Median carry, to make the spreads relative. */
   carry: number;
+  /**
+   * Signed lateral offset of the pattern's centre from the target line, in
+   * yards; + is right. The app's `side.median`.
+   *
+   * THIS IS NOT OPTIONAL DETAIL, IT IS HALF THE MEASUREMENT. Every dataset
+   * this scale is built on measures distance from the *target*: ShotLink
+   * proximity, Arccos proximity, Shot Scope proximity. A tour player's 27'10"
+   * includes whatever they were offline by. Feeding this scale a spread taken
+   * about the player's own centre compares their precision against everybody
+   * else's accuracy, and a player whose pattern sits twelve yards right of
+   * the flag reads as though those twelve yards were free.
+   *
+   * They are not free, but they are cheap: aiming is the one error a player
+   * can remove without changing their swing, which is what the yardage book
+   * is for. Left undefined it is treated as zero, which is what a session
+   * with no target line deserves.
+   */
+  biasSide?: number;
+  /**
+   * Signed offset of the pattern's centre from the intended carry, in yards.
+   *
+   * Usually unknowable: a range session records no target, so there is no
+   * distance the player was trying to hit and no honest way to say they came
+   * up short. Left undefined, and therefore zero, in that case.
+   */
+  biasCarry?: number;
 }
 
-/** Mean distance from the centre of the pattern, in yards. */
-export function meanRadius(spread: PatternSpread): number {
-  const { sigmaSide, sigmaCarry } = spread;
-  const side = Number.isFinite(sigmaSide) ? sigmaSide : sigmaCarry;
-  const depth = Number.isFinite(sigmaCarry) ? sigmaCarry : sigmaSide;
+/**
+ * Expectation of a function over a two-axis normal pattern.
+ *
+ * Shared by the mean-radius and green-holding calculations so the two can
+ * never disagree about the shape of the same pattern. A grid of standard
+ * normal quantiles rather than a closed form, because the closed forms in
+ * this area (Rayleigh, Rice) assume the two axes are equal and a golf
+ * pattern's rarely are — a player can be tight sideways and wild for
+ * distance, and a closed form quietly averages that away.
+ */
+function expectOverPattern(
+  spread: PatternSpread,
+  f: (x: number, y: number) => number,
+): number {
+  const side = Number.isFinite(spread.sigmaSide) ? spread.sigmaSide : spread.sigmaCarry;
+  const depth = Number.isFinite(spread.sigmaCarry) ? spread.sigmaCarry : spread.sigmaSide;
   if (!Number.isFinite(side) || !Number.isFinite(depth)) return Number.NaN;
-  return MEAN_RADIUS_PER_SIGMA * Math.sqrt((side * side + depth * depth) / 2);
+  const bx = Number.isFinite(spread.biasSide) ? (spread.biasSide as number) : 0;
+  const by = Number.isFinite(spread.biasCarry) ? (spread.biasCarry as number) : 0;
+
+  // +/-5 sigma over 200 steps: wide and fine enough that the integrator
+  // reproduces the closed-form mean radius of an unbiased pattern to three
+  // decimal places, which is what the test holds it to.
+  const steps = 200;
+  const reach = 5;
+  let acc = 0;
+  let total = 0;
+  for (let i = 0; i < steps; i += 1) {
+    const zx = -reach + (2 * reach * (i + 0.5)) / steps;
+    const wx = Math.exp(-0.5 * zx * zx);
+    for (let j = 0; j < steps; j += 1) {
+      const zy = -reach + (2 * reach * (j + 0.5)) / steps;
+      const w = wx * Math.exp(-0.5 * zy * zy);
+      total += w;
+      acc += w * f(bx + zx * side, by + zy * depth);
+    }
+  }
+  return total > 0 ? acc / total : Number.NaN;
+}
+
+/**
+ * Mean distance from the *target*, in yards — the quantity every dataset
+ * behind this scale reports.
+ *
+ * With no bias this reduces to the familiar 1.253 sigma of a two-axis normal,
+ * which the tests pin down. With a bias it grows, as it must: a pattern
+ * centred off the flag finishes further from the flag.
+ */
+export function meanRadius(spread: PatternSpread): number {
+  return expectOverPattern(spread, (x, y) => Math.sqrt(x * x + y * y));
 }
 
 /** Mean radius as a percentage of the carry it was hit over. */
@@ -205,36 +292,13 @@ export function axisScore(sigma: number, carry: number): number {
 export const GREEN_RADIUS_YDS = 13.9;
 
 export function greenHoldRate(spread: PatternSpread): number {
-  const { sigmaSide, sigmaCarry } = spread;
-  const side = Number.isFinite(sigmaSide) ? sigmaSide : sigmaCarry;
-  const depth = Number.isFinite(sigmaCarry) ? sigmaCarry : sigmaSide;
+  const side = Number.isFinite(spread.sigmaSide) ? spread.sigmaSide : spread.sigmaCarry;
+  const depth = Number.isFinite(spread.sigmaCarry) ? spread.sigmaCarry : spread.sigmaSide;
   if (!Number.isFinite(side) || !Number.isFinite(depth)) return Number.NaN;
-  if (side <= 0 || depth <= 0) return 1;
+  if (side <= 0 && depth <= 0) return 1;
 
-  /*
-   * Numerically, rather than with the Rayleigh closed form, because that only
-   * holds when the two axes are equal and a golf pattern's rarely are — a
-   * player can be tight sideways and wild for distance, and the closed form
-   * would quietly average that away.
-   */
   const R = GREEN_RADIUS_YDS;
-  const steps = 120;
-  let inside = 0;
-  let total = 0;
-  for (let i = 0; i < steps; i += 1) {
-    // Sample each axis on a grid of standard-normal quantiles.
-    const zx = -3 + (6 * (i + 0.5)) / steps;
-    const wx = Math.exp(-0.5 * zx * zx);
-    for (let j = 0; j < steps; j += 1) {
-      const zy = -3 + (6 * (j + 0.5)) / steps;
-      const w = wx * Math.exp(-0.5 * zy * zy);
-      total += w;
-      const x = zx * side;
-      const y = zy * depth;
-      if (x * x + y * y <= R * R) inside += w;
-    }
-  }
-  return total > 0 ? inside / total : Number.NaN;
+  return expectOverPattern(spread, (x, y) => (x * x + y * y <= R * R ? 1 : 0));
 }
 
 /** Plain-language band for a handicap number, for captions. */

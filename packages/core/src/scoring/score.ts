@@ -225,8 +225,9 @@ export function scoreSession(args: {
         detail:
           perfect === judged.length
             ? `All ${judged.length} numbers are on the tour figure for your swing speed.`
-            : `${onTarget} of ${judged.length} numbers inside the window, scored on how close ` +
-              `each sits to the tour figure for your swing speed rather than merely inside it.` +
+            : `${onTarget} of ${judged.length} numbers land in the window for your swing ` +
+              `speed. Each is scored on how close it sits to the tour figure, not just on ` +
+              `being inside.` +
               (modelled
                 ? ` Counts for less here: your unit estimated spin on ` +
                   `${Math.round((1 - (measured as number)) * 100)}% of these shots rather than ` +
@@ -287,8 +288,8 @@ export function scoreSession(args: {
       detail:
         discarded === 0
           ? 'Not one shot bad enough to throw out. On a course that is a round without a wasted stroke.'
-          : `${discarded} of ${shotCount} shots were tops or duffs — ` +
-            `${(rate * 100).toFixed(1)}% of the session, and a stroke each on a course.`,
+          : `${discarded} of ${shotCount} shots ${discarded === 1 ? 'was a top or a duff' : 'were tops or duffs'} — ` +
+            `${(rate * 100).toFixed(1)}% of the session, and a stroke ${discarded === 1 ? '' : 'each '}on a course.`,
     });
   }
 

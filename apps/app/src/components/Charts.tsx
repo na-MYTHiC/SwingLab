@@ -41,23 +41,15 @@ export function DispersionChart({
   const padX = 30;
   const padY = 30;
 
-  const halfWidth = Math.max(15, d.width / 2 + 8);
-  const depth = Math.max(20, depthSpread + 14);
-  const nearCarry = depthCentre - depth / 2;
-  const farCarry = depthCentre + depth / 2;
-
-  const x = (side: number) =>
-    padX + ((side + halfWidth) / (halfWidth * 2)) * (width - padX * 2);
-  const y = (carry: number) =>
-    height - padY - ((carry - nearCarry) / (farCarry - nearCarry)) * (height - padY * 2);
-
   /*
-   * Plot every shot, not only the summary ellipse.
+   * The plotted points, computed before the axes, because the axes have to
+   * contain them.
    *
-   * The ellipse says how wide the pattern is; the dots say what it is made of
-   * — whether the width comes from a steady bias or from two good shots and
-   * one wild one. That distinction changes the advice, and it is invisible in
-   * any summary statistic.
+   * Plot every shot, not only the summary ellipse. The ellipse says how wide
+   * the pattern is; the dots say what it is made of — whether the width comes
+   * from a steady bias or from two good shots and one wild one. That
+   * distinction changes the advice, and it is invisible in any summary
+   * statistic.
    */
   const plotted = shots
     .filter((s) => s.carry !== null && s.side !== null)
@@ -70,6 +62,30 @@ export function DispersionChart({
       mishit: s.flags.includes('mishit'),
     }))
     .filter((p) => Number.isFinite(p.carryValue));
+
+  /*
+   * Size the axes to the widest of the ellipse and the actual shots.
+   *
+   * Scaling to the ellipse alone drew every shot outside it beyond the edge of
+   * the plot, and on a wide pattern that put dots off the side of the phone
+   * entirely. The outliers are the most informative marks on the chart — one
+   * ball fifty yards right is the whole story of a session — so the box grows
+   * to hold them rather than cropping them away.
+   */
+  const sideReach = plotted.reduce((m, p) => Math.max(m, Math.abs(p.side)), 0);
+  const halfWidth = Math.max(15, d.width / 2 + 8, sideReach + 6);
+
+  const carries = plotted.map((p) => p.carryValue);
+  const lowShot = carries.length > 0 ? Math.min(...carries) : depthCentre;
+  const highShot = carries.length > 0 ? Math.max(...carries) : depthCentre;
+  const depth = Math.max(20, depthSpread + 14);
+  const nearCarry = Math.min(depthCentre - depth / 2, lowShot - 6);
+  const farCarry = Math.max(depthCentre + depth / 2, highShot + 6);
+
+  const x = (side: number) =>
+    padX + ((side + halfWidth) / (halfWidth * 2)) * (width - padX * 2);
+  const y = (carry: number) =>
+    height - padY - ((carry - nearCarry) / (farCarry - nearCarry)) * (height - padY * 2);
 
   const rx = Math.max(6, (d.width / 2 / halfWidth) * ((width - padX * 2) / 2));
   const ry = Math.max(6, (depthSpread / 2 / (farCarry - nearCarry)) * (height - padY * 2));

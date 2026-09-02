@@ -1,6 +1,7 @@
 import type { Shot } from '../schema.js';
 import { representative } from '../stats/outliers.js';
 import { median, percentile, pluck } from '../stats/robust.js';
+import { plural } from '../units.js';
 
 /**
  * The gap between your best golf and your normal golf.
@@ -76,7 +77,7 @@ export function potential(shots: Shot[]): Potential | null {
     bestCarry,
     headroom,
     fromStrike,
-    headline: `${Math.round(headroom)} yards of headroom in the swing you already have`,
+    headline: `${plural(Math.round(headroom), 'yard')} of headroom in the swing you already have`,
     detail:
       `Your best strikes carry about ${Math.round(bestCarry)} yards and your typical one goes ` +
       `${Math.round(medianCarry)}. You are not missing distance — you are missing it ` +
@@ -84,6 +85,17 @@ export function potential(shots: Shot[]): Potential | null {
       (strikeLed
         ? 'Most of that gap came from finding the middle of the face rather than from swinging harder, which is the half that responds to practice quickly.'
         : 'Most of that gap came from swinging harder on the good ones, which is worth knowing: chasing speed will widen the spread before it lengthens the average.') +
-      ` Club off ${Math.round(reliableCarry)} yards, not ${Math.round(bestCarry)}.`,
+      /*
+       * Deliberately does NOT issue a club-selection number.
+       *
+       * It used to end "Club off 173 yards, not 183", taken from the 35th
+       * percentile of the shots that flew. The yardage book answers the same
+       * question from the 20th percentile of every shot the radar could read,
+       * mishits included, and said 162. Two different numbers for one
+       * decision, a screen apart, and a player has no way to tell which to
+       * believe. Distance to club off belongs to the yardage book; what
+       * belongs here is the size of the gap and where it came from.
+       */
+      ' The yardage book turns this into the number to club off.',
   };
 }

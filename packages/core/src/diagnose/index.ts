@@ -14,6 +14,7 @@ import {
 import { buildClubProfiles, type ClubProfile } from '../stats/dispersion.js';
 import { greenHoldRate } from '../benchmarks/skill.js';
 import { buildYardageBook, type YardageBook } from '../analysis/yardagebook.js';
+import { aimValue, type AimValue } from '../analysis/aim.js';
 import { carryFactor, NO_CONDITIONS, type Conditions } from '../benchmarks/conditions.js';
 import { DRILLS, type Drill } from './drills.js';
 import { gappingFindings } from './rules-gapping.js';
@@ -171,6 +172,16 @@ function buildOptimals(
     ballSpeed: profile.ballSpeed.median,
     carry: profile.carry.median,
   };
+  // The same metrics' shot-to-shot spread, so a window can ask whether the
+  // shots repeat inside it and not merely whether their middle does.
+  const spread: Record<string, number> = {
+    attackAngle: profile.attackAngle.mad,
+    smashFactor: profile.smashFactor.mad,
+    launchAngle: profile.launchAngle.mad,
+    spinRate: profile.spinRate.mad,
+    ballSpeed: profile.ballSpeed.mad,
+    carry: profile.carry.mad,
+  };
 
   return {
     club: profile.club,
@@ -179,7 +190,8 @@ function buildOptimals(
     speedBasis: base && base.sessions >= 2
       ? { sessions: base.sessions, sessionSpeed: profile.clubSpeed.median }
       : null,
-    comparisons: windows.map((w) => compareToOptimal(w, actual[w.metric] ?? Number.NaN)),
+    comparisons: windows.map((w) =>
+      compareToOptimal(w, actual[w.metric] ?? Number.NaN, spread[w.metric] ?? Number.NaN)),
   };
 }
 
@@ -299,6 +311,11 @@ export interface SessionReport {
    * usable standing over a ball rather than standing on a range.
    */
   yardageBook: YardageBook;
+  /**
+   * How much of the pattern's cost is aim rather than swing — the strokes
+   * available by pointing somewhere else rather than by practising.
+   */
+  aim: AimValue;
   /**
    * The handicap this player's ball-striking would support. Ball-striking
    * only — a range session cannot see the short game, which is most of
@@ -438,6 +455,7 @@ export function diagnoseSession(
     dataNotes: dataNotes(session),
     conditions: session.conditions ?? NO_CONDITIONS,
     yardageBook: buildYardageBook(session.shots, session.conditions),
+    aim: aimValue(profiles),
     optimals: buildOptimals(mainProfile, baseline, session.conditions ?? NO_CONDITIONS),
     discardedCount: discardedShots.length,
     unreadableCount: unreadableShots.length,
@@ -476,7 +494,15 @@ export function diagnoseSession(
    * measure returning null is treated as "not applicable to this session"
    * rather than as an error.
    */
-  report.handicap = estimateHandicapAcrossBag(profiles, report.strike);
+  /*
+   * The share of the session that never came off. Deliberately measured
+   * against every row the radar could read, not against the survivors: three
+   * duffs in thirty-five shots is 8.6% of the golf played, and dividing by
+   * the thirty-two that flew would quietly shrink it.
+   */
+  const readable = session.shots.length - unreadableShots.length;
+  const blowUpRate = readable > 0 ? wasted.length / readable : null;
+  report.handicap = estimateHandicapAcrossBag(profiles, report.strike, blowUpRate);
   /*
    * Green rate across every club with enough shots, weighted the same way.
    * A bag session's answer to "how often would this hold a green" is not the
@@ -486,7 +512,15 @@ export function diagnoseSession(
     .filter((p) => p.representativeCount >= 6 && Number.isFinite(p.carry.median))
     .map((p) => ({
       n: p.representativeCount,
-      rate: greenHoldRate({ sigmaSide: p.side.mad, sigmaCarry: p.carry.mad, carry: p.carry.median }),
+      // Bias included, for the same reason the handicap includes it: a
+      // pattern centred off the flag holds fewer greens than one that is not,
+      // and pretending otherwise was the app's most flattering number.
+      rate: greenHoldRate({
+        sigmaSide: p.side.mad,
+        sigmaCarry: p.carry.mad,
+        carry: p.carry.median,
+        biasSide: Number.isFinite(p.side.median) ? p.side.median : 0,
+      }),
     }))
     .filter((x) => Number.isFinite(x.rate));
   const greenWeight = greenParts.reduce((sum, x) => sum + x.n, 0);
