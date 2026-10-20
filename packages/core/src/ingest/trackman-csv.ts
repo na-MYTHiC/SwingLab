@@ -556,7 +556,10 @@ export const trackmanCsvAdapter: IngestAdapter = {
     for (const label of unknownClubLabels) {
       warn({
         code: 'unknown-club',
-        message: `Club label "${label}" was not recognised; those shots are kept but excluded from gapping.`,
+        message:
+          `Club label "${label}" was not recognised, so those shots are counted but left out of ` +
+          `the per-club analysis. Rename the club in TrackMan with its number — "4 Hybrid" rather ` +
+          `than "Hybrid" — and re-export to include them.`,
       });
     }
 

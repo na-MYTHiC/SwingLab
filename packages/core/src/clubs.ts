@@ -102,7 +102,10 @@ export function normaliseClub(raw: string | null | undefined): Club {
 export function clubFamily(club: Club): ClubFamily {
   if (club === 'Dr') return 'driver';
   if (club === 'Putt') return 'putter';
-  if (club === 'unknown') return 'unknown';
+  // Null-safe even though the type says otherwise: a backup restored from an
+  // older build, or any hand-edited store, can carry a shot with no club, and
+  // one such shot used to throw here and take down the entire analysis.
+  if (!club || club === 'unknown') return 'unknown';
   if (club.endsWith('w')) return 'wood';
   if (club.endsWith('h')) return 'hybrid';
   if (club.endsWith('i')) return 'iron';

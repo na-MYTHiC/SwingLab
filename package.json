@@ -5,7 +5,7 @@
   "description": "AI golf coach built around TrackMan simulator data",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "pnpm --filter @swinglab/core build && pnpm -r test",
     "typecheck": "pnpm --filter @swinglab/core build && pnpm -r typecheck",
     "dev": "pnpm --filter @swinglab/app dev"
   },

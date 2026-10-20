@@ -385,7 +385,18 @@ export function diagnoseSession(
   markUnusable(session.shots);
   markMishits(session.shots);
 
-  const profiles = buildClubProfiles(session.shots);
+  /*
+   * Clubs the parser could not name are left out of every per-club reading.
+   *
+   * They are not one club. "Hybrid" with no number, "Mini Driver" and a blank
+   * cell all land in the same 'unknown' bucket, so a "pattern" built from it
+   * can be a mini driver and a 4-hybrid averaged together — a club nobody
+   * owns. Analysing it produced findings like "Face is consistently open to
+   * your path with the unknown", which is both meaningless and unreadable.
+   * The shots still count toward the session total, and the import note says
+   * which labels were not recognised and how to fix them.
+   */
+  const profiles = buildClubProfiles(session.shots).filter((p) => p.club && p.club !== 'unknown');
   const findings: Finding[] = [];
 
   for (const profile of profiles) {
@@ -454,7 +465,7 @@ export function diagnoseSession(
     potential: mainProfile ? potential(session.shots.filter((s) => s.club === mainProfile.club)) : null,
     dataNotes: dataNotes(session),
     conditions: session.conditions ?? NO_CONDITIONS,
-    yardageBook: buildYardageBook(session.shots, session.conditions),
+    yardageBook: buildYardageBook(session.shots.filter((x) => x.club && x.club !== 'unknown'), session.conditions),
     aim: aimValue(profiles),
     optimals: buildOptimals(mainProfile, baseline, session.conditions ?? NO_CONDITIONS),
     discardedCount: discardedShots.length,

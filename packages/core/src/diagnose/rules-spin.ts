@@ -40,6 +40,12 @@ export const spinWindowRule: Rule = {
     const high = m > hi;
     const reference = high ? hi : lo;
     const miss = Math.abs(m - reference);
+    // Without a club speed the window falls back to a fixed one for the club,
+    // and the sentence has to say so rather than "your own NaN mph".
+    const speedKnown = Number.isFinite(profile.clubSpeed.median);
+    const source = speedKnown
+      ? `your own ${round(profile.clubSpeed.median, 0)} mph club speed should produce`
+      : `a ${profile.club} normally produces`;
 
     return [
       {
@@ -52,12 +58,13 @@ export const spinWindowRule: Rule = {
         title: `Your ${profile.club} spin is ${high ? 'high' : 'low'}`,
         detail: high
           ? `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} above the top of the range ` +
-            `your own ${round(profile.clubSpeed.median, 0)} mph club speed should produce ` +
-            `(${round(lo, 0)}-${round(hi, 0)} rpm). High spin steepens the descent and shortens the shot; with a ${profile.club} ` +
-            `it usually traces back to spin loft — dynamic loft minus attack angle — currently ` +
-            `${round(profile.spinLoft.median, 1)}°.`
-          : `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} below what your own ` +
-            `${round(profile.clubSpeed.median, 0)} mph club speed should produce (${round(lo, 0)}-${round(hi, 0)} rpm). ` +
+            `${source} (${round(lo, 0)}-${round(hi, 0)} rpm). High spin steepens the descent and shortens the shot; with a ${profile.club} ` +
+            `it usually traces back to spin loft — dynamic loft minus attack angle` +
+            (Number.isFinite(profile.spinLoft.median)
+              ? ` — currently ${round(profile.spinLoft.median, 1)}°.`
+              : '.')
+          : `Median spin is ${round(m, 0)} rpm, about ${round(miss, 0)} below what ` +
+            `${source} (${round(lo, 0)}-${round(hi, 0)} rpm). ` +
             `Low spin flattens the flight and costs stopping power, and on an iron it usually means the ` +
             `strike is low on the face or the face is delofted through impact.`,
         evidence: [

@@ -208,6 +208,9 @@ export const speedAdjustedEfficiencyRule: Rule = {
     const smash = profile.smashFactor;
     const carry = profile.carry;
     if (speed.n < 8 || !Number.isFinite(speed.median) || !Number.isFinite(smash.median)) return [];
+    // The whole claim is a carry distance. An export with no carry column has
+    // nothing to compare against, and used to print "leaving NaN yards".
+    if (!Number.isFinite(carry.median)) return [];
 
     const adj = speedAdjusted(
       profile.club, speed.median, smash.median, carry.median,
