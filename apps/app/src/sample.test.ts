@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diagnoseSession, ingest } from '@swinglab/core';
+import { diagnoseSession, ingest, scoringZone } from '@swinglab/core';
 import { SAMPLE_SESSIONS, isSampleSession, SAMPLE_PREFIX } from './sample.js';
 
 /**
@@ -13,8 +13,8 @@ import { SAMPLE_SESSIONS, isSampleSession, SAMPLE_PREFIX } from './sample.js';
  * chose. Nothing else in the build would notice.
  */
 describe('the bundled sample history', () => {
-  it('ships five sessions', () => {
-    expect(SAMPLE_SESSIONS).toHaveLength(5);
+  it('ships six sessions', () => {
+    expect(SAMPLE_SESSIONS).toHaveLength(6);
   });
 
   it('parses every one of them into shots', () => {
@@ -52,6 +52,11 @@ describe('the bundled sample history', () => {
     expect(dates.length).toBeGreaterThanOrEqual(3);
     const weeks = (dates.at(-1)!.getTime() - dates[0]!.getTime()) / (7 * 86_400_000);
     expect(weeks).toBeGreaterThan(3);
+  });
+
+  it('includes target practice, so the scoring zone has something to show', () => {
+    const sessions = SAMPLE_SESSIONS.map((s) => ingest(s, { handedness: 'right' }).session!);
+    expect(scoringZone(sessions).cells.length).toBeGreaterThan(5);
   });
 
   it('is a session with something wrong in it, so the app has something to say', () => {

@@ -906,6 +906,62 @@ tbody tr:hover { background: var(--surface-2); }
   font-size: var(--fs-xs);
 }
 
+/* --- scoring zone ------------------------------------------------------- */
+
+/* One row per club and distance: target, club, a shared number line, the
+ * miss in words, proximity. Fits 360px — the track takes whatever is left. */
+.zone-head {
+  margin-top: var(--sp-3);
+  padding-bottom: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+.zone-head .zone-target { font-weight: 400; }
+.zone-scale { display: flex; justify-content: space-between; gap: 4px; }
+.zone-scale span:nth-child(2) { text-align: center; }
+.zone-scale span:last-child { text-align: right; }
+.zone-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.zone-row {
+  display: grid;
+  grid-template-columns: 30px 26px 1fr 62px 52px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.zone-row.is-worst { background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.zone-target { font-weight: 700; text-align: right; }
+.zone-club { color: var(--text-dim); font-size: var(--fs-xs); }
+.zone-track { position: relative; height: 14px; }
+.zone-track::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+  background: var(--line-strong);
+}
+.zone-zero {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+  background: var(--text-faint); border-radius: 1px;
+}
+.zone-band {
+  position: absolute; top: 3px; bottom: 3px;
+  background: color-mix(in srgb, var(--data) 28%, transparent);
+  border-radius: 4px;
+}
+.zone-dot {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 50%; background: var(--data);
+  /* surface ring so the dot reads cleanly over the band and the target tick */
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.is-worst .zone-dot { background: var(--warn); }
+.zone-miss { display: flex; flex-direction: column; line-height: 1.15; }
+.zone-miss small, .zone-prox small { font-size: var(--fs-2xs); color: var(--text-faint); }
+.zone-prox { display: flex; flex-direction: column; text-align: right; line-height: 1.15; }
+.zone-flag { text-transform: uppercase; letter-spacing: .05em; }
+.is-worst .zone-flag { color: var(--warn); font-weight: 600; }
+.zone-call { margin-top: var(--sp-3); color: var(--text); }
+
 /* --- what aiming is worth ------------------------------------------------ */
 
 .aim-card { border-left: 3px solid var(--good); }

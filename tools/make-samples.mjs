@@ -195,7 +195,12 @@ function write(name, headers, rows, preamble) {
         const bias = target === null
           ? {}
           : { carryOffset: (weak ? -16 : -7) - CLUB[club].carry + target, spread: weak ? 2.4 : 0.85 };
-        rows.push(shot(g, '2026-08-27', clock(i++), club, bias, target));
+        const row = shot(g, '2026-08-27', clock(i++), club, bias, target);
+        // A shot with no target still needs its empty Target, Distance To Pin
+        // and Score cells. Without them the driver rows were one field short
+        // of the header, every value after Club slid one column left, and the
+        // parser read a 1.5 mph club speed and a 94.9-yard target.
+        rows.push(target === null ? [...row.slice(0, 3), '', ...row.slice(3), '', ''] : row);
       }
     }
   }

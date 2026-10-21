@@ -455,12 +455,26 @@ export const trackmanCsvAdapter: IngestAdapter = {
     let conditionLine: string | null = null;
     let ballLabel: string | null = null;
     const unknownClubLabels = new Set<string>();
+    /*
+     * Rows with fewer cells than the header.
+     *
+     * A TrackMan export writes every cell, blank or not. A row two or more
+     * short has lost a cell somewhere in the middle, and there is no way to
+     * tell where — so every value after the gap sits under the wrong heading.
+     * The bundled Combine sample had exactly this: its driver rows skipped the
+     * empty Target cell, and the parser read a 1.5 mph club speed and a
+     * 94.9-yard target without complaint. Such rows are now left out and
+     * counted, rather than analysed as golf.
+     */
+    const headerWidth = headers.filter((h) => h.trim() !== '').length;
+    let misaligned = 0;
 
     for (let r = firstDataRow; r < rows.length; r++) {
       const row = rows[r];
       if (!row || row.every((c) => c === '')) continue;
 
       if (isUnitsRow(row)) continue;
+      if (row.length <= headerWidth - 2) { misaligned += 1; continue; }
 
       let rawClub = '';
       let dateStr: string | undefined;
@@ -551,6 +565,17 @@ export const trackmanCsvAdapter: IngestAdapter = {
           sourceRef: input.name,
         }),
       );
+    }
+
+    if (misaligned > 0) {
+      warn({
+        code: 'unparsed-row',
+        message:
+          `${misaligned} ${misaligned === 1 ? 'row was' : 'rows were'} missing cells, so the ` +
+          `numbers in ${misaligned === 1 ? 'it' : 'them'} could not be matched to the right ` +
+          `columns and ${misaligned === 1 ? 'was' : 'were'} left out. A fresh export from ` +
+          `TrackMan usually fixes this.`,
+      });
     }
 
     for (const label of unknownClubLabels) {

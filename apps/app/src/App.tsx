@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildBaseline,
+  scoringZone,
   buildTrends,
   buildWindows,
   readForm,
@@ -186,6 +187,13 @@ export default function App() {
     if (sessions.length < 3) return [];
     return trendableClubs(sessions).flatMap((club) => buildTrends(sessions, club));
   }, [stored]);
+
+  /*
+   * Every target shot ever imported, not just this session's. Wedge distance
+   * control builds up a handful of attempts per Combine, so one session is
+   * rarely enough to judge a distance; the whole history usually is.
+   */
+  const zone = useMemo(() => scoringZone(stored.map((s) => s.session)), [stored]);
 
   /** The single ingest path — drops, the picker and the folder watcher. */
   const ingestRaw = useCallback((inputs: { name: string; text: string }[]) => {
@@ -404,7 +412,7 @@ export default function App() {
               />
             )}
             {tab === 'clubs' && cloned && (
-              <ClubsView report={report} session={cloned} />
+              <ClubsView report={report} session={cloned} zone={zone} />
             )}
             {tab === 'trends' && (
               <TrendsView

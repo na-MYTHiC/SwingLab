@@ -1,6 +1,6 @@
 import type {
   Prioritised, SessionReport, Prescription, ClubProfile, Shot, ShotSession, Trend,
-  PracticeDuration, FormRead, WindowProfile, SelfPercentile,
+  PracticeDuration, FormRead, WindowProfile, SelfPercentile, ScoringZone,
 } from '@swinglab/core';
 import { DispersionChart, TrendChart } from './Charts.js';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
@@ -533,10 +533,111 @@ function YardageBookCard({ report }: { report: SessionReport }) {
   );
 }
 
-export function ClubsView({ report, session }: { report: SessionReport; session: ShotSession }) {
+/** "11 short", "4 long", "on the number" — a signed miss said in words. */
+function missWords(bias: number): string {
+  const n = Math.round(Math.abs(bias));
+  if (n === 0) return 'on the number';
+  return `${n} ${bias < 0 ? 'short' : 'long'}`;
+}
+
+/**
+ * The scoring zone: every target distance, read on one shared number line.
+ *
+ * Each row is centred on its target. The dot is the median miss, the band is
+ * the typical spread around it, and every row uses the same scale so a wide
+ * 9-iron and a tight sand wedge look as different as they are. Bias and
+ * spread are drawn separately because they are fixed separately: a dot sat
+ * left of the line is the wrong number written down, a long band is the swing.
+ */
+function ScoringZoneCard({ zone }: { zone: ScoringZone }) {
+  if (zone.cells.length === 0) {
+    return (
+      <section className="card">
+        <h3 className="panel-title">Scoring zone</h3>
+        <p className="panel-sub">{zone.detail}</p>
+      </section>
+    );
+  }
+
+  const reach = Math.max(
+    8,
+    Math.ceil(Math.max(...zone.cells.map((c) => Math.abs(c.bias) + c.spread)) / 5) * 5,
+  );
+  const at = (yards: number) => 50 + (Math.max(-reach, Math.min(reach, yards)) / reach) * 50;
+
+  return (
+    <section className="card zone-card">
+      <h3 className="panel-title">Scoring zone</h3>
+      <p className="panel-sub">
+        All your target practice — {plural(zone.shots, 'shot')} across{' '}
+        {plural(zone.sessions, 'session')}. The line is the target; the dot is your median miss,
+        the band your usual spread.
+      </p>
+
+      {/* Same grid as the rows, so the labels sit over the track at any width. */}
+      <div className="zone-row zone-head" aria-hidden="true">
+        <span className="zone-target">yds</span>
+        <span />
+        <span className="zone-scale">
+          <span>← short</span>
+          <span>long →</span>
+        </span>
+        <span>miss</span>
+        <span className="zone-prox">to pin</span>
+      </div>
+
+      <ul className="zone-list">
+        {zone.cells.map((c) => {
+          const worst = zone.worst === c;
+          const best = zone.best === c;
+          const label =
+            `${c.club} to ${c.target} yards: ${missWords(c.bias)}, ` +
+            `spread ±${c.spread.toFixed(0)}` +
+            (c.proximityFt !== null ? `, ${Math.round(c.proximityFt)} feet from the target` : '') +
+            `, ${plural(c.shots, 'shot')}`;
+          return (
+            <li
+              key={`${c.club}@${c.target}`}
+              className={worst ? 'zone-row is-worst' : best ? 'zone-row is-best' : 'zone-row'}
+              title={label}
+              aria-label={label}
+            >
+              <span className="zone-target">{c.target}</span>
+              <span className="zone-club">{c.club}</span>
+              <span className="zone-track" aria-hidden="true">
+                <span className="zone-zero" />
+                <span
+                  className="zone-band"
+                  style={{ left: `${at(c.bias - c.spread)}%`, right: `${100 - at(c.bias + c.spread)}%` }}
+                />
+                <span className="zone-dot" style={{ left: `${at(c.bias)}%` }} />
+              </span>
+              <span className="zone-miss">
+                {missWords(c.bias)}
+                <small>±{c.spread.toFixed(0)}</small>
+              </span>
+              <span className="zone-prox">
+                {c.proximityFt !== null ? `${Math.round(c.proximityFt)} ft` : '—'}
+                {worst && <small className="zone-flag">weakest</small>}
+                {best && <small className="zone-flag">best</small>}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="panel-sub zone-call">{zone.headline}. {zone.detail}</p>
+    </section>
+  );
+}
+
+export function ClubsView({
+  report, session, zone,
+}: { report: SessionReport; session: ShotSession; zone: ScoringZone }) {
   return (
     <div className="stack">
       <YardageBookCard report={report} />
+      <ScoringZoneCard zone={zone} />
       {report.conditions.raw && <ConditionsCard report={report} />}
 
 

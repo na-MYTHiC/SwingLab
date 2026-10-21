@@ -119,6 +119,26 @@ describe('a mangled export', () => {
   });
 });
 
+describe('a row missing cells', () => {
+  it('is left out and reported, not read with its values under the wrong headings', () => {
+    /*
+     * The bundled Combine sample used to write its driver rows without the
+     * empty Target cell. Everything after Club slid one column left and the
+     * parser accepted a 1.5 mph club speed and a 94.9-yard target.
+     */
+    const good = readFileSync(resolve(root, 'samples/2-combine.csv'), 'utf8');
+    const broken = good.replace(/,Driver,,/g, ',Driver,').replace(/(,Driver,[^\n]*?),,\n/g, '$1\n');
+    const fixed = ingest({ name: 'ok.csv', text: good }, { handedness: 'right' });
+    const bad = ingest({ name: 'bad.csv', text: broken }, { handedness: 'right' });
+
+    const drivers = (r: typeof fixed) => r.session!.shots.filter((x) => x.club === 'Dr');
+    expect(drivers(fixed).length).toBeGreaterThan(0);
+    expect(drivers(fixed).every((x) => (x.clubSpeed ?? 0) > 80)).toBe(true);
+    expect(drivers(bad)).toHaveLength(0);
+    expect(bad.warnings.some((w) => /missing cells/.test(w.message))).toBe(true);
+  });
+});
+
 describe('sessions nobody would design a rule around', () => {
   let seq = 0;
   const shot = (o: Partial<Shot> = {}): Shot => ({
