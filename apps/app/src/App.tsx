@@ -342,7 +342,7 @@ export default function App() {
       */}
       <header className="topbar">
         <div className="brand">
-          <span className="mark" aria-hidden="true" />
+          <img className="mark" src="./icon.svg" alt="" aria-hidden="true" />
           <h1>
             Swing<span>Lab</span>
           </h1>
