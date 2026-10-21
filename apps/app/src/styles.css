@@ -906,6 +906,95 @@ tbody tr:hover { background: var(--surface-2); }
   font-size: var(--fs-xs);
 }
 
+/* --- run the plan -------------------------------------------------------- */
+
+/* Read at arm's length off a bay shelf, between shots, often with a glove on:
+ * a big clock, big targets, nothing else on screen. */
+.runner-start {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  padding: var(--sp-3) var(--sp-4);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--bg);
+  font-weight: 700;
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.runner-start small { font-weight: 500; font-size: var(--fs-xs); opacity: .9; }
+.runner { display: flex; flex-direction: column; gap: var(--sp-3); }
+.runner-top { display: flex; justify-content: space-between; align-items: center; }
+.runner-exit {
+  min-height: var(--tap); padding: 0 var(--sp-4);
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: transparent; color: var(--text-dim); cursor: pointer;
+}
+.runner-count { font-size: var(--fs-xs); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.runner-title { margin: 0; font-size: var(--fs-xl); line-height: 1.2; }
+.runner-clock {
+  display: grid; justify-items: center; gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.runner-time {
+  font-size: 64px; line-height: 1; font-weight: 700; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.runner-time-label { font-size: var(--fs-sm); color: var(--text-dim); }
+.runner-clock.is-over .runner-time { color: var(--warn); }
+.runner-bar { width: 100%; height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.runner-bar > div { height: 100%; border-radius: 999px; background: var(--brand); transition: width .9s linear; }
+.runner-clock.is-over .runner-bar > div { background: var(--warn); }
+.runner-pause {
+  min-height: var(--tap); min-width: 120px; padding: 0 var(--sp-5);
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--surface); color: var(--text); font-weight: 600; cursor: pointer;
+}
+.runner-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-1); }
+.runner-steps label {
+  display: grid; grid-template-columns: 24px 1fr; gap: var(--sp-2); align-items: start;
+  min-height: var(--tap); padding: var(--sp-2);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.runner-steps input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--good); }
+.runner-steps label.is-on span { color: var(--text-faint); text-decoration: line-through; }
+.runner-targets { font-size: var(--fs-sm); }
+.runner-targets ul { margin: var(--sp-1) 0 0; padding-left: 1.1em; color: var(--text-dim); }
+/* Pinned just above the tab bar: moving on is the one thing done between
+ * every block, and it should never need a scroll with a glove on. */
+.runner-nav {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2);
+  position: sticky;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  z-index: 5;
+  margin: var(--sp-2) calc(var(--card-pad) * -1) calc(var(--card-pad) * -1);
+  padding: var(--sp-3) var(--card-pad);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.runner-nav .ghost-btn { min-height: 52px; }
+.runner-primary {
+  min-height: 52px; padding: 0 var(--sp-5);
+  border: 0; border-radius: var(--radius);
+  background: var(--brand); color: var(--bg); font-weight: 700; font-size: var(--fs-md);
+  cursor: pointer;
+}
+.runner-done h2 { margin: 0; }
+.runner-total { margin: 0; color: var(--text-dim); }
+.runner-total strong { font-size: 32px; color: var(--text); margin-right: var(--sp-2); }
+.runner-summary { margin: 0; padding-left: 1.2em; display: grid; gap: var(--sp-2); font-size: var(--fs-sm); }
+.runner-summary li::marker { color: var(--text-faint); }
+.runner-summary li { padding-left: var(--sp-1); }
+.runner-summary li > span:first-child { display: block; }
+.runner-summary-time { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.runner-summary-time small { color: var(--text-faint); }
+.runner-next-step { padding: var(--sp-3); border-radius: var(--radius-sm); background: var(--surface-2); font-size: var(--fs-sm); }
+.runner-next-step p { margin: var(--sp-1) 0 0; color: var(--text-dim); }
+
 /* --- scoring zone ------------------------------------------------------- */
 
 /* One row per club and distance: target, club, a shared number line, the

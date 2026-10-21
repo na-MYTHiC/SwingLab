@@ -3,6 +3,9 @@ import type {
   PracticeDuration, FormRead, WindowProfile, SelfPercentile, ScoringZone,
 } from '@swinglab/core';
 import { DispersionChart, TrendChart } from './Charts.js';
+import { Runner } from './Runner.js';
+import { fresh, loadRun, saveRun } from '../runState.js';
+import { useEffect, useState } from 'react';
 import { ConsistencyBars, OptimalBands } from './Visuals.js';
 import { carryFactor, trackManIndices } from '@swinglab/core';
 import { minutes, num, plural, shots, speedLabel } from '../format.js';
@@ -250,6 +253,20 @@ export function PracticeView({
 }) {
   const { practice } = report;
 
+  // A run in progress survives a reload, so coming back to the tab with the
+  // clock still going puts you straight back on your block.
+  const planKey = `${report.sessionId}:${duration}`;
+  const [running, setRunning] = useState(() => loadRun(planKey) !== null);
+  useEffect(() => { setRunning(loadRun(planKey) !== null); }, [planKey]);
+
+  if (running) {
+    return (
+      <div className="stack">
+        <Runner practice={practice} planKey={planKey} onExit={() => setRunning(false)} />
+      </div>
+    );
+  }
+
   // A running clock, so a block's card says when it starts rather than only
   // how long it lasts — the number you need when the bay clock says 7:20.
   let elapsed = 0;
@@ -285,6 +302,17 @@ export function PracticeView({
           {minutes(practice.totalMinutes)}.
         </p>
       </div>
+
+      {practice.blocks.length > 0 && (
+        <button
+          type="button"
+          className="runner-start"
+          onClick={() => { saveRun(fresh(planKey, Date.now())); setRunning(true); }}
+        >
+          Start this plan
+          <small>One block at a time, with a clock. The screen stays on.</small>
+        </button>
+      )}
 
       <p className="plan-note">
         {practice.note ??
