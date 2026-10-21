@@ -48,11 +48,63 @@ const META: Record<StrikeClass, { label: string; description: string }> = {
   'off-centre': { label: 'Off centre', description: 'Missed the middle of the face.' },
 };
 
+/** Shots a club needs before its own medians are a fair yardstick. */
+const MIN_PER_CLUB = 3;
+
+/**
+ * Every shot restated relative to its own club.
+ *
+ * The classifier used to pool raw values across the whole session, so in a
+ * bag session a driver's 1.47 smash was "flush" next to a wedge's 1.20 by
+ * definition, every wedge carry sat below the session median, and every
+ * wedge launch sat above it. "Thin means low for you, with this club" was in
+ * the comment at the top of this file and not in the code.
+ *
+ * Each value becomes a ratio to that club's median. For a single club that
+ * is a pure rescaling — the spread and its 2% floor both scale with it — so
+ * a one-club session is classified exactly as before. Clubs the parser could
+ * not name are left out: their bucket can hold several different clubs.
+ */
+function relativeToOwnClub(pool: Shot[]): Shot[] {
+  const byClub = new Map<string, Shot[]>();
+  for (const s of pool) {
+    if (!s.club || s.club === 'unknown') continue;
+    const list = byClub.get(s.club) ?? [];
+    list.push(s);
+    byClub.set(s.club, list);
+  }
+  const out: Shot[] = [];
+  for (const group of byClub.values()) {
+    if (group.length < MIN_PER_CLUB) continue;
+    const mid = {
+      smash: median(pluck(group, (s) => s.smashFactor)),
+      launch: median(pluck(group, (s) => s.launchAngle)),
+      spin: median(pluck(group, (s) => s.spinRate)),
+      carry: median(pluck(group, (s) => s.carry)),
+    };
+    const ratio = (v: number | null, m: number) =>
+      v === null || !Number.isFinite(m) || m === 0 ? null : v / m;
+    for (const s of group) {
+      out.push({
+        ...s,
+        smashFactor: ratio(s.smashFactor, mid.smash),
+        launchAngle: ratio(s.launchAngle, mid.launch),
+        spinRate: ratio(s.spinRate, mid.spin),
+        carry: ratio(s.carry, mid.carry),
+      });
+    }
+  }
+  return out;
+}
+
 export function classifyStrikes(shots: Shot[]): StrikeBreakdown {
-  const pool = usable(shots);
+  const raw = usable(shots);
+  const pool = relativeToOwnClub(raw);
   if (pool.length < 5) {
     return { total: 0, counts: [], qualityShare: 0, perShot: [] };
   }
+  // The chart wants real yards, not ratios.
+  const realCarry = new Map(raw.map((s) => [s.id, s.carry]));
 
   const smashes = pluck(pool, (s) => s.smashFactor);
   const launches = pluck(pool, (s) => s.launchAngle);
@@ -84,10 +136,10 @@ export function classifyStrikes(shots: Shot[]): StrikeBreakdown {
   const perShot: StrikeBreakdown['perShot'] = [];
   const tally = new Map<StrikeClass, number>();
 
-  for (const shot of pool) {
+  for (const shot of [...pool].sort((a, b) => a.sequence - b.sequence)) {
     const klass = classifyOne(shot, base);
     tally.set(klass, (tally.get(klass) ?? 0) + 1);
-    perShot.push({ sequence: shot.sequence, klass, carry: shot.carry });
+    perShot.push({ sequence: shot.sequence, klass, carry: realCarry.get(shot.id) ?? null });
   }
 
   const counts: StrikeCount[] = [...tally.entries()]

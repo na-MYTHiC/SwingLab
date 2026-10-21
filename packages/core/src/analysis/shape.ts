@@ -35,8 +35,21 @@ export interface ShapeBreakdown {
 
 /** Degrees of launch direction before a shot counts as started off line. */
 const START_TOLERANCE = 2.0;
-/** Yards of curve before a shot counts as bending. */
+/**
+ * Curve before a shot counts as bending: five yards at 160, scaled to carry.
+ *
+ * A fixed five yards called a driver that bent 1° a fade, while the same five
+ * yards on a 100-yard wedge is a properly curved shot. Proportional to carry
+ * it means the same thing for every club in the bag. Never under three yards,
+ * where it would be reading wind and measurement noise.
+ */
+const CURVE_SHARE = 5 / 160;
+const CURVE_FLOOR = 3;
 const CURVE_TOLERANCE = 5;
+const curveTolerance = (carry: number | null) =>
+  carry !== null && Number.isFinite(carry) && carry > 0
+    ? Math.max(CURVE_FLOOR, carry * CURVE_SHARE)
+    : CURVE_TOLERANCE;
 
 function label(start: StartLine, curve: Curvature): string {
   if (start === 'straight' && curve === 'straight') return 'Straight';
@@ -61,8 +74,8 @@ export function shapeBreakdown(shots: Shot[]): ShapeBreakdown {
 
     const start: StartLine =
       dir < -START_TOLERANCE ? 'left' : dir > START_TOLERANCE ? 'right' : 'straight';
-    const curve: Curvature =
-      curveYds < -CURVE_TOLERANCE ? 'draw' : curveYds > CURVE_TOLERANCE ? 'fade' : 'straight';
+    const tol = curveTolerance(shot.carry);
+    const curve: Curvature = curveYds < -tol ? 'draw' : curveYds > tol ? 'fade' : 'straight';
 
     const key = `${start}:${curve}`;
     const existing = counts.get(key);

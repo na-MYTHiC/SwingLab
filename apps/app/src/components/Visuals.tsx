@@ -158,10 +158,14 @@ export function ShapePanel({ shape }: { shape: ShapeBreakdown }) {
 export function ProgressionPanel({ progression }: { progression: Progression }) {
   if (progression.thirds.length === 0) return <p className="muted">{progression.detail}</p>;
 
-  const carries = progression.thirds.map((t) => t.carry);
+  // Several clubs: yards are not comparable across thirds, so the bars show
+  // each third as a share of normal carry. One club: plain yards.
+  const value = (t: (typeof progression.thirds)[number]) =>
+    progression.mixedClubs ? t.share : t.carry;
+  const carries = progression.thirds.map(value);
   const min = Math.min(...carries);
   const max = Math.max(...carries);
-  const span = Math.max(max - min, 6);
+  const span = Math.max(max - min, progression.mixedClubs ? 4 : 6);
   const tone =
     progression.verdict === 'faded' ? 'bad'
       : progression.verdict === 'warmed-up' ? 'mid' : 'good';
@@ -170,10 +174,12 @@ export function ProgressionPanel({ progression }: { progression: Progression }) 
     <div className={`progression prog-${tone}`}>
       <div className="prog-bars">
         {progression.thirds.map((t) => {
-          const height = 30 + ((t.carry - min) / span) * 70;
+          const height = 30 + ((value(t) - min) / span) * 70;
           return (
             <div key={t.label} className="prog-col">
-              <span className="prog-value">{Math.round(t.carry)}</span>
+              <span className="prog-value">
+                {Math.round(value(t))}{progression.mixedClubs ? '%' : ''}
+              </span>
               <div className="prog-bar" style={{ height: `${height}%` }} />
               <span className="prog-label">{t.label}</span>
             </div>
@@ -341,29 +347,40 @@ export function AchievementPanel({ achievements }: { achievements: Achievement[]
   );
 }
 
-function AchievementCard({ achievement: a }: { achievement: Achievement }) {
+/**
+ * One milestone, as a list item of the list it is rendered into.
+ *
+ * It used to wrap itself in its own `<ul style="display: contents">`, which
+ * looked identical but nested a list directly inside a list — so a screen
+ * reader announced every milestone as a separate one-item list, and the
+ * outer list had no items of its own at all.
+ */
+function AchievementCard({ achievement: x }: { achievement: Achievement }) {
   return (
-    <ul style={{ display: 'contents' }}>
-      {[a].map((x) => (
-        <li key={x.id} className={x.earned ? `ach ach-earned ach-${x.tier}` : 'ach'}>
-          <div className="ach-head">
-            <span className="ach-name">
-              <i className={`ach-dot ach-dot-${x.tier}`} aria-hidden="true" />
-              {x.name}
-            </span>
-            <span className="ach-tier">
-              {x.earned ? 'earned' : `${Math.round(x.progress * 100)}%`}
-            </span>
-          </div>
-          {!x.earned && (
-            <div className="ach-track">
-              <div className="ach-fill" style={{ width: `${x.progress * 100}%` }} />
-            </div>
-          )}
-          <p className="ach-req">{x.requirement}</p>
-        </li>
-      ))}
-    </ul>
+    <li className={x.earned ? `ach ach-earned ach-${x.tier}` : 'ach'}>
+      <div className="ach-head">
+        <span className="ach-name">
+          <i className={`ach-dot ach-dot-${x.tier}`} aria-hidden="true" />
+          {x.name}
+        </span>
+        <span className="ach-tier">
+          {x.earned ? 'earned' : `${Math.round(x.progress * 100)}%`}
+        </span>
+      </div>
+      {!x.earned && (
+        <div
+          className="ach-track"
+          role="progressbar"
+          aria-label={`${x.name} progress`}
+          aria-valuenow={Math.round(x.progress * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div className="ach-fill" style={{ width: `${x.progress * 100}%` }} />
+        </div>
+      )}
+      <p className="ach-req">{x.requirement}</p>
+    </li>
   );
 }
 

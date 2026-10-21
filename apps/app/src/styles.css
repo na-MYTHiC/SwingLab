@@ -34,8 +34,14 @@
   --line-strong: #3a4258;
 
   --text: #eaeefb;
-  --text-dim: #9aa5c0;
-  --text-faint: #6b7591;
+  /*
+   * Every text colour clears 4.5:1 against every surface it sits on, checked
+   * with axe across all five tabs in both themes. The faint step used to sit
+   * at 3.7:1, which is the difference between readable and not on a phone at
+   * a driving range in daylight — where this is actually read.
+   */
+  --text-dim: #a9b3cc;
+  --text-faint: #8790a8;
 
   /* Interface and brand. Never used to mean "good". */
   --brand: #7c8cff;
@@ -61,16 +67,18 @@
   --line-strong: #c2cadb;
 
   --text: #131726;
-  --text-dim: #545d75;
-  --text-faint: #7d8699;
+  --text-dim: #3f475c;
+  --text-faint: #606779;
 
-  --brand: #4f5fe0;
+  /* Each accent darkened by the least that clears 4.5:1 on its own tinted
+     fill as well as on white — the tints are where they used to fail. */
+  --brand: #4655c7;
   --brand-soft: #e3e6ff;
-  --data: #0e9bb8;
+  --data: #0a7186;
 
-  --good: #059669;
-  --warn: #b45309;
-  --bad: #dc2626;
+  --good: #047653;
+  --warn: #a74d08;
+  --bad: #c92323;
 
   --shadow: 0 1px 2px rgb(20 30 60 / 0.06), 0 10px 28px -18px rgb(20 30 60 / 0.28);
   color-scheme: light;
@@ -601,7 +609,7 @@ select { font-size: var(--fs-sm); }
   white-space: nowrap;
 }
 .speed-immediate { color: var(--good); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
-.speed-months { opacity: .75; }
+.speed-months { color: var(--text-faint); }
 .tag-quiet { font-style: italic; }
 
 .impact-row {
@@ -870,7 +878,7 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .yardage-table .muted { color: var(--text-faint); }
 .yardage-table .ego-wide { color: var(--warn); }
-.yardage-table tr.thin td { opacity: 0.6; }
+.yardage-table tr.thin td { color: var(--text-faint); }
 @media (min-width: 560px) {
   .yardage-table { font-size: var(--fs-sm); }
   .yardage-table th, .yardage-table td { padding: var(--sp-2) var(--sp-2); }
@@ -1101,7 +1109,7 @@ tbody tr:hover { background: var(--surface-2); }
   font-size: var(--fs-2xs);
   color: var(--text-faint);
 }
-.footer-build { opacity: .7; }
+.footer-build { color: var(--text-faint); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
@@ -1440,9 +1448,12 @@ tbody tr:hover { background: var(--surface-2); }
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  opacity: .72;
+  /* Unearned milestones used to be faded with opacity, which took their text
+     below a readable contrast. Earned ones are marked by their green edge and
+     tint instead; unearned ones stay legible, because "how close am I" is the
+     whole reason to read them. */
 }
-.ach-earned { opacity: 1; border-color: color-mix(in srgb, var(--good) 38%, transparent); background: color-mix(in srgb, var(--good) 6%, var(--surface-2)); }
+.ach-earned { border-color: color-mix(in srgb, var(--good) 38%, transparent); background: color-mix(in srgb, var(--good) 6%, var(--surface-2)); }
 .ach-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); }
 .ach-name { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); font-weight: 600; }
 .ach-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-faint); }
