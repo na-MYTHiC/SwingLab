@@ -1,0 +1,13 @@
+{
+  "model": "claude-sonnet-5-5",
+  "advisorModel": "claude-opus-5-5",
+  "worktree": {
+    "baseRef": "head",
+    "symlinkDirectories": [
+      "node_modules",
+      "apps/app/node_modules",
+      "apps/desktop/node_modules",
+      "packages/core/node_modules"
+    ]
+  }
+}

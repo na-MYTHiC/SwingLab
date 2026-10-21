@@ -13,3 +13,7 @@ apps/desktop/src-tauri/gen/
 # Capacitor native projects
 apps/mobile/ios/
 apps/mobile/android/
+
+# Claude Code: agent worktrees and personal overrides
+.claude/worktrees/
+.claude/settings.local.json
