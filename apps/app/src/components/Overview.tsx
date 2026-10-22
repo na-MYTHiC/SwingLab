@@ -33,7 +33,7 @@ export function OverviewView({
   const hasTargets = targets !== null && targets.results.length > 0;
 
   return (
-    <div className="stack">
+    <div className="stack view-session">
       <SessionHero report={report} session={session} top={top} />
 
       {(hasTargets || comparison) && (
@@ -46,7 +46,7 @@ export function OverviewView({
       </h2>
 
       {main && (
-        <section className="card">
+        <section className="card pattern-card">
           <h3 className="panel-title">{main.club} shot pattern</h3>
           <p className="panel-sub">
             Every shot you hit, and the ring that holds 95% of them.
@@ -67,7 +67,7 @@ export function OverviewView({
         </div>
       </section>
 
-      <section className="card">
+      <section className="card progression-card">
         <h3 className="panel-title">How the session went</h3>
         <ProgressionPanel progression={report.progression} />
       </section>

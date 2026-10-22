@@ -99,7 +99,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
   const behind = report.optimals || report.consistency;
 
   return (
-    <div className="stack">
+    <div className="stack view-fix">
       <section className="card card-hero fix-hero hero-brand">
         <p className="eyebrow">On the table</p>
         <div className="num-display fix-num">
@@ -114,54 +114,59 @@ export function PriorityView({ report }: { report: SessionReport }) {
 
       <AimCard report={report} />
 
-      {first && (
-        <>
-          <h2 className="section-head">
-            Start here
-            <span>the one thing worth an hour</span>
-          </h2>
-          <PriorityCard entry={first} rank={1} lead symptoms={symptomsOf(first)} />
-        </>
-      )}
+      <div className="cols cols-8-4">
+        <div className="stack">
+          {first && (
+            <>
+              <h2 className="section-head">
+                Start here
+                <span>the one thing worth an hour</span>
+              </h2>
+              <PriorityCard entry={first} rank={1} lead symptoms={symptomsOf(first)} />
+            </>
+          )}
+        </div>
+        <div className="stack">
+          {supporting.length > 0 && (
+            <>
+              <h2 className="section-head">
+                Then these
+                <span>worth time once the first is holding</span>
+              </h2>
+              <ol className="priority-list" start={2}>
+                {supporting.map((root, i) => (
+                  <PriorityCard
+                    key={`${root.finding.id}-${root.finding.club}`}
+                    entry={root}
+                    rank={i + 2}
+                    folded
+                    symptoms={symptomsOf(root)}
+                  />
+                ))}
+              </ol>
+            </>
+          )}
 
-      {supporting.length > 0 && (
-        <>
-          <h2 className="section-head">
-            Then these
-            <span>worth time once the first is holding</span>
-          </h2>
-          <ol className="priority-list" start={2}>
-            {supporting.map((root, i) => (
-              <PriorityCard
-                key={`${root.finding.id}-${root.finding.club}`}
-                entry={root}
-                rank={i + 2}
-                folded
-                symptoms={symptomsOf(root)}
-              />
-            ))}
-          </ol>
-        </>
-      )}
-
-      {later.length > 0 && (
-        <details className="more-findings">
-          <summary>
-            {later.length} more finding{later.length === 1 ? '' : 's'}, smaller payoff
-          </summary>
-          <ol className="priority-list" start={supporting.length + 2}>
-            {later.map((root, i) => (
-              <PriorityCard
-                key={`${root.finding.id}-${root.finding.club}`}
-                entry={root}
-                rank={i + supporting.length + 2}
-                folded
-                symptoms={symptomsOf(root)}
-              />
-            ))}
-          </ol>
-        </details>
-      )}
+          {later.length > 0 && (
+            <details className="more-findings">
+              <summary>
+                {later.length} more finding{later.length === 1 ? '' : 's'}, smaller payoff
+              </summary>
+              <ol className="priority-list" start={supporting.length + 2}>
+                {later.map((root, i) => (
+                  <PriorityCard
+                    key={`${root.finding.id}-${root.finding.club}`}
+                    entry={root}
+                    rank={i + supporting.length + 2}
+                    folded
+                    symptoms={symptomsOf(root)}
+                  />
+                ))}
+              </ol>
+            </details>
+          )}
+        </div>
+      </div>
 
       {behind && (
         <>
@@ -169,6 +174,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
             The numbers behind it
             <span>the proof, for when you want it</span>
           </h2>
+          <div className="cols cols-even">
           {report.optimals && (
             <details className="card-quiet quiet-disc">
               <summary>
@@ -190,6 +196,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
               <ConsistencyBars consistency={report.consistency} />
             </details>
           )}
+          </div>
         </>
       )}
     </div>
@@ -348,7 +355,7 @@ export function PracticeView({
   const firstWithDrills = practice.blocks.findIndex((b) => b.drills.length > 0);
 
   return (
-    <div className="stack">
+    <div className="plan-layout">
       <section className="card card-hero plan-hero hero-brand">
         <p className="eyebrow">Your plan</p>
         <h2 className="plan-title">{duration === 60 ? 'Your hour' : 'Your two hours'}</h2>
@@ -739,8 +746,10 @@ export function ClubsView({
 
   return (
     <div className="stack">
-      <YardageBookCard report={report} />
-      <ScoringZoneCard zone={zone} />
+      <div className="cols cols-even">
+        <YardageBookCard report={report} />
+        <ScoringZoneCard zone={zone} />
+      </div>
       {report.conditions.raw && <ConditionsCard report={report} />}
 
       <h2 className="section-head">
@@ -1044,25 +1053,27 @@ export function ProgressView({
         </section>
       )}
 
+      <div className="cols cols-even">
       {windows && hasForm && (
-        <>
+        <div className="stack">
           <h2 className="section-head">
             Form
             <span>your last twenty against your all-time</span>
           </h2>
           <FormCard form={windows.form} windows={windows.windows} />
-        </>
+        </div>
       )}
 
       {windows && hasPercentiles && (
-        <>
+        <div className="stack">
           <h2 className="section-head">
             Against yourself
             <span>where this session sits in everything you have hit</span>
           </h2>
           <PercentileCard rows={windows.percentiles} />
-        </>
+        </div>
       )}
+      </div>
 
       {sessionCount < 3 ? (
         <div className="card-quiet">

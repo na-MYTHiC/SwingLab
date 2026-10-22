@@ -787,23 +787,29 @@ function Empty({
 }) {
   return (
     <main className="empty-state">
-      <h2>Read your simulator session properly</h2>
-      <p>
-        SwingLab ranks what is actually costing you shots, works out what to practise, and lays
-        out a session in real TrackMan modes. Everything is computed on this device from your own
-        numbers.
-      </p>
+      <section className="card card-hero empty-hero">
+        <div className="empty-copy">
+          <p className="eyebrow">Free · runs on this device</p>
+          <h2>Read your simulator session properly</h2>
+          <ul className="value-lines">
+            <li><i className="dot-good" aria-hidden="true" />Ranks what is actually costing you shots</li>
+            <li><i className="dot-warn" aria-hidden="true" />Lays out a practice hour in real TrackMan modes</li>
+            <li><i className="dot-brand" aria-hidden="true" />Tracks your trend, handicap and milestones over time</li>
+          </ul>
+        </div>
 
-      <button type="button" className="sample-btn" onClick={onSample}>
-        Look around with a sample session
-      </button>
-      <p className="sample-note">
-        Made-up data, so you can see what it does before you have your own. Delete it any time
-        from Import.
-      </p>
+        <div className="empty-actions">
+          <button type="button" className="sample-btn" onClick={onSample}>
+            Look around with a sample session
+          </button>
+          <p className="sample-note">
+            Made-up data, so you can see what it does first. Delete it any time from Import.
+          </p>
 
-      <div className="empty-or"><span>or bring your own</span></div>
-      <DropZone dragging={dragging} setDragging={setDragging} onFiles={onFiles} />
+          <div className="empty-or"><span>or bring your own</span></div>
+          <DropZone dragging={dragging} setDragging={setDragging} onFiles={onFiles} />
+        </div>
+      </section>
     </main>
   );
 }
