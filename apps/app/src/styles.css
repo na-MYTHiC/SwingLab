@@ -124,6 +124,7 @@
   --tap: 44px;      /* minimum comfortable touch target */
   --nav-h: 60px;    /* the phone tab bar; zero once tabs move into the header */
   --page-max: 1200px;
+  --gold: #e2b93b;   /* medal tier only; verdict amber is --warn */
 }
 
 @media (min-width: 720px) {
@@ -583,31 +584,6 @@ select { font-size: var(--fs-sm); }
 .section-head::after { order: 2; }
 .stack > .section-head:first-child { margin-top: 0; }
 
-/* -------------------------------------------------------------- headline */
-
-.headline {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--card-pad);
-  background: linear-gradient(135deg, var(--surface-2), var(--surface));
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  flex-wrap: wrap;
-}
-.headline-figure { display: flex; flex-direction: column; flex: none; }
-.headline-figure strong {
-  font-size: 32px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--brand);
-}
-.headline-figure span {
-  font-size: var(--fs-2xs); color: var(--text-faint);
-  text-transform: uppercase; letter-spacing: .07em; margin-top: var(--sp-1);
-}
-.headline p { margin: 0; flex: 1; min-width: 200px; color: var(--text-dim); font-size: var(--fs-sm); }
-
 .plan-note {
   margin: 0;
   padding: var(--sp-3) var(--sp-4);
@@ -747,16 +723,6 @@ select { font-size: var(--fs-sm); }
 
 /* -------------------------------------------------------------- practice */
 
-.slot-picker {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-3);
-  padding: var(--card-pad);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  font-size: var(--fs-sm); color: var(--text-dim);
-}
-.slot-lead { font-weight: 550; color: var(--text); }
 .slot-group { display: flex; gap: var(--sp-2); flex: 1; min-width: 190px; }
 .slot {
   flex: 1;
@@ -766,19 +732,11 @@ select { font-size: var(--fs-sm); }
   font-weight: 550;
 }
 .slot-on { border-color: var(--brand); color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, var(--surface-2)); }
-.slot-note { flex-basis: 100%; margin: 0; font-size: var(--fs-xs); color: var(--text-faint); }
 
 /*
  * A running clock rather than a duration. Standing in the bay the useful
  * question is "am I meant to still be on this?", which needs a start time.
  */
-.block-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: var(--sp-3);
-  padding-bottom: var(--sp-3);
-  margin-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--line);
-}
 .block-clock { display: flex; align-items: baseline; gap: var(--sp-2); }
 .block-clock b {
   font-size: var(--fs-lg); font-weight: 650; letter-spacing: -0.02em;
@@ -788,10 +746,6 @@ select { font-size: var(--fs-sm); }
 .block-step {
   font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .08em;
   color: var(--text-faint);
-}
-.practice-block h3 {
-  margin: 0 0 var(--sp-3);
-  font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.02em; line-height: 1.25;
 }
 
 .mode-chip {
@@ -928,8 +882,11 @@ tbody tr:hover { background: var(--surface-2); }
  * clubs fit side by side. On a phone the per-club cards say the same thing
  * without anything sitting off the edge of the screen. */
 .wide-only { display: none; }
-@media (min-width: 720px) {
+/* Same breakpoint as useWide(): the table and the all-clubs grid arrive together. */
+@media (min-width: 960px) {
   .wide-only { display: block; }
+  .has-table .club-figures { display: none; }
+  .has-table .club-card-head { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
 }
 
 
@@ -1045,7 +1002,7 @@ tbody tr:hover { background: var(--surface-2); }
 .runner-nav {
   display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2);
   position: sticky;
-  bottom: calc(60px + env(safe-area-inset-bottom));
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
   z-index: 5;
   margin: var(--sp-2) calc(var(--card-pad) * -1) calc(var(--card-pad) * -1);
   padding: var(--sp-3) var(--card-pad);
@@ -1130,7 +1087,7 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* --- what aiming is worth ------------------------------------------------ */
 
-.aim-card { border-left: 3px solid var(--good); }
+.aim-card { border-left: 3px solid var(--brand); }
 .aim-figure { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0; }
 .aim-figure strong {
   /* Matches .headline-figure so the two big numbers on the page are the
@@ -1139,7 +1096,7 @@ tbody tr:hover { background: var(--surface-2); }
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.03em;
-  color: var(--good);
+  color: var(--text);
 }
 .aim-figure span { color: var(--text-dim); font-size: var(--fs-sm); }
 .aim-move { margin: 0 0 var(--sp-3); font-size: var(--fs-md); }
@@ -1285,11 +1242,10 @@ tbody tr:hover { background: var(--surface-2); }
     box-shadow: none;
   }
   .trend-head { grid-column: 1; grid-row: 1; flex-direction: column; align-items: flex-start; gap: 0; margin: 0; }
-  .trend svg { grid-column: 2; grid-row: 1 / span 2; width: 116px; height: 44px; }
   /* The one-line state sits next to the number ("-3.6° · better"), so the
      explanatory sentence is redundant here and doubled each row's height. */
   .trend-note { display: none; }
-  .trend svg { grid-row: 1; }
+  .trend svg { grid-column: 2; grid-row: 1; width: 116px; height: 44px; }
 }
 @media (min-width: 720px) {
   .trend-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
@@ -1324,7 +1280,6 @@ tbody tr:hover { background: var(--surface-2); }
 
 /* ----------------------------------------------------------------- empty */
 
-.empty-state { margin-top: var(--sp-5); text-align: center; }
 .empty-or {
   display: flex;
   align-items: center;
@@ -1335,8 +1290,6 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .empty-or::before,
 .empty-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-.empty-state h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-xl); }
-.empty-state p { margin: 0 auto; max-width: 50ch; color: var(--text-dim); font-size: var(--fs-sm); }
 
 .footer {
   display: flex;
@@ -1619,19 +1572,6 @@ tbody tr:hover { background: var(--surface-2); }
 .share-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 16%, var(--surface-2)); }
 .share-btn:disabled { color: var(--text-faint); border-color: var(--line); }
 
-.score-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-3); }
-.score-figure { display: flex; align-items: baseline; gap: var(--sp-2); }
-.score-figure strong {
-  font-size: 56px; line-height: 1; letter-spacing: -0.045em;
-  /* Solid ink, not a gradient clipped to the glyphs: axe cannot measure the
-     contrast of background-clip text, and a verdict colour should be one
-     colour so it can only ever mean one thing. */
-  color: var(--good);
-}
-.score-mid .score-figure strong { color: var(--warn); }
-.score-bad .score-figure strong { color: var(--bad); }
-.score-figure span { font-size: var(--fs-lg); color: var(--text-faint); }
-
 .grade {
   width: 56px; height: 56px;
   flex: none;
@@ -1644,7 +1584,6 @@ tbody tr:hover { background: var(--surface-2); }
 .grade-B { border-color: var(--warn); color: var(--warn); }
 .grade-C, .grade-D { border-color: var(--bad); color: var(--bad); }
 
-.score-verdict { margin: var(--sp-3) 0 var(--sp-4); font-size: var(--fs-md); color: var(--text-dim); }
 
 .score-components { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .sc-head { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-sm); }
@@ -1701,7 +1640,7 @@ tbody tr:hover { background: var(--surface-2); }
 .ach-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-faint); }
 .ach-earned .ach-dot-bronze { background: #c98a55; }
 .ach-earned .ach-dot-silver { background: #c3ccd4; }
-.ach-earned .ach-dot-gold { background: var(--warn); box-shadow: 0 0 10px -2px var(--warn); }
+.ach-earned .ach-dot-gold { background: var(--gold); box-shadow: 0 0 10px -2px var(--gold); }
 .ach-tier { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
 .ach-earned .ach-tier { color: var(--good); }
 .ach-track { height: 4px; margin: var(--sp-2) 0 var(--sp-1); border-radius: 999px; background: var(--surface-3); overflow: hidden; }
@@ -1722,7 +1661,7 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .ach-chip .ach-dot-bronze { background: #c98a55; }
 .ach-chip .ach-dot-silver { background: #c3ccd4; }
-.ach-chip .ach-dot-gold { background: var(--warn); }
+.ach-chip .ach-dot-gold { background: var(--gold); }
 .more-ach { margin-top: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-1); }
 .more-ach > summary { min-height: var(--tap); display: flex; align-items: center; font-size: var(--fs-sm); color: var(--brand); cursor: pointer; }
 
@@ -1882,7 +1821,7 @@ tbody tr:hover { background: var(--surface-2); }
 .hero-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .hero-top .eyebrow { margin: 0; min-width: 0; }
 .hero-score { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
-.hero-num { color: var(--hero-ink, var(--good)); }
+.hero-num { color: var(--good); }
 .hero-num small { font-size: var(--fs-lg); font-weight: 500; letter-spacing: 0; color: var(--text-faint); margin-left: var(--sp-2); }
 .hero-mid .hero-num { color: var(--warn); }
 .hero-bad .hero-num { color: var(--bad); }
@@ -1962,12 +1901,10 @@ details[open] > .priority-sum::after, details[open] > .block-head::after, .quiet
   min-height: 56px; padding: var(--sp-3) var(--card-pad);
 }
 .priority-sum-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.priority-sum-text b { font-size: var(--fs-md); font-weight: 620; line-height: 1.3; letter-spacing: -0.01em; }
+.priority-sum-text h3 { margin: 0; font-size: var(--fs-md); font-weight: 620; line-height: 1.3; letter-spacing: -0.01em; }
 .priority-sum-text span { font-size: var(--fs-xs); color: var(--text-dim); }
 .priority-body { padding: 0 var(--card-pad) var(--card-pad); }
-/* Tags need a wide row; in the narrow right-hand column at desktop they are dropped. */
-.priority-sum .tags { display: none; }
-@media (min-width: 720px) and (max-width: 959px) { .priority-sum .tags { display: flex; } }
+.priority-body > .tags { justify-content: flex-start; margin-bottom: var(--sp-2); }
 
 .quiet-disc { padding: 0 var(--sp-4); }
 .quiet-disc > summary {
@@ -2013,23 +1950,25 @@ details[open] > .block-head { border-bottom: 1px solid var(--line); margin-botto
 
 /* ================================================================== empty === */
 
-.empty-state { margin-top: var(--sp-2); text-align: left; }
+.welcome { margin-top: var(--sp-2); }
 .empty-hero { display: grid; gap: var(--sp-6); }
 .empty-hero .eyebrow { margin: 0 0 var(--sp-2); }
-.empty-state .empty-hero h2 { margin: 0 0 var(--sp-4); font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
-.empty-state .empty-hero p { margin-left: 0; margin-right: 0; }
+.welcome .empty-hero h2 { margin: 0 0 var(--sp-4); font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
 .value-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-3); }
 .value-lines li { display: flex; align-items: baseline; gap: var(--sp-3); font-size: var(--fs-md); color: var(--text-dim); }
 .value-lines i { flex: none; width: 8px; height: 8px; border-radius: 50%; transform: translateY(-1px); }
-.dot-good { background: var(--good); }
-.dot-warn { background: var(--warn); }
-.dot-brand { background: var(--brand); }
+.dot-good, .dot-warn, .dot-brand { background: var(--brand); }
 .empty-actions .empty-or { margin: var(--sp-5) 0 var(--sp-3); }
 .empty-actions .drop { margin-top: 0; }
 
 /* ======================================================= desktop 12-column === */
 
 .cols { display: grid; gap: var(--gap); align-items: start; }
+.cols:empty { display: none; }
+.col-stack { display: grid; gap: var(--gap); align-content: start; min-width: 0; }
+/* A page that opens on a column pair should not start 36px down. */
+.stack > .cols:first-child > .col-stack > .section-head:first-child { margin-top: 0; }
+.nothing-clear { padding: var(--sp-4); }
 .plan-layout { display: grid; gap: var(--gap); align-content: start; }
 
 @media (min-width: 960px) {
@@ -2043,11 +1982,17 @@ details[open] > .block-head { border-bottom: 1px solid var(--line); margin-botto
   .view-session > .since { grid-column: span 5; align-self: start; }
   .view-session > .pattern-card { grid-column: span 7; grid-row: span 2; }
   .view-session > .strike-shape, .view-session > .progression-card { grid-column: span 5; align-self: start; }
+  /* No shot-pattern card beside them: share the row instead of leaving two empty columns. */
+  .view-session > .section-head + .strike-shape,
+  .view-session > .section-head + .strike-shape + .progression-card { grid-column: span 6; }
 
   .view-fix > .fix-hero:has(+ .aim-card) { grid-column: span 5; }
   .view-fix > .aim-card { grid-column: span 7; }
 
   .plan-layout { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); align-items: start; }
+  .plan-layout > .plan-hero { align-self: start; }
+}
+@media (min-width: 960px) and (min-height: 640px) {
   .plan-layout > .plan-hero { position: sticky; top: 80px; }
 
   .club-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
@@ -2058,3 +2003,44 @@ details[open] > .block-head { border-bottom: 1px solid var(--line); margin-botto
 }
 
 .warnings { margin-bottom: var(--gap); }
+
+@media (min-width: 960px) {
+  .pattern-card .chart svg, .club-chart .chart svg { max-height: 340px; }
+}
+
+/* Every summary that is set to display:flex loses the browser's own arrow, so the
+   chevron is drawn on all of them the same way. */
+.warnings summary, .symptoms summary, .more-findings > summary, .drills > summary, .notes summary,
+.more-ach > summary, .hero-why summary, .rows-more summary, .aim-why summary {
+  list-style: none; gap: var(--sp-3); justify-content: space-between;
+}
+.warnings summary::-webkit-details-marker, .symptoms summary::-webkit-details-marker,
+.more-findings > summary::-webkit-details-marker, .drills > summary::-webkit-details-marker,
+.notes summary::-webkit-details-marker, .more-ach > summary::-webkit-details-marker,
+.hero-why summary::-webkit-details-marker, .rows-more summary::-webkit-details-marker,
+.aim-why summary::-webkit-details-marker { display: none; }
+.warnings summary::after, .symptoms summary::after, .more-findings > summary::after, .drills > summary::after,
+.notes summary::after, .more-ach > summary::after, .hero-why summary::after, .rows-more summary::after,
+.aim-why summary::after { content: "\25b8"; flex: none; color: var(--text-faint); font-size: 12px; transition: transform .15s; }
+.warnings[open] > summary::after, .symptoms[open] > summary::after, .more-findings[open] > summary::after,
+.drills[open] > summary::after, .notes[open] > summary::after, .more-ach[open] > summary::after,
+.hero-why[open] > summary::after, .rows-more[open] > summary::after, .aim-why[open] > summary::after { transform: rotate(90deg); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.skip {
+  display: flex; align-items: center; min-height: var(--tap);
+  position: absolute; left: var(--sp-3); top: -60px; z-index: 100;
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--radius-sm);
+  background: var(--brand); color: var(--bg); font-weight: 650; text-decoration: none;
+}
+.skip:focus { top: var(--sp-2); }
+main:focus { outline: none; }
+
+@media (min-width: 960px) {
+  .topbar > .brand { grid-column: 1; grid-row: 1; }
+  .topbar > .tabbar { grid-column: 2; grid-row: 1; }
+  .topbar > .topbar-actions { grid-column: 3; grid-row: 1; }
+}

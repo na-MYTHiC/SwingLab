@@ -347,6 +347,7 @@ export default function App() {
         .topbar never gets a transform, filter or backdrop-filter, any of
         which would make it the containing block for the fixed bar.
       */}
+      <a className="skip" href="#content">Skip to content</a>
       <header className="topbar">
         <div className="brand">
           <img className="mark" src="./icon.svg" alt="" aria-hidden="true" />
@@ -354,25 +355,6 @@ export default function App() {
             Swing<span>Lab</span>
           </h1>
         </div>
-
-        {report && (
-          <nav className="tabbar" role="tablist" aria-label="Views">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                role="tab"
-                aria-selected={tab === t.id}
-                className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
-                onClick={() => setTab(t.id)}
-              >
-                <span className="nav-label">{t.label}</span>
-                {t.id === 'progress' && trends.some((x) => x.significant) && (
-                  <span className="nav-dot" />
-                )}
-              </button>
-            ))}
-          </nav>
-        )}
 
         <div className="topbar-actions">
           <button
@@ -392,10 +374,27 @@ export default function App() {
             {theme === 'dark' ? '\u2600' : '\u263e'}
           </button>
         </div>
+        {report && (
+          <nav className="tabbar" aria-label="Views">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                aria-current={tab === t.id ? 'page' : undefined}
+                className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
+                onClick={() => setTab(t.id)}
+              >
+                <span className="nav-label">{t.label}</span>
+                {t.id === 'progress' && trends.some((x) => x.significant) && (
+                  <span className="nav-dot" />
+                )}
+              </button>
+            ))}
+          </nav>
+        )}
       </header>
 
       {report && active ? (
-        <main>
+        <main id="content" tabIndex={-1}>
           {/*
             Which session is on screen: the title of everything below it. A
             full-width control, reachable one-handed, and the same place on
@@ -786,7 +785,7 @@ function Empty({
   onFiles: (files: FileList | File[]) => void;
 }) {
   return (
-    <main className="empty-state">
+    <main id="content" tabIndex={-1} className="welcome">
       <section className="card card-hero empty-hero">
         <div className="empty-copy">
           <p className="eyebrow">Free · runs on this device</p>

@@ -76,9 +76,9 @@ function AimCard({ report }: { report: SessionReport }) {
 export function PriorityView({ report }: { report: SessionReport }) {
   if (report.findings.length === 0) {
     return (
-      <div className="empty-state">
-        <h2>Nothing clear to act on</h2>
-        <p>
+      <div className="card-quiet nothing-clear">
+        <h2 className="quiet-title">Nothing clear to act on</h2>
+        <p className="quiet-body">
           Either this was a clean session, or there were not enough shots per club to draw a
           conclusion. Both are real answers — the app will not invent a fault to fill the space.
         </p>
@@ -97,9 +97,11 @@ export function PriorityView({ report }: { report: SessionReport }) {
   const later = rest.slice(2);
 
   const behind = report.optimals || report.consistency;
+  const hasRight = supporting.length > 0 || later.length > 0;
 
   return (
     <div className="stack view-fix">
+      <h2 className="sr-only">What to work on</h2>
       <section className="card card-hero fix-hero hero-brand">
         <p className="eyebrow">On the table</p>
         <div className="num-display fix-num">
@@ -114,8 +116,8 @@ export function PriorityView({ report }: { report: SessionReport }) {
 
       <AimCard report={report} />
 
-      <div className="cols cols-8-4">
-        <div className="stack">
+      <div className={hasRight ? 'cols cols-8-4' : 'cols'}>
+        <div className="col-stack">
           {first && (
             <>
               <h2 className="section-head">
@@ -126,7 +128,8 @@ export function PriorityView({ report }: { report: SessionReport }) {
             </>
           )}
         </div>
-        <div className="stack">
+        {hasRight && (
+        <div className="col-stack">
           {supporting.length > 0 && (
             <>
               <h2 className="section-head">
@@ -166,6 +169,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
             </details>
           )}
         </div>
+        )}
       </div>
 
       {behind && (
@@ -174,7 +178,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
             The numbers behind it
             <span>the proof, for when you want it</span>
           </h2>
-          <div className="cols cols-even">
+          <div className={report.optimals && report.consistency ? 'cols cols-even' : 'cols'}>
           {report.optimals && (
             <details className="card-quiet quiet-disc">
               <summary>
@@ -285,12 +289,14 @@ function PriorityCard({
           <summary className="priority-sum">
             <span className="priority-rank">{rank}</span>
             <span className="priority-sum-text">
-              <b>{finding.title}</b>
+              <h3>{finding.title}</h3>
               <span>≈{shots(impact.courseStrokes)} shots/round</span>
             </span>
-            {tags}
           </summary>
-          <div className="priority-body">{body}</div>
+          <div className="priority-body">
+            {tags}
+            {body}
+          </div>
         </details>
       </Wrapper>
     );
@@ -746,11 +752,14 @@ export function ClubsView({
 
   return (
     <div className="stack">
+      <h2 className="sr-only">Your clubs</h2>
       <div className="cols cols-even">
-        <YardageBookCard report={report} />
+        <div className="col-stack">
+          <YardageBookCard report={report} />
+          {report.conditions.raw && <ConditionsCard report={report} />}
+        </div>
         <ScoringZoneCard zone={zone} />
       </div>
-      {report.conditions.raw && <ConditionsCard report={report} />}
 
       <h2 className="section-head">
         Club by club
@@ -813,7 +822,7 @@ export function ClubsView({
         </div>
       )}
 
-      <div className="club-cards">
+      <div className={report.profiles.length > 1 ? 'club-cards has-table' : 'club-cards'}>
         {shown.map((p) => (
           <ClubCard
             key={p.club}
@@ -1045,6 +1054,7 @@ export function ProgressView({
 
   return (
     <div className="stack">
+      <h2 className="sr-only">Progress</h2>
       {(handicap || streak.totalDays > 0) && (
         <section className="card card-hero standing">
           <p className="eyebrow">Where you stand</p>
@@ -1053,9 +1063,9 @@ export function ProgressView({
         </section>
       )}
 
-      <div className="cols cols-even">
+      <div className={hasForm && hasPercentiles ? 'cols cols-even' : 'cols'}>
       {windows && hasForm && (
-        <div className="stack">
+        <div className="col-stack">
           <h2 className="section-head">
             Form
             <span>your last twenty against your all-time</span>
@@ -1065,7 +1075,7 @@ export function ProgressView({
       )}
 
       {windows && hasPercentiles && (
-        <div className="stack">
+        <div className="col-stack">
           <h2 className="section-head">
             Against yourself
             <span>where this session sits in everything you have hit</span>

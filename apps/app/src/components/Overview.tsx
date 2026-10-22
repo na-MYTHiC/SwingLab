@@ -34,6 +34,7 @@ export function OverviewView({
 
   return (
     <div className="stack view-session">
+      <h2 className="sr-only">Session summary</h2>
       <SessionHero report={report} session={session} top={top} />
 
       {(hasTargets || comparison) && (
@@ -112,7 +113,9 @@ function SessionHero({
 }) {
   const [sharing, setSharing] = useState(false);
   const score = report.score;
-  const tone = score ? (score.total >= 75 ? 'good' : score.total >= 55 ? 'mid' : 'bad') : 'brand';
+  // Tone follows the grade, so the colour of the number and the badge beside it
+  // can never be two different verdicts on one score.
+  const tone = score ? (score.grade === 'S' || score.grade === 'A' ? 'good' : score.grade === 'B' ? 'mid' : 'bad') : 'brand';
 
   return (
     <section className={`card card-hero session-hero hero-${tone}`}>
@@ -145,7 +148,8 @@ function SessionHero({
               {score.total}
               <small>/ 100</small>
             </div>
-            <div className={`grade grade-${score.grade}`} aria-label={`Grade ${score.grade}`}>
+            <div className={`grade grade-${score.grade}`}>
+              <span className="sr-only">Grade </span>
               {score.grade}
             </div>
           </div>
