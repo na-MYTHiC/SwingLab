@@ -1,4 +1,5 @@
 import type { ClubProfile, SessionReport, Shot } from '@swinglab/core';
+import { handicapRangeText } from '@swinglab/core';
 import { VERSION } from './version.js';
 import { plural } from './format.js';
 
@@ -298,7 +299,7 @@ export async function renderShareCard(
     if (h) {
       ctx.fillStyle = C.brand;
       ctx.font = '700 64px system-ui, -apple-system, sans-serif';
-      ctx.fillText(`${Math.round(h.low)}–${Math.round(h.high)}`, PAD + 28, y + 116);
+      ctx.fillText(handicapRangeText(h.low, h.high), PAD + 28, y + 116);
       ctx.fillStyle = C.faint;
       ctx.font = '400 23px system-ui, -apple-system, sans-serif';
       wrapText(ctx, `${h.band} · ${h.confidence} confidence`, PAD + 28, y + 152, halfW - 56, 30);
@@ -306,7 +307,7 @@ export async function renderShareCard(
     } else {
       ctx.fillStyle = C.faint;
       ctx.font = '400 24px system-ui, -apple-system, sans-serif';
-      ctx.fillText('Not enough shots', PAD + 28, y + 100);
+      ctx.fillText('Needs 10+ full-swing shots', PAD + 28, y + 100);
     }
 
     const px = PAD + halfW + 16 + 28;

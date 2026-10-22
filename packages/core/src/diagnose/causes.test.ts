@@ -209,5 +209,12 @@ describe('total strokes available', () => {
       ]),
     );
     expect(many).toBeLessThan(6);
+    // And it is genuinely flattened: well under the straight sum of the findings it covers.
+    const straight = prioritise([
+      finding('high-mishit-rate', '7i'), finding('strike-scattered', '8i'),
+      finding('target-short-bias', null), finding('carry-inconsistent', '9i'),
+      finding('face-inconsistent', 'PW'), finding('low-point-behind-ball', '6i'),
+    ]).filter((p) => p.explainedBy === null).reduce((s, p) => s + p.impact.courseStrokes, 0);
+    expect(many).toBeLessThan(straight * 0.85);
   });
 });

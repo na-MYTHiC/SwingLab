@@ -36,7 +36,7 @@ export const dynamicLoftConsistencyRule: Rule = {
         severity: d.mad >= 4 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceForSpread(d.n))
-          : confidenceFor(d.n),
+          : confidenceForSpread(d.n),
         title: `You deliver a different loft on every ${profile.club}`,
         detail:
           `Loft at impact swings about ±${round(d.mad, 1)}° around ${round(d.median, 1)}°, ` +
@@ -50,7 +50,7 @@ export const dynamicLoftConsistencyRule: Rule = {
           { label: 'Highest', value: round(d.max, 1), unit: '°' },
           { label: 'Shots', value: d.n, unit: '' },
         ],
-        drills: ['one-flight', 'spin-loft-control', 'towel-behind-ball'],
+        drills: ['one-flight', 'spin-loft-control', 'spin-loft-window'],
       },
     ];
   },
@@ -71,7 +71,7 @@ export const launchWindowRule: Rule = {
         severity: l.mad >= 3.2 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceForSpread(l.n))
-          : confidenceFor(l.n),
+          : confidenceForSpread(l.n),
         title: `Your ${profile.club} launches through a very wide window`,
         detail:
           `Launch angle ranges from ${round(l.min, 1)}° to ${round(l.max, 1)}° — a spread of ` +
@@ -84,7 +84,7 @@ export const launchWindowRule: Rule = {
           { label: 'Highest', value: round(l.max, 1), unit: '°' },
           { label: 'Shots', value: l.n, unit: '' },
         ],
-        drills: ['one-flight', 'spin-loft-control', 'powder-line-low-point'],
+        drills: ['one-flight', 'spin-loft-control', 'spin-loft-window'],
       },
     ];
   },
@@ -107,7 +107,7 @@ export const spinConsistencyRule: Rule = {
         severity: relative >= 0.22 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceForSpread(s.n))
-          : confidenceFor(s.n),
+          : confidenceForSpread(s.n),
         title: `Your ${profile.club} spin is all over the place`,
         detail:
           `Spin varies by about ±${round(s.mad, 0)} rpm around ${round(s.median, 0)}, from ` +
@@ -121,7 +121,7 @@ export const spinConsistencyRule: Rule = {
           { label: 'Highest', value: round(s.max, 0), unit: 'rpm' },
           { label: 'Shots', value: s.n, unit: '' },
         ],
-        drills: ['one-flight', 'spin-loft-control', 'foot-spray-strike'],
+        drills: ['one-flight', 'spin-loft-control', 'spin-loft-window'],
       },
     ];
   },
@@ -168,7 +168,7 @@ export const lateralDispersionRule: Rule = {
         severity: relative >= majorAt ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceForSpread(side.n))
-          : confidenceFor(side.n),
+          : confidenceForSpread(side.n),
         title: `Your ${profile.club} pattern is ${round(d.width, 0)} yards wide`,
         detail:
           // Both ends said in words. Printing the signed minimum put a bare
@@ -184,7 +184,7 @@ export const lateralDispersionRule: Rule = {
           { label: 'Widest left', value: round(side.min, 0), unit: 'yds' },
           { label: 'Widest right', value: round(side.max, 0), unit: 'yds' },
         ],
-        drills: ['target-window', 'aim-reset', 'strike-map'],
+        drills: ['target-window', 'aim-reset'],
       },
     ];
   },
@@ -261,7 +261,7 @@ export const speedAdjustedEfficiencyRule: Rule = {
           { label: 'Ball speed left', value: round(adj.ballSpeedGap, 1), unit: 'mph' },
           { label: 'Carry at tour strike', value: round(carryAtTourStrike, 0), unit: 'yds' },
         ],
-        drills: ['foot-spray-strike', 'strike-map', 'one-flight'],
+        drills: ['foot-spray-strike', 'strike-map', 'toe-heel-gate'],
       },
     ];
   },

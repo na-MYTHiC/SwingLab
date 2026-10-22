@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { personalOptimals } from './personal.js';
+import { tourRow } from './tour.js';
 
 /**
  * Anchored to TrackMan's published optimiser and tour tables rather than to the
@@ -42,10 +43,38 @@ describe('carry targets for slow swings', () => {
 });
 
 describe('smash targets', () => {
-  it('never asks a 7-iron for more than the tour ceiling at any speed', () => {
-    // 60-70 mph used to extrapolate to 1.40, while the ceiling for the club is 1.34.
-    for (const speed of [55, 62, 70, 78, 92, 100]) {
-      expect(window('7i', speed, 'smashFactor').target, `${speed} mph`).toBeLessThanOrEqual(1.38);
+  it('stays between the two published tour smash figures at every speed', () => {
+    // Smash is a ratio that plateaus. 60-70 mph used to extrapolate a 7-iron to 1.40
+    // by extending the line past the tours; the published figures are 1.34 (PGA) and
+    // 1.38 (LPGA), so no speed should ask for more than the higher or less than the lower.
+    for (const club of ['7i', '8i', 'PW', '5i'] as const) {
+      const published = [tourRow(club, 'pga')?.smashFactor, tourRow(club, 'lpga')?.smashFactor]
+        .filter((v): v is number => v !== undefined);
+      if (published.length < 2) continue;
+      for (const speed of [45, 55, 62, 70, 78, 92, 100, 115]) {
+        const smash = window(club, speed, 'smashFactor').target;
+        expect(smash, `${club} ${speed} mph`).toBeLessThanOrEqual(Math.max(...published) + 1e-9);
+        expect(smash, `${club} ${speed} mph`).toBeGreaterThanOrEqual(Math.min(...published) - 1e-9);
+      }
+    }
+  });
+});
+
+describe('extreme speeds', () => {
+  it('keeps the driver attack target upward at every speed, agreeing with the driver rule', () => {
+    // At 125 mph the old window targeted -2.9° while the rule called any negative driver attack a fault.
+    for (const speed of [70, 85, 100, 115, 125, 150]) {
+      expect(window('Dr', speed, 'attackAngle').target, `${speed} mph`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('never lets slow-speed carry collapse toward zero', () => {
+    // The two-tour line reached zero near 25-30 mph; a 40 mph PW still carries 40+ yards.
+    expect(window('PW', 40, 'carry').target).toBeGreaterThan(40);
+    expect(window('PW', 30, 'carry').target).toBeGreaterThan(25);
+    for (const speed of [30, 40, 55, 70, 90]) {
+      const w = window('PW', speed, 'carry');
+      expect(Number.isFinite(w.target) && w.target > 0, `${speed} mph`).toBe(true);
     }
   });
 });

@@ -1,5 +1,6 @@
 import { SPIN_WINDOW } from '../benchmarks/tour.js';
 import { personalOptimals } from '../benchmarks/personal.js';
+import { clubFamily } from '../clubs.js';
 import { downgrade, spinIsModelled, confidenceForSpread } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
@@ -121,7 +122,7 @@ export const carryConsistencyRule: Rule = {
         severity: relative >= 0.095 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceForSpread(c.n))
-          : confidenceFor(c.n),
+          : confidenceForSpread(c.n),
         title: `Your ${profile.club} carry distance is unpredictable`,
         detail:
           `Carry varies by about ±${round(c.mad, 0)} yards around a median of ${round(c.median, 0)} ` +
@@ -135,7 +136,7 @@ export const carryConsistencyRule: Rule = {
           { label: 'Longest', value: round(c.max, 0), unit: 'yds' },
           { label: 'Shots', value: c.n, unit: '' },
         ],
-        drills: ['call-the-number', 'clock-wedges', 'one-flight'],
+        drills: clubFamily(profile.club) === 'wedge' ? ['call-the-number', 'clock-wedges'] : ['call-the-number', 'pressure-nine'],
       },
     ];
   },

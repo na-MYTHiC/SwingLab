@@ -226,7 +226,7 @@ export const DRILLS: Record<string, Drill> = {
   'toe-heel-gate': {
     id: 'toe-heel-gate',
     name: 'Strike gate at the ball',
-    how: 'Lay two tees flat on the mat, or use two small foam markers, one just outside the toe and one just inside the heel, a little wider than the clubhead. Strike the ball without disturbing either. If your miss is one-sided, use one marker: inside the heel for toe strikes, outside the toe for heel strikes.',
+    how: 'Use two small foam markers or rolled-up socks — nothing hard that a clubhead can fling — one just outside the toe and one just inside the heel, a little wider than the clubhead. Strike the ball without disturbing either. If your miss is one-sided, use one marker: inside the heel for toe strikes, outside the toe for heel strikes.',
     why: 'A face-spray pattern tells you where you are hitting it; a gate makes you fix it. Heel and toe strikes lose ball speed and move the face at impact, so a wandering strike location shows up as inconsistent distance *and* inconsistent direction from one fault.',
     build: '12 shots at three-quarter speed. Widen the gate if you hit a tee twice running — the drill only works if most reps succeed.',
     transfer: '8 more at full speed with the gate slightly narrower, alternating between two targets.',
@@ -271,10 +271,10 @@ export const DRILLS: Record<string, Drill> = {
   'aim-reset': {
     id: 'aim-reset',
     name: 'Aim check every third shot',
-    how: 'Lay one stick along your toes and a second parallel to it, a clubhead outside the ball, pointing at your target on the screen — never on the ball-to-target line, where the club will hit it. Every third shot, step away, re-aim from behind the ball, and reset both sticks.',
+    how: 'Lay one stick on the mat along your toes, pointing at your target on the screen, well back from the ball. Nothing goes beside the ball or on the ball-to-target line, where a club or a mishit can reach it. Every third shot, step away, re-aim from behind the ball, and reset the stick.',
     why: 'A consistent push or pull with a square face-to-path is usually aim, not a swing fault — and it is invisible from inside the stance. Aim drifts within a session, which is why this is a repeated check. Also ask whether the bay\'s target line has been calibrated to the screen: TrackMan measures direction against that line, so a bay that is out reads every shot as a push or pull.',
-    build: '9 shots with the sticks down, resetting every third.',
-    transfer: '6 shots with the sticks removed, re-aiming from behind the ball each time.',
+    build: '9 shots with the stick down, resetting every third.',
+    transfer: '6 shots with the stick removed, re-aiming from behind the ball each time.',
     dose: '15 shots, about 8 minutes.',
     minutes: 8,
     treats: 'face',

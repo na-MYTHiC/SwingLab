@@ -82,9 +82,9 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
     const overlapYards = OVERLAP_SHARE * longer.carry.median;
     const oversizedYards = OVERSIZED_SHARE * longer.carry.median;
 
-    if (gap < 0) {
-      // A reversed pair inside its own noise is two clubs that carry the same distance, not a fault.
-      if (-gap < NOISE_MULTIPLE * noise) continue;
+    // A reversed pair inside its own noise is two clubs that carry the same distance, so it
+    // falls through to the overlap check below rather than being called inverted.
+    if (gap < 0 && -gap >= NOISE_MULTIPLE * noise) {
       findings.push({
         id: 'gap-inverted',
         club: longer.club,
@@ -101,7 +101,7 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
           { label: `${shorter.club} carry`, value: round(shorter.carry.median, 0), unit: 'yds' },
           { label: 'Shots (smaller sample)', value: n, unit: '' },
         ],
-        drills: ['ladder-gapping', 'foot-spray-strike'],
+        drills: ['ladder-gapping'],
       });
       continue;
     }

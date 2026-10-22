@@ -85,6 +85,10 @@ const PER_CLUB_RULES: Rule[] = [
  * time.
  */
 export function estimateStrokesAvailable(priorities: Prioritised[]): number {
+  return saturate(rawStrokes(priorities));
+}
+
+function rawStrokes(priorities: Prioritised[]): number {
   const roots = priorities.filter((p) => p.explainedBy === null);
 
   const byKind = new Map<string, number[]>();
@@ -102,15 +106,38 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
       total += i === 0 ? cost : cost * 0.35;
     });
   }
-  /*
-   * Findings overlap and every one of these figures is a rough estimate, so the
-   * sum saturates instead of adding up without limit. Broadie's tour-to-bogey
-   * numbers put the whole approach game at about four strokes of a ten-stroke
-   * gap between a 90 and an 80 shooter, which is the scale a session's worth of
-   * ball-striking findings has to live inside. Six is the ceiling; small totals
-   * barely move (2 reads as 1.7) and a pile of findings flattens toward it.
-   */
+  return total;
+}
+
+/*
+ * Findings overlap and every one of these figures is a rough estimate, so the
+ * sum saturates instead of adding up without limit. Broadie's tour-to-bogey
+ * numbers put the whole approach game at about four strokes of a ten-stroke
+ * gap between a 90 and an 80 shooter, which is the scale a session's worth of
+ * ball-striking findings has to live inside. Six is the ceiling; small totals
+ * barely move (2 reads as 1.7) and a pile of findings flattens toward it.
+ */
+function saturate(total: number): number {
   return STROKES_CEILING * (1 - Math.exp(-total / STROKES_CEILING));
+}
+
+/**
+ * Bring each finding's own figure onto the same scale as the capped total.
+ *
+ * Otherwise one finding could read "3.4 shots a round" on its card under a
+ * header that says everything together is worth 2.6. Each figure is scaled by
+ * the same factor as the total, and none may exceed it.
+ */
+function calibrateStrokes(priorities: Prioritised[]): { priorities: Prioritised[]; total: number } {
+  const raw = rawStrokes(priorities);
+  const total = saturate(raw);
+  const scale = raw > 0 ? total / raw : 1;
+  const calibrated = priorities.map((p) => ({
+    ...p,
+    impact: { ...p.impact, courseStrokes: Math.min(total, p.impact.courseStrokes * scale) },
+    leverageStrokes: Math.min(total, p.leverageStrokes * scale),
+  }));
+  return { priorities: calibrated, total };
 }
 
 /** The most a session's findings can plausibly be worth together, in shots a round. */
@@ -428,10 +455,11 @@ export function diagnoseSession(
     ? findings.filter((f) => f.confidence !== 'low' || f.severity === 'major')
     : findings;
 
-  const priorities = prioritise(visible);
+  const calibrated = calibrateStrokes(prioritise(visible));
+  const priorities = calibrated.priorities;
   const ranked = priorities.map((p) => p.finding);
   const impacts = new Map<string, Impact>();
-  for (const finding of ranked) impacts.set(findingKey(finding), impactOf(finding));
+  for (const p of priorities) impacts.set(findingKey(p.finding), p.impact);
 
   /*
    * Practice is built from root causes only.
@@ -468,7 +496,7 @@ export function diagnoseSession(
     findings: ranked,
     impacts,
     priorities,
-    strokesAvailable: estimateStrokesAvailable(priorities),
+    strokesAvailable: calibrated.total,
     shape: shapeBreakdown(session.shots),
     strike,
     consistency: mainProfile ? clubConsistency(mainProfile) : null,

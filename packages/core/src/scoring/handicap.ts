@@ -32,6 +32,15 @@ import {
  * together.
  */
 
+/**
+ * "-2 to 8" reads as a typo; a plus handicap is written "+2". Say the range in the
+ * form golfers use, with "to" where either end is a plus handicap.
+ */
+export function handicapRangeText(low: number, high: number): string {
+  const fmt = (n: number) => (Math.round(n) < 0 ? `+${Math.abs(Math.round(n))}` : String(Math.round(n)));
+  return Math.round(low) < 0 || Math.round(high) < 0 ? `${fmt(low)} to ${fmt(high)}` : `${fmt(low)}\u2013${fmt(high)}`;
+}
+
 export interface HandicapEstimate {
   /** Midpoint of the estimate. */
   estimate: number;
@@ -120,8 +129,7 @@ export function estimateHandicapAcrossBag(
     band: skillBand(estimate),
     headline: estimate <= 0
       ? 'Your ball-striking is at scratch level or better'
-      : `Your ball-striking supports roughly a ${Math.round(estimate - spreadBand)}-` +
-        `${Math.round(estimate + spreadBand)} handicap`,
+      : `Your ball-striking supports roughly a ${handicapRangeText(estimate - spreadBand, estimate + spreadBand)} handicap`,
     caveat:
       `Averaged across ${parts.length} clubs (${clubs}), weighted by how many shots you hit with ` +
       `each. Ball-striking only — a large share of scoring happens inside 100 yards and none of ` +
@@ -231,9 +239,9 @@ export function estimateHandicap(
 
   /*
    * The band has to be wide enough to contain the disagreement between the
-   * two datasets behind the scale, not just sampling noise. Three strokes
-   * either side at a good sample size is roughly that gap; thinner samples
-   * widen it further.
+   * two datasets behind the scale, not just sampling noise, which differ by
+   * about a factor of two. Five strokes either side at a good sample size;
+   * thinner samples widen it further.
    */
   const spreadBand = shots >= 30 ? 5 : shots >= 18 ? 6 : 7;
   const confidence = shots >= 18 ? 'medium' : 'low';
@@ -258,7 +266,7 @@ export function estimateHandicap(
     headline:
       handicap <= 0
         ? 'Your ball-striking is at scratch level or better'
-        : `Your ball-striking supports roughly a ${Math.round(low)}-${Math.round(high)} handicap`,
+        : `Your ball-striking supports roughly a ${handicapRangeText(low, high)} handicap`,
     caveat: buildCaveat(profile, pct, biasSide, blowUpRate),
   };
 }

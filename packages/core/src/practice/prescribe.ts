@@ -165,7 +165,7 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['target-window', 'aim-reset', 'strike-map', 'random-practice-block']),
+        drills: drillsFor(['target-window', 'aim-reset', 'random-practice-block']),
       };
     },
   },
@@ -419,7 +419,7 @@ const TEMPLATES: Template[] = [
         drills: drillsFor(
           club === 'Dr'
             ? ['driver-strike-height', 'foot-spray-strike']
-            : ['foot-spray-strike', 'strike-map', 'one-flight'],
+            : ['foot-spray-strike', 'strike-map', 'toe-heel-gate'],
         ),
       };
     },
@@ -449,7 +449,7 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['target-window', 'lead-arm-only', 'grip-check']),
+        drills: drillsFor(['target-window', 'lead-arm-only', 'exaggerate-both-ways']),
       };
     },
   },
@@ -478,7 +478,7 @@ const TEMPLATES: Template[] = [
         targets: [],
         drills: drillsFor(open
           ? ['split-hands-face', 'grip-check', 'exaggerate-both-ways']
-          : ['exaggerate-both-ways', 'grip-check', 'aim-reset']),
+          : ['exaggerate-both-ways', 'grip-check', 'target-window']),
       };
     },
   },
@@ -504,7 +504,7 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['gate-path', 'stance-path', 'exaggerate-both-ways']),
+        drills: drillsFor(['gate-path', 'stance-path']),
       };
     },
   },
@@ -522,7 +522,9 @@ const TEMPLATES: Template[] = [
       if (finding.club !== 'Dr') return null;
       const aoa = finding.id === 'driver-negative-aoa';
       return {
-        id: 'rx-driver-launch',
+        // Separate blocks: they share a setup but not a drill family, and a merged block
+        // would hand a spin finding the attack-angle drills or the reverse.
+        id: aoa ? 'rx-driver-launch' : 'rx-driver-spin',
         mode: PRACTICE_MODES.range,
         title: 'Driver launch conditions',
         rationale: aoa
@@ -544,7 +546,7 @@ const TEMPLATES: Template[] = [
         drills: drillsFor(
           aoa
             ? ['tee-height-aoa', 'driver-setup-ladder']
-            : ['driver-strike-height', 'driver-setup-ladder'],
+            : ['driver-strike-height', 'foot-spray-strike'],
         ),
       };
     },
@@ -566,7 +568,7 @@ const TEMPLATES: Template[] = [
         mode: PRACTICE_MODES.range,
         title: `Bring the ${club} spin down`,
         rationale:
-          'Spin follows spin loft — the loft you deliver minus your attack angle. Too much spin on an iron means too much delivered loft or too little downward strike, and both come from setup and hand position rather than from effort.',
+          'Spin follows spin loft — the loft you deliver minus your attack angle. Too much spin on an iron means too much delivered loft, or a steeper downward strike than that loft needs, and both come from setup and hand position rather than from effort.',
         setup: [
           'Range, club selected, Spin Loft, Dynamic Loft and Attack Angle on screen next to Spin Rate.',
           'Hit five from your normal setup, then five with the ball half a ball back and your hands slightly ahead.',
@@ -611,7 +613,11 @@ const TEMPLATES: Template[] = [
         minutes: 12,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['call-the-number', 'clock-wedges', 'random-practice-block', 'pressure-nine']),
+        drills: drillsFor(
+          club !== null && clubFamily(club) === 'wedge'
+            ? ['call-the-number', 'clock-wedges', 'random-practice-block', 'pressure-nine']
+            : ['call-the-number', 'random-practice-block', 'pressure-nine'],
+        ),
       };
     },
   },
@@ -630,14 +636,14 @@ const TEMPLATES: Template[] = [
         setup: [
           'Test Center → build a custom test.',
           'Add one target per club, at roughly the carry you expect from each.',
-          'Five shots per club, working from the shortest upward.',
+          'Six shots per club, working from the shortest upward.',
           'Record the median carry, not the best one — the best one is not the shot you will hit on the course.',
         ],
         success:
           'Every adjacent pair of clubs separated by 10 to 15 yards, with no two clubs covering the same number.',
         club: null,
         targetDistance: null,
-        shots: Math.max(20, eligible.length * 5),
+        shots: Math.max(24, eligible.length * 6),
         minutes: 25,
         addresses: [finding.id],
         targets: [],
@@ -659,7 +665,7 @@ const TEMPLATES: Template[] = [
         setup: [
           'Test Center → build a custom test.',
           'Add a target at the honest carry for each of your five most-used clubs.',
-          'Five shots per club, and write down the median carry rather than the best one.',
+          'Six shots per club, and write down the median carry rather than the best one.',
           `Update your yardages to what you actually carry${short ? ', then club up until the median lands on the flag' : ''}.`,
         ],
         success: 'Median carry within 3 yards of the target for every club in the test.',

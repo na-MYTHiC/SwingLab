@@ -3,6 +3,14 @@ import { buildClubProfiles } from '../stats/dispersion.js';
 import { carryConsistencyRule } from './rules-spin.js';
 import { speedAdjustedEfficiencyRule } from './rules-delivery.js';
 import type { Club, Shot } from '../schema.js';
+import { gappingFindings } from './rules-gapping.js';
+import { handicapRangeText } from '../scoring/handicap.js';
+import { prescribePractice } from '../practice/prescribe.js';
+import { diagnoseSession } from './index.js';
+import { ingest } from '../ingest/registry.js';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function shot(i: number, o: { club?: Club; carry: number; clubSpeed?: number; smash?: number }): Shot {
   const speed = o.clubSpeed ?? 92;
@@ -57,5 +65,54 @@ describe('yards left in the strike', () => {
   it('stays quiet when the strike is already tour quality', () => {
     const ctx = profileOf(carries(176, 2).map((c, i) => shot(i, { carry: c, smash: 1.33 })));
     expect(speedAdjustedEfficiencyRule.run(ctx)).toEqual([]);
+  });
+});
+
+describe('gapping', () => {
+  const pair = (carryA: number, carryB: number, mad: number, n = 6) => {
+    const mk = (club: Club, median: number) =>
+      Array.from({ length: n }, (_, i) => shot(i, { club, carry: median + (i % 2 === 0 ? 1 : -1) * (mad / 1.4826) }));
+    return buildClubProfiles([...mk('7i', carryA), ...mk('8i', carryB)]);
+  };
+
+  it('reports a reversed pair inside its own noise as an overlap, not silence', () => {
+    // 7i 150 / 8i 151 with a wide spread: reversed, but inside the noise of the two medians.
+    const found = gappingFindings(pair(150, 151, 8));
+    expect(found.map((f) => f.id)).toEqual(['gap-overlap']);
+  });
+
+  it('still calls a clearly reversed pair inverted', () => {
+    expect(gappingFindings(pair(150, 166, 2)).map((f) => f.id)).toEqual(['gap-inverted']);
+  });
+
+  it('needs six shots per club, and the practice block asks for six', () => {
+    expect(gappingFindings(pair(150, 140, 2, 5))).toEqual([]);
+    const block = prescribePractice(
+      [{ id: 'gap-overlap', club: '7i', severity: 'minor', confidence: 'high', title: 'x', detail: 'x', evidence: [], drills: [] }],
+      pair(150, 140, 2),
+    ).blocks.find((b) => b.id === 'rx-gapping');
+    expect(block?.setup.join(' ')).toMatch(/Six shots per club/);
+  });
+});
+
+describe('handicap range wording', () => {
+  it('writes a plus handicap the way golfers do', () => {
+    expect(handicapRangeText(-2, 8)).toBe('+2 to 8');
+    expect(handicapRangeText(-5, -1)).toBe('+5 to +1');
+    expect(handicapRangeText(5, 10)).toBe('5\u201310');
+  });
+});
+
+describe('one scale for stroke figures', () => {
+  it('never shows a finding worth more than the total of everything', () => {
+    const dir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'samples');
+    for (const name of ['1-range-slicer.csv', '3-test-center-wedges.csv', '5-trend-week1.csv']) {
+      const session = ingest({ name, text: readFileSync(join(dir, name), 'utf8') }, { handedness: 'right' }).session!;
+      const report = diagnoseSession(session);
+      for (const p of report.priorities) {
+        expect(p.impact.courseStrokes, name).toBeLessThanOrEqual(report.strokesAvailable + 1e-9);
+        expect(p.leverageStrokes, name).toBeLessThanOrEqual(report.strokesAvailable + 1e-9);
+      }
+    }
   });
 });

@@ -163,4 +163,19 @@ describe('practice coverage', () => {
     const text = JSON.stringify(planFor({ id: 'spin-too-low', club: '7i' }));
     expect(text).not.toMatch(/groove higher/i);
   });
+
+  it('keeps a spin finding and an attack-angle finding on the driver in separate blocks', () => {
+    // They share a setup but not a drill family; merged, one would be handed the other's drills.
+    const aoa = planFor({ id: 'driver-negative-aoa', club: 'Dr' })[0]!;
+    const spin = planFor({ id: 'spin-too-high', club: 'Dr' })[0]!;
+    expect(aoa.id).not.toBe(spin.id);
+    expect(aoa.drills.map((d) => d.id)).toContain('tee-height-aoa');
+    expect(spin.drills.length).toBeGreaterThan(1);
+  });
+
+  it('offers clock wedges only for wedges', () => {
+    const ids = (club: Club) => planFor({ id: 'carry-inconsistent', club })[0]?.drills.map((d) => d.id) ?? [];
+    expect(ids('7i')).not.toContain('clock-wedges');
+    expect(ids('Dr')).not.toContain('clock-wedges');
+  });
 });

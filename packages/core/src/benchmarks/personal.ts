@@ -1,5 +1,5 @@
 import type { Club } from '../schema.js';
-import { tourRow, type TourRow, type TourSet } from './tour.js';
+import { tourBallSpeed, tourRow, type TourRow, type TourSet } from './tour.js';
 
 /**
  * Personal optimal numbers, interpolated between the two tours by swing speed.
@@ -132,12 +132,21 @@ export function personalOptimals(
   const tSafe = Math.max(-0.6, Math.min(1.6, t));
   const nearer = Math.abs(clubSpeed - slow.speed) <= Math.abs(clubSpeed - fast.speed) ? slow : fast;
 
+  const isDriver = club === 'Dr';
+  // The driver's shape does not keep extending past the tours: at 125 mph the
+  // old line asked for -2.9° of attack and 9° of launch, which is the opposite of
+  // what TrackMan's optimiser rewards and contradicts the driver-negative-aoa rule.
+  const tShape = isDriver ? Math.max(0, Math.min(1, t)) : tSafe;
   const row: TourRow = {
     clubSpeed,
-    attackAngle: blend(slow.row, fast.row, 'attackAngle', tSafe),
+    // On a driver, hitting up is the optimiser's answer at every speed, so the
+    // target never sits below +1°; the window still reaches +5°.
+    attackAngle: isDriver
+      ? Math.max(1, blend(slow.row, fast.row, 'attackAngle', tShape))
+      : blend(slow.row, fast.row, 'attackAngle', tShape),
     // Smash plateaus: a ratio does not keep rising because the line was extended.
     smashFactor: blend(slow.row, fast.row, 'smashFactor', Math.max(0, Math.min(1, t))),
-    launchAngle: blend(slow.row, fast.row, 'launchAngle', tSafe),
+    launchAngle: blend(slow.row, fast.row, 'launchAngle', tShape),
     spinRate: blend(slow.row, fast.row, 'spinRate', tSafe),
     apexHeight: blend(slow.row, fast.row, 'apexHeight', tSafe),
     landingAngle: blend(slow.row, fast.row, 'landingAngle', tSafe),
@@ -157,7 +166,12 @@ export function personalOptimals(
      * the line through the two anchors instead, and let `build` skip its
      * proportional scale for carry.
      */
-    row.carry = Math.max(0, slow.row.carry + (fast.row.carry - slow.row.carry) * t);
+    const line = slow.row.carry + (fast.row.carry - slow.row.carry) * t;
+    // The two-tour line is steeper than the real curve and reaches zero near 25-30
+    // mph; a ball has some carry at any real speed. Floor it at three-quarters of
+    // the slower tour's carry per mph of ball speed.
+    const floor = 0.75 * (slow.row.carry / tourBallSpeed(slow.row)) * clubSpeed * row.smashFactor;
+    row.carry = Math.max(line, floor);
   }
 
   return build(

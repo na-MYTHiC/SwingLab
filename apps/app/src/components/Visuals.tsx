@@ -3,6 +3,7 @@ import type {
   SessionReport, SessionScore, ShapeBreakdown, StrikeBreakdown, Streak,
 } from '@swinglab/core';
 import { num } from '../format.js';
+import { handicapRangeText } from '@swinglab/core';
 
 /**
  * The visual language of the app.
@@ -445,7 +446,7 @@ export function HandicapPanel({ handicap }: { handicap: HandicapEstimate }) {
     <div className="hcp">
       <div className="hcp-figure">
         <strong>
-          {Math.round(handicap.low)}–{Math.round(handicap.high)}
+          {handicapRangeText(handicap.low, handicap.high)}
         </strong>
         <span>handicap</span>
       </div>

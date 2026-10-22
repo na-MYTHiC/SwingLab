@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DRILLS, fitDrillList } from '../diagnose/drills.js';
 
 /**
@@ -49,5 +52,59 @@ describe('the drill library', () => {
   it('still drops a second mechanical fault from the same block', () => {
     const picked = fitDrillList([DRILLS['powder-line-low-point']!, DRILLS['grip-check']!], 60);
     expect(picked.map((d) => d.id)).toEqual(['powder-line-low-point']);
+  });
+});
+
+/**
+ * fitDrillList keeps only drills in the first drill's family, so a candidate list
+ * that mixes two families silently loses everything after the first change of
+ * family. Read the lists out of the source: every list must either stay in one
+ * family or the dropped drill must be a deliberate transfer drill.
+ */
+describe('candidate drill lists', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const files = [
+    join(root, 'practice', 'prescribe.ts'),
+    ...readdirSync(join(root, 'diagnose'))
+      .filter((f) => f.startsWith('rules-') && f.endsWith('.ts') && !f.endsWith('.test.ts'))
+      .map((f) => join(root, 'diagnose', f)),
+  ];
+
+  const lists: { file: string; ids: string[] }[] = [];
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/\[('[a-z0-9-]+'(?:,\s*'[a-z0-9-]+')*)\]/g)) {
+      const ids = [...m[1]!.matchAll(/'([a-z0-9-]+)'/g)].map((x) => x[1]!);
+      if (ids.length > 0 && ids.every((id) => id in DRILLS)) lists.push({ file, ids });
+    }
+  }
+
+  it('finds the lists it is meant to check', () => {
+    expect(lists.length).toBeGreaterThan(20);
+  });
+
+  it('refers only to drills that exist', () => {
+    for (const file of files) {
+      const text = readFileSync(file, 'utf8');
+      for (const m of text.matchAll(/(?:drillsFor|drills:)\s*\(?\[([^\]]+)\]/g)) {
+        for (const id of m[1]!.matchAll(/'([a-z0-9-]+)'/g)) {
+          expect(id[1]! in DRILLS, `${file}: unknown drill ${id[1]}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('never loses a mechanical drill to the family filter', () => {
+    const lost: string[] = [];
+    for (const { file, ids } of lists) {
+      const first = DRILLS[ids[0]!]!.treats;
+      for (const id of ids.slice(1)) {
+        const d = DRILLS[id]!;
+        if (d.treats !== first && d.treats !== 'transfer') {
+          lost.push(`${file.split('/').pop()}: ${id} (${d.treats}) follows ${ids[0]} (${first})`);
+        }
+      }
+    }
+    expect(lost).toEqual([]);
   });
 });
