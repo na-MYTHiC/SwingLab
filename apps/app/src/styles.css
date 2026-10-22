@@ -425,7 +425,7 @@ select { font-size: var(--fs-sm); }
   min-height: var(--tap);
   background: none;
   border-color: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   font-size: var(--fs-xs);
   padding: 0 var(--sp-2);
 }
