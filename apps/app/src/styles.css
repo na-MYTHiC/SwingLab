@@ -102,27 +102,47 @@
   --sp-6: 26px;
   --sp-7: 36px;
 
-  --gutter: 14px;   /* page edge to content */
-  --card-pad: 14px; /* every card, no exceptions */
-  --gap: 10px;      /* between sibling cards */
+  --gutter: 16px;   /* page edge to content */
+  --card-pad: 14px; /* every standard card */
+  --gap: 12px;      /* between sibling cards */
+  --gap-group: 26px; /* between groups of cards: a section break */
 
   --fs-2xs: 11px;   /* uppercase micro-labels */
   --fs-xs: 12.5px;  /* captions, footnotes */
   --fs-sm: 13.5px;  /* secondary body */
   --fs-md: 15px;    /* body */
   --fs-lg: 17px;    /* card titles */
-  --fs-xl: 20px;    /* section headings */
+  --fs-xl: 20px;    /* lead finding title */
+  --fs-2xl: 24px;   /* page-level headings: empty state, hero verdicts */
+  --fs-figure: 40px;  /* a headline number inside a card */
+  --fs-display: 72px; /* the one number a screen is about */
 
   --radius: 14px;
   --radius-sm: 10px;
+  --radius-lg: 20px; /* hero cards */
+  --hero-pad: 20px;
   --tap: 44px;      /* minimum comfortable touch target */
+  --nav-h: 60px;    /* the phone tab bar; zero once tabs move into the header */
+  --page-max: 1200px;
 }
 
 @media (min-width: 720px) {
   :root {
-    --gutter: 22px;
+    --gutter: 24px;
     --card-pad: 18px;
-    --gap: 12px;
+  }
+}
+
+@media (min-width: 960px) {
+  :root {
+    --gutter: 32px;
+    --gap: 16px;
+    --gap-group: 36px;
+    --hero-pad: 28px;
+    --fs-2xl: 28px;
+    --fs-figure: 44px;
+    --fs-display: 88px;
+    --nav-h: 0px;
   }
 }
 
@@ -144,9 +164,9 @@ body {
 .app {
   max-width: 960px;
   margin: 0 auto;
-  /* Bottom padding clears the fixed nav bar plus the home indicator. */
+  /* Bottom padding clears the fixed tab bar plus the home indicator. */
   padding: max(var(--sp-2), env(safe-area-inset-top)) var(--gutter)
-           calc(var(--sp-6) + 46px + env(safe-area-inset-bottom));
+           calc(var(--nav-h) + var(--sp-5) + env(safe-area-inset-bottom));
 }
 
 /*
@@ -169,7 +189,7 @@ body {
   top: 0;
   z-index: 15;
   margin: 0 calc(var(--gutter) * -1);
-  padding: var(--sp-2) var(--gutter);
+  padding: var(--sp-1) var(--gutter);
   /* Opaque, not translucent. A 90% background let bold headings scroll
    * underneath and stay perfectly legible, so a section title and the bar's
    * own controls occupied the same pixels and both became hard to read. A
@@ -198,18 +218,6 @@ body {
   display: block;
 }
 
-.version {
-  font-size: var(--fs-2xs);
-  font-weight: 500;
-  color: var(--text-faint);
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 1px 7px;
-  cursor: help;
-  white-space: nowrap;
-}
-
 .topbar-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
 
 select,
@@ -228,7 +236,7 @@ select { font-size: var(--fs-sm); }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .icon-btn {
-  width: 38px; height: 38px;
+  width: var(--tap); height: var(--tap);
   display: grid; place-items: center;
   padding: 0;
   font-size: var(--fs-md);
@@ -238,7 +246,7 @@ select { font-size: var(--fs-sm); }
 .import-btn {
   display: inline-flex;
   align-items: center;
-  height: 38px;
+  height: var(--tap);
   font-size: var(--fs-sm);
   font-weight: 600;
   padding: 0 var(--sp-4);
@@ -255,22 +263,42 @@ select { font-size: var(--fs-sm); }
 /* ------------------------------------------------------------ session bar */
 
 /*
- * Which session is on screen. Two rows on purpose: a full-width picker is a
- * comfortable one-handed target, and cramming the counts onto the same line
- * is what forced the old version to scroll sideways on a phone.
+ * Which session is on screen, said as the title of the page below it. It was
+ * a boxed form control, which made the first thing on every screen look like
+ * a settings field. A native select, so the platform's own picker opens on a
+ * phone, with the chrome stripped and a chevron to say it can be changed.
  */
-.session-bar { margin: var(--sp-3) 0 var(--sp-4); }
-
+.session-bar {
+  position: relative;
+  margin: var(--sp-1) 0 var(--sp-2);
+}
+.session-bar::after {
+  content: '\25be';
+  position: absolute;
+  right: var(--sp-2);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: var(--fs-lg);
+  pointer-events: none;
+}
 .session-bar select {
+  appearance: none;
+  -webkit-appearance: none;
   width: 100%;
   height: var(--tap);
-  font-size: var(--fs-md);
-  font-weight: 550;
-  background: var(--surface);
-  border-color: var(--line);
-  padding: 0 var(--sp-3);
+  padding: 0 calc(var(--sp-2) + 24px) 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   text-overflow: ellipsis;
 }
+.session-bar select:hover { border: 0; }
+.watching { display: block; margin-top: -4px; font-size: var(--fs-xs); color: var(--good); }
 
 /* ---------------------------------------------------------------- sheet */
 
@@ -423,17 +451,6 @@ select { font-size: var(--fs-sm); }
 .drop strong { font-size: var(--fs-md); }
 .drop span { color: var(--text-dim); font-size: var(--fs-xs); max-width: 52ch; }
 
-.watch {
-  width: 100%;
-  margin-top: var(--sp-3);
-  padding: var(--sp-3);
-  background: var(--surface);
-  border-color: var(--brand-soft);
-  color: var(--brand);
-  font-size: var(--fs-sm);
-}
-.watch:disabled { color: var(--text-faint); border-color: var(--line); cursor: default; }
-
 .error {
   margin-top: var(--sp-3);
   padding: var(--sp-3);
@@ -465,6 +482,66 @@ select { font-size: var(--fs-sm); }
   min-width: 0;
 }
 
+/*
+ * THREE TIERS OF SURFACE. Every block used to be the same card, so nothing
+ * led and a five-screen tab read as one flat list.
+ *
+ *   hero     one per tab, always first, tinted by the verdict it carries
+ *   standard .card, everything else
+ *   quiet    notes and secondary material: outlined, no fill, no shadow
+ *
+ * The hero tint is capped at 10%. Measured against every text token in both
+ * themes that is the most colour the surface can carry and still keep every
+ * text colour above 4.5:1; at 14% the light theme's red fails.
+ */
+.card-hero {
+  --hero-tint: var(--brand);
+  padding: var(--hero-pad);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(140% 120% at 0 0, color-mix(in srgb, var(--hero-tint) 10%, transparent), transparent 62%),
+    var(--surface);
+  border-color: color-mix(in srgb, var(--hero-tint) 30%, var(--line));
+}
+.tone-good { --hero-tint: var(--good); }
+.tone-mid  { --hero-tint: var(--warn); }
+.tone-bad  { --hero-tint: var(--bad); }
+
+.card-quiet {
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  min-width: 0;
+}
+
+/* Small caps label above a title. Brand-coloured only when it introduces an
+   action ("Work on this next"); otherwise faint. */
+.eyebrow {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.eyebrow-action { color: var(--brand); }
+
+/* The two number treatments. A display number is the one a screen is about;
+   a figure is a headline inside a card. Both are plain ink, tabular. */
+.num-display {
+  font-size: var(--fs-display); font-weight: 700; line-height: 0.9;
+  letter-spacing: -0.05em; font-variant-numeric: tabular-nums;
+}
+.num-figure {
+  font-size: var(--fs-figure); font-weight: 650; line-height: 1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--text);
+}
+.num-figure small, .num-display small {
+  font-size: var(--fs-lg); font-weight: 500; letter-spacing: 0; color: var(--text-faint);
+}
+
 .panel-title { margin: 0 0 var(--sp-1); font-size: var(--fs-lg); font-weight: 620; letter-spacing: -0.015em; }
 .panel-sub { margin: 0 0 var(--sp-3); font-size: var(--fs-xs); color: var(--text-faint); }
 .panel-title + .panel-sub { margin-top: calc(var(--sp-1) * -1); }
@@ -476,19 +553,32 @@ select { font-size: var(--fs-sm); }
  */
 .section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
-  gap: var(--sp-1) var(--sp-2);
-  margin: var(--sp-3) 0 0;
-  font-size: var(--fs-xl);
+  gap: var(--sp-1) var(--sp-3);
+  margin: var(--gap-group) 0 calc(var(--gap) * -0.25);
+  font-size: var(--fs-xs);
   font-weight: 650;
-  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+/* The rule fills what the label leaves, so a section reads as a band. */
+.section-head::after {
+  content: '';
+  flex: 1 1 24px;
+  height: 1px;
+  background: var(--line);
 }
 .section-head span {
+  order: 1;
   font-size: var(--fs-xs);
   font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
   color: var(--text-faint);
 }
+.section-head::after { order: 2; }
 .stack > .section-head:first-child { margin-top: 0; }
 
 /* -------------------------------------------------------------- headline */
@@ -1530,11 +1620,13 @@ tbody tr:hover { background: var(--surface-2); }
 .score-figure { display: flex; align-items: baseline; gap: var(--sp-2); }
 .score-figure strong {
   font-size: 56px; line-height: 1; letter-spacing: -0.045em;
-  background: linear-gradient(150deg, var(--good), color-mix(in srgb, var(--good) 55%, var(--data)));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* Solid ink, not a gradient clipped to the glyphs: axe cannot measure the
+     contrast of background-clip text, and a verdict colour should be one
+     colour so it can only ever mean one thing. */
+  color: var(--good);
 }
-.score-mid .score-figure strong { background: linear-gradient(150deg, var(--warn), color-mix(in srgb, var(--warn) 55%, var(--bad))); -webkit-background-clip: text; background-clip: text; }
-.score-bad .score-figure strong { background: linear-gradient(150deg, var(--bad), color-mix(in srgb, var(--bad) 55%, var(--warn))); -webkit-background-clip: text; background-clip: text; }
+.score-mid .score-figure strong { color: var(--warn); }
+.score-bad .score-figure strong { color: var(--bad); }
 .score-figure span { font-size: var(--fs-lg); color: var(--text-faint); }
 
 .grade {
@@ -1634,8 +1726,7 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .hcp-figure strong {
   font-size: 36px; line-height: 1; letter-spacing: -0.04em;
-  background: linear-gradient(150deg, var(--brand), var(--data));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  color: var(--text);
 }
 .hcp-figure span { font-size: var(--fs-sm); color: var(--text-dim); }
 .hcp-detail { flex: 1; min-width: 200px; }
@@ -1687,21 +1778,21 @@ tbody tr:hover { background: var(--surface-2); }
  * clipped on exactly the devices that need them most. The floor of 10px is
  * that insurance; where the inset is reported, it adds to it.
  */
-.bottom-nav {
+.tabbar {
   position: fixed;
   left: 0; right: 0; bottom: 0;
   z-index: 20;
   display: flex;
   justify-content: center;
   gap: 2px;
-  padding: 5px var(--sp-2) calc(10px + env(safe-area-inset-bottom));
+  padding: 4px var(--sp-2) calc(10px + env(safe-area-inset-bottom));
   background: var(--bg);
   border-top: 1px solid var(--line);
 }
 
 /* A short fade above the bar so scrolling content dissolves into it instead
  * of being sliced off mid-letter at a hard edge. */
-.bottom-nav::before {
+.tabbar::before {
   content: '';
   position: absolute;
   left: 0; right: 0; bottom: 100%;
@@ -1714,7 +1805,7 @@ tbody tr:hover { background: var(--surface-2); }
   position: relative;
   flex: 1;
   max-width: 132px;
-  min-height: 36px;
+  min-height: var(--tap);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1729,6 +1820,33 @@ tbody tr:hover { background: var(--surface-2); }
 .nav-on, .nav-on:hover { color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); }
 
 .nav-label { font-size: var(--fs-sm); font-weight: 550; letter-spacing: .005em; }
+
+/*
+ * From 960px the tab bar stops being fixed to the bottom edge and sits in the
+ * header row, between the brand and the controls. A phone's thumb-reach logic
+ * does not apply to a mouse, and a floating bar at the foot of a 1,200px page
+ * is just a bar nobody can find.
+ */
+@media (min-width: 960px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    min-height: 64px;
+    padding-block: var(--sp-2);
+  }
+  .topbar-actions { justify-self: end; }
+  .tabbar {
+    position: static;
+    z-index: auto;
+    padding: 0;
+    gap: var(--sp-1);
+    background: none;
+    border: 0;
+  }
+  .tabbar::before { display: none; }
+  .nav-item { flex: none; max-width: none; padding: 0 var(--sp-5); }
+  .app { padding-bottom: var(--sp-7); }
+}
 
 .nav-dot {
   position: absolute;

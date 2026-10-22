@@ -332,13 +332,20 @@ export default function App() {
     }
   }, [ingestRaw]);
 
+  const showWarnings = warnings.length > 0 && (!report || tab === 'overview');
+
   return (
     <div className="app">
       {/*
         One row, at every width. The identity is small because it is never the
-        reason the app is open; the two things a player actually reaches for —
-        getting this session in, and making it readable in a dark bay — are
-        the controls.
+        reason the app is open; the controls are what a player reaches for.
+
+        The tab bar lives INSIDE the header. On a phone it is fixed to the
+        bottom edge, where a thumb is; from 960px up the same element is laid
+        out in the header row as top tabs. One element and one set of
+        handlers, rather than two navs kept in step. That only works while
+        .topbar never gets a transform, filter or backdrop-filter, any of
+        which would make it the containing block for the fixed bar.
       */}
       <header className="topbar">
         <div className="brand">
@@ -346,10 +353,26 @@ export default function App() {
           <h1>
             Swing<span>Lab</span>
           </h1>
-          <span className="version" title={buildStamp()}>
-            v{VERSION}
-          </span>
         </div>
+
+        {report && (
+          <nav className="tabbar" role="tablist" aria-label="Views">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={tab === t.id}
+                className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
+                onClick={() => setTab(t.id)}
+              >
+                <span className="nav-label">{t.label}</span>
+                {t.id === 'trends' && trends.some((x) => x.significant) && (
+                  <span className="nav-dot" />
+                )}
+              </button>
+            ))}
+          </nav>
+        )}
 
         <div className="topbar-actions">
           <button
@@ -366,32 +389,27 @@ export default function App() {
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            {theme === 'dark' ? '☀' : '☾'}
+            {theme === 'dark' ? '\u2600' : '\u263e'}
           </button>
         </div>
       </header>
 
-
-      {isDesktop() && (
-        <button className="watch" onClick={startWatching} disabled={watching}>
-          {watching
-            ? 'Watching your export folder — new sessions appear automatically'
-            : 'Watch my TPS export folder'}
-        </button>
-      )}
-
-      {error && <p className="error">{error}</p>}
-      {warnings.length > 0 && <Warnings warnings={warnings} />}
-
       {report && active ? (
         <main>
           {/*
-            Which session is on screen, and how big it was. The picker lives
-            here rather than in the top bar because it is a property of the
-            content — and because a full-width control is reachable one-handed
-            in a way a shrunk-to-fit dropdown in a crowded header is not.
+            Which session is on screen: the title of everything below it. A
+            full-width control, reachable one-handed, and the same place on
+            every tab.
           */}
-          <SessionBar stored={stored} activeId={activeId} onSelect={setActiveId} />
+          <SessionBar
+            stored={stored}
+            activeId={activeId}
+            onSelect={setActiveId}
+            watching={watching}
+          />
+
+          {error && <p className="error">{error}</p>}
+          {showWarnings && <Warnings warnings={warnings} />}
 
           <section className="view">
             {tab === 'overview' && cloned && (
@@ -424,12 +442,16 @@ export default function App() {
           </section>
         </main>
       ) : (
-        <Empty
-          onSample={loadSample}
-          dragging={dragging}
-          setDragging={setDragging}
-          onFiles={handleFiles}
-        />
+        <>
+          {error && <p className="error">{error}</p>}
+          {showWarnings && <Warnings warnings={warnings} />}
+          <Empty
+            onSample={loadSample}
+            dragging={dragging}
+            setDragging={setDragging}
+            onFiles={handleFiles}
+          />
+        </>
       )}
 
       {managing && (
@@ -442,6 +464,8 @@ export default function App() {
           onSample={loadSample}
           onClearSample={clearSample}
           hasSample={stored.some((s) => isSampleSession(s.session.sourceRef))}
+          watching={watching}
+          onWatch={startWatching}
           notice={notice}
           onClose={() => { setManaging(false); setNotice(null); }}
         />
@@ -451,30 +475,6 @@ export default function App() {
         <span>Everything runs on this device. Nothing is uploaded.</span>
         <span className="footer-build">{buildStamp()}</span>
       </footer>
-
-      {/*
-        Navigation sits at the bottom, where a thumb is. A tab strip halfway
-        down the page competes with the content for the eye and is the
-        furthest thing from reach on a phone.
-      */}
-      {report && (
-        <nav className="bottom-nav" role="tablist" aria-label="Views">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              className={tab === t.id ? 'nav-item nav-on' : 'nav-item'}
-              onClick={() => setTab(t.id)}
-            >
-              <span className="nav-label">{t.label}</span>
-              {t.id === 'trends' && trends.some((x) => x.significant) && (
-                <span className="nav-dot" />
-              )}
-            </button>
-          ))}
-        </nav>
-      )}
     </div>
   );
 }
@@ -488,11 +488,12 @@ export default function App() {
  * the import dialog now, next to the list it acts on.
  */
 function SessionBar({
-  stored, activeId, onSelect,
+  stored, activeId, onSelect, watching,
 }: {
   stored: StoredSession[];
   activeId: string | null;
   onSelect: (id: string) => void;
+  watching: boolean;
 }) {
   return (
     <div className="session-bar">
@@ -508,6 +509,7 @@ function SessionBar({
           </option>
         ))}
       </select>
+      {watching && <span className="watching">{'\u25cf'} Watching your export folder</span>}
     </div>
   );
 }
@@ -521,7 +523,7 @@ function SessionBar({
  */
 function ImportDialog({
   stored, activeId, onFiles, onDelete, onBackup, onSample, onClearSample, hasSample,
-  notice, onClose,
+  watching, onWatch, notice, onClose,
 }: {
   stored: StoredSession[];
   activeId: string | null;
@@ -531,6 +533,8 @@ function ImportDialog({
   onSample: () => void;
   onClearSample: () => void;
   hasSample: boolean;
+  watching: boolean;
+  onWatch: () => void;
   notice: string | null;
   onClose: () => void;
 }) {
@@ -629,6 +633,19 @@ function ImportDialog({
             Save a backup
           </button>
         </div>
+
+        {/* Desktop app only: a standing instruction rather than a one-off
+            import, so it belongs with the other ways of getting data in
+            instead of as a permanent bar across the top of every screen. */}
+        {isDesktop() && (
+          <div className="sheet-row">
+            <button className="ghost-btn" onClick={onWatch} disabled={watching}>
+              {watching
+                ? 'Watching your export folder \u2014 new sessions appear automatically'
+                : 'Watch my TPS export folder'}
+            </button>
+          </div>
+        )}
 
         {/* Reachable after the empty state is gone, for anyone who wants to
             see the demo again or lost it. */}
