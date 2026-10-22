@@ -12,6 +12,7 @@ import {
 } from './Visuals.js';
 import { carryFactor, trackManIndices } from '@swinglab/core';
 import { minutes, num, plural, shots, speedLabel } from '../format.js';
+import { useWide } from '../useWide.js';
 
 /**
  * The Fix view — the answer to "what do I do next".
@@ -64,7 +65,10 @@ function AimCard({ report }: { report: SessionReport }) {
           <span className="aim-bar-value">{Math.round(w.greenAimed * 100)}%</span>
         </div>
       </div>
-      <p className="panel-sub">{aim.detail}</p>
+      <details className="aim-why">
+        <summary>Why aim comes first</summary>
+        <p className="panel-sub">{aim.detail}</p>
+      </details>
     </section>
   );
 }
@@ -92,20 +96,23 @@ export function PriorityView({ report }: { report: SessionReport }) {
   const supporting = rest.slice(0, 2);
   const later = rest.slice(2);
 
+  const behind = report.optimals || report.consistency;
+
   return (
     <div className="stack">
-      <AimCard report={report} />
-
-      <div className="headline">
-        <div className="headline-figure">
-          <strong>{shots(report.strokesAvailable)}</strong>
-          <span>shots a round on the table</span>
+      <section className="card card-hero fix-hero hero-brand">
+        <p className="eyebrow">On the table</p>
+        <div className="num-display fix-num">
+          {shots(report.strokesAvailable)}
+          <small>shots a round</small>
         </div>
-        <p>
-          Estimated from everything found in this session. Work down the list — the top item is
-          whichever produces the biggest improvement soonest, not simply the worst number.
+        <p className="fix-sub">
+          Everything found in this session, added up. Work down the list: the top item is the
+          fastest improvement, not simply the worst number.
         </p>
-      </div>
+      </section>
+
+      <AimCard report={report} />
 
       {first && (
         <>
@@ -113,12 +120,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
             Start here
             <span>the one thing worth an hour</span>
           </h2>
-          <PriorityCard
-            entry={first}
-            rank={1}
-            lead
-            symptoms={symptomsOf(first)}
-          />
+          <PriorityCard entry={first} rank={1} lead symptoms={symptomsOf(first)} />
         </>
       )}
 
@@ -134,6 +136,7 @@ export function PriorityView({ report }: { report: SessionReport }) {
                 key={`${root.finding.id}-${root.finding.club}`}
                 entry={root}
                 rank={i + 2}
+                folded
                 symptoms={symptomsOf(root)}
               />
             ))}
@@ -152,40 +155,63 @@ export function PriorityView({ report }: { report: SessionReport }) {
                 key={`${root.finding.id}-${root.finding.club}`}
                 entry={root}
                 rank={i + supporting.length + 2}
+                folded
                 symptoms={symptomsOf(root)}
               />
             ))}
           </ol>
         </details>
       )}
+
+      {behind && (
+        <>
+          <h2 className="section-head">
+            The numbers behind it
+            <span>the proof, for when you want it</span>
+          </h2>
+          {report.optimals && (
+            <details className="card-quiet quiet-disc">
+              <summary>
+                Where these should be
+                <span>{report.optimals.club} at {report.optimals.clubSpeed.toFixed(0)} mph</span>
+              </summary>
+              <OptimalBands optimals={report.optimals} />
+            </details>
+          )}
+          {report.consistency && (
+            <details className="card-quiet quiet-disc">
+              <summary>
+                What you can repeat
+                <span>worst first</span>
+              </summary>
+              <p className="panel-sub">
+                Averages say what you usually do; these say whether you can be relied on to do it.
+              </p>
+              <ConsistencyBars consistency={report.consistency} />
+            </details>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 function PriorityCard({
-  entry, rank, symptoms, lead = false,
+  entry, rank, symptoms, lead = false, folded = false,
 }: {
   entry: Prioritised;
   rank: number;
   symptoms: Prioritised[];
   lead?: boolean;
+  folded?: boolean;
 }) {
   const { finding, impact, leverageStrokes } = entry;
   const unlocks = leverageStrokes - impact.courseStrokes;
   const Wrapper = lead ? 'div' : 'li';
+  const cls = `card priority sev-${finding.severity}${lead ? ' priority-lead' : ''}${folded ? ' priority-folded' : ''}`;
 
-  return (
-    <Wrapper className={`card priority sev-${finding.severity}${lead ? ' priority-lead' : ''}`}>
-      <div className="priority-head">
-        <span className="priority-rank">{rank}</span>
-        <div className="tags">
-          <span className={`tag speed-${impact.speed}`}>{speedLabel(impact.speed)}</span>
-          {finding.confidence === 'low' && <span className="tag tag-quiet">early signal</span>}
-        </div>
-      </div>
-
-      <h3>{finding.title}</h3>
-
+  const body = (
+    <>
       <div className="impact-row">
         <span className="impact-main">
           ≈<strong>{shots(impact.courseStrokes)}</strong> shots/round
@@ -234,7 +260,43 @@ function PriorityCard({
           </ul>
         </details>
       )}
+    </>
+  );
 
+  const tags = (
+    <span className="tags">
+      <span className={`tag speed-${impact.speed}`}>{speedLabel(impact.speed)}</span>
+      {finding.confidence === 'low' && <span className="tag tag-quiet">early signal</span>}
+    </span>
+  );
+
+  if (folded) {
+    // Rank, title, what it is worth and how fast: enough to decide whether to open it.
+    return (
+      <Wrapper className={cls}>
+        <details>
+          <summary className="priority-sum">
+            <span className="priority-rank">{rank}</span>
+            <span className="priority-sum-text">
+              <b>{finding.title}</b>
+              <span>≈{shots(impact.courseStrokes)} shots/round</span>
+            </span>
+            {tags}
+          </summary>
+          <div className="priority-body">{body}</div>
+        </details>
+      </Wrapper>
+    );
+  }
+
+  return (
+    <Wrapper className={cls}>
+      <div className="priority-head">
+        <span className="priority-rank">{rank}</span>
+        {tags}
+      </div>
+      <h3>{finding.title}</h3>
+      {body}
     </Wrapper>
   );
 }
@@ -255,6 +317,7 @@ export function PracticeView({
   onDuration: (d: PracticeDuration) => void;
 }) {
   const { practice } = report;
+  const wide = useWide();
 
   // A run in progress survives a reload, so coming back to the tab with the
   // clock still going puts you straight back on your block.
@@ -286,9 +349,13 @@ export function PracticeView({
 
   return (
     <div className="stack">
-      <div className="slot-picker" role="group" aria-label="Session length">
-        <span className="slot-lead">Booked for</span>
-        <div className="slot-group">
+      <section className="card card-hero plan-hero hero-brand">
+        <p className="eyebrow">Your plan</p>
+        <h2 className="plan-title">{duration === 60 ? 'Your hour' : 'Your two hours'}</h2>
+        <p className="plan-meta">
+          {plural(practice.blocks.length, 'block')} · {minutes(practice.totalMinutes)}
+        </p>
+        <div className="slot-group" role="group" aria-label="Session length">
           {([60, 120] as PracticeDuration[]).map((d) => (
             <button
               key={d}
@@ -300,27 +367,22 @@ export function PracticeView({
             </button>
           ))}
         </div>
-        <p className="slot-note">
-          Bays go by the hour, so the plan fills the slot exactly — {practice.blocks.length} blocks,{' '}
-          {minutes(practice.totalMinutes)}.
+        {practice.blocks.length > 0 && (
+          <button
+            type="button"
+            className="runner-start"
+            onClick={() => { saveRun(fresh(planKey, Date.now())); setRunning(true); }}
+          >
+            Start this plan
+            <small>One block at a time, with a clock. The screen stays on.</small>
+          </button>
+        )}
+        <p className="plan-note">
+          Bays go by the hour, so the plan fills the slot exactly.{' '}
+          {practice.note ??
+            'Built from root causes only. Symptoms are left out on purpose; the block that fixes the cause handles them.'}
         </p>
-      </div>
-
-      {practice.blocks.length > 0 && (
-        <button
-          type="button"
-          className="runner-start"
-          onClick={() => { saveRun(fresh(planKey, Date.now())); setRunning(true); }}
-        >
-          Start this plan
-          <small>One block at a time, with a clock. The screen stays on.</small>
-        </button>
-      )}
-
-      <p className="plan-note">
-        {practice.note ??
-          'Built from root causes only. Symptoms are left out on purpose — they are handled by the block that fixes what is causing them.'}
-      </p>
+      </section>
 
       <ol className="practice-list">
         {practice.blocks.map((block, i) => (
@@ -329,7 +391,7 @@ export function PracticeView({
             block={block}
             step={i + 1}
             startsAt={starts[i] ?? 0}
-            openByDefault={i === firstWithDrills}
+            openByDefault={wide || i === firstWithDrills}
           />
         ))}
       </ol>
@@ -347,15 +409,17 @@ function PracticeBlock({
 }) {
   return (
     <li className="card practice-block">
-      <div className="block-head">
+     <details open={openByDefault}>
+      <summary className="block-head">
         <span className="block-clock">
           <b>{clock(startsAt)}</b>
           <i>{block.minutes} min</i>
         </span>
-        <span className="block-step">Block {step}</span>
-      </div>
-
-      <h3>{block.title}</h3>
+        <span className="block-title">
+          <span className="block-step">Block {step}</span>
+          <b>{block.title}</b>
+        </span>
+      </summary>
 
       <div className="mode-chip">
         <strong>{block.mode.name}</strong>
@@ -422,6 +486,7 @@ function PracticeBlock({
           </ul>
         </details>
       )}
+     </details>
     </li>
   );
 }
@@ -486,7 +551,7 @@ function YardageBookCard({ report }: { report: SessionReport }) {
   const worst = [...book.clubs].sort((a, b) => b.egoGap - a.egoGap)[0]!;
 
   return (
-    <section className="card yardage">
+    <section className="card card-hero yardage hero-brand">
       <h3 className="panel-title">Yardage book</h3>
       <p className="panel-sub">
         <strong>Plays</strong> is the carry you beat four shots in five — club off that.{' '}
@@ -665,12 +730,23 @@ function ScoringZoneCard({ zone }: { zone: ScoringZone }) {
 export function ClubsView({
   report, session, zone,
 }: { report: SessionReport; session: ShotSession; zone: ScoringZone }) {
+  const wide = useWide();
+  // The club you hit most is the one you most likely opened this tab for.
+  const mostHit = [...report.profiles].sort((a, b) => b.shotCount - a.shotCount)[0]?.club ?? null;
+  const [picked, setPicked] = useState<string | null>(null);
+  const current = report.profiles.some((p) => p.club === picked) ? picked : mostHit;
+  const shown = wide ? report.profiles : report.profiles.filter((p) => p.club === current);
+
   return (
     <div className="stack">
       <YardageBookCard report={report} />
       <ScoringZoneCard zone={zone} />
       {report.conditions.raw && <ConditionsCard report={report} />}
 
+      <h2 className="section-head">
+        Club by club
+        <span>{plural(report.profiles.length, 'club')} in this session</span>
+      </h2>
 
       {report.profiles.length > 1 && (
         <div className="table-scroll card wide-only">
@@ -712,8 +788,24 @@ export function ClubsView({
         </div>
       )}
 
+      {!wide && report.profiles.length > 1 && (
+        <div className="club-picker" role="group" aria-label="Choose a club">
+          {report.profiles.map((p) => (
+            <button
+              key={p.club}
+              type="button"
+              className={p.club === current ? 'club-pick club-pick-on' : 'club-pick'}
+              aria-pressed={p.club === current}
+              onClick={() => setPicked(p.club)}
+            >
+              {p.club}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="club-cards">
-        {report.profiles.map((p) => (
+        {shown.map((p) => (
           <ClubCard
             key={p.club}
             profile={p}
@@ -721,35 +813,6 @@ export function ClubsView({
           />
         ))}
       </div>
-
-      {report.optimals && (
-        <>
-          <h2 className="section-head">
-            Where these should be
-            <span>
-              {report.optimals.club} at {report.optimals.clubSpeed.toFixed(0)} mph
-            </span>
-          </h2>
-          <section className="card">
-            <OptimalBands optimals={report.optimals} />
-          </section>
-        </>
-      )}
-
-      {report.consistency && (
-        <>
-          <h2 className="section-head">
-            What you can repeat
-            <span>worst first</span>
-          </h2>
-          <section className="card">
-            <p className="panel-sub">
-              Averages say what you usually do; these say whether you can be relied on to do it.
-            </p>
-            <ConsistencyBars consistency={report.consistency} />
-          </section>
-        </>
-      )}
     </div>
   );
 }
@@ -771,7 +834,7 @@ function ConditionsCard({ report }: { report: SessionReport }) {
   const c = report.conditions;
   const pct = (carryFactor(c) - 1) * 100;
   return (
-    <section className="card conditions">
+    <section className="card-quiet conditions">
       <h3 className="panel-title">The air you hit in</h3>
       <div className="cond-row">
         {c.altitudeFeet !== null && (
