@@ -165,7 +165,7 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['target-window', 'aim-reset', 'gate-path']),
+        drills: drillsFor(['target-window', 'aim-reset', 'strike-map', 'random-practice-block']),
       };
     },
   },
@@ -192,7 +192,7 @@ const TEMPLATES: Template[] = [
             ? `You are swinging fast enough for roughly ${gap} more yards than you are getting. That gap is not speed — it is where the ball is meeting the face and what loft is on it when it does, and both are trainable without swinging any harder.`
             : 'You are swinging fast enough for more carry than you are getting. That is a strike and delivery problem, not a speed one.',
         setup: [
-          'Practice Range with the club, face sprayed before every fifth shot.',
+          'Range with the club, face sprayed before every fifth shot.',
           'Hit at about 80% effort. Speed hides strike quality rather than improving it, and this block is about strike.',
           'Watch smash factor only. Ignore where the ball finishes for now.',
           'After every set of five, look at the face before you look at the screen.',
@@ -205,7 +205,11 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['foot-spray-strike', 'toe-heel-gate', 'one-flight']),
+        drills: drillsFor(
+          club === 'Dr'
+            ? ['driver-strike-height', 'foot-spray-strike']
+            : ['foot-spray-strike', 'strike-map', 'toe-heel-gate'],
+        ),
       };
     },
   },
@@ -231,19 +235,19 @@ const TEMPLATES: Template[] = [
             ? `You are delivering the ${club} at ${aoa}° — upward, when an iron off the deck wants to be coming down. Hitting up adds loft and spin at impact and costs you compression, which is why the ball flies high and lands soft without going anywhere.`
             : 'You are hitting up on an iron off the deck, which adds loft and spin at impact and costs compression.',
         setup: [
-          'Practice Range, ball on the mat rather than a tee.',
+          'Range, ball on the mat rather than a tee.',
           'Move the ball one ball-width back in your stance and set your hands ahead of it.',
           'Hit punchy three-quarter shots and watch attack angle only — not the ball.',
           'Every fifth shot, go back to your normal ball position and see whether the number holds.',
         ],
-        success: `Attack angle negative on eight of ten, with the divot starting after the ball rather than before it.`,
+        success: `Attack angle negative on eight of ten, with Low Point ahead of the ball and the first mark on the mat after it.`,
         club,
         targetDistance: carry,
         shots: 25,
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['shaft-lean-irons', 'tee-forward-low-point', 'towel-behind-ball']),
+        drills: drillsFor(['shaft-lean-irons', 'powder-line-low-point', 'step-change-tempo']),
       };
     },
   },
@@ -272,7 +276,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'Delivered loft, launch and spin are one fault read off three instruments — loft at impact drives launch, and the two together drive spin. Working them separately spends an hour practising the same thing three times, so this block treats them as one: hold a single flight, and all three settle.',
         setup: [
-          'Practice Range. Pick a window on the screen or in the net and commit to it.',
+          'Range. Pick a window on the screen or in the net and commit to it.',
           'Every shot goes through that window. Not near it — through it.',
           'Hold your finish until the ball lands. Steering the club at the last moment is what makes loft vary.',
           'Change nothing else. This block is about repeating one delivery, not finding a better one.',
@@ -285,7 +289,7 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['one-flight', 'spin-loft-control', 'towel-behind-ball']),
+        drills: drillsFor(['one-flight', 'spin-loft-control', 'spin-loft-window']),
       };
     },
   },
@@ -310,11 +314,11 @@ const TEMPLATES: Template[] = [
         title: `Put spin back on the ${club}`,
         rationale:
           spin !== null
-            ? `At ${spin} rpm the ball is coming down too shallow to stop. That is not a strike problem — a flush strike low on the face is exactly what produces it — so the fix is where on the face you are catching it and how much loft is left on the club at impact.`
+            ? `At ${spin} rpm the ball is coming down too shallow to stop. Spin follows spin loft — the loft you deliver minus your attack angle — so the thing to find is whether you are delivering too little loft, or hitting down too little, to put spin on it.`
             : 'Your spin is low enough that the ball is landing too shallow to stop on a green.',
         setup: [
-          'Practice Range, ball on the mat, face sprayed.',
-          'Aim to catch the ball a groove higher on the face than you have been. Check the spray, not the feel.',
+          'Range, ball on the mat, face sprayed.',
+          'Put Spin Loft, Dynamic Loft and Attack Angle on screen next to Spin Rate.',
           'Keep your hands from running too far ahead at impact — de-lofting is what is stripping the spin off it.',
           'Watch spin and landing angle together. Spin alone can mislead; the pair tells you whether it will hold.',
         ],
@@ -326,7 +330,7 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['spin-loft-control', 'foot-spray-strike', 'one-flight']),
+        drills: drillsFor(['spin-loft-window', 'spin-loft-control', 'one-flight']),
       };
     },
   },
@@ -345,7 +349,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'Strike has to come first. Path and face numbers measured off a scattered strike are not trustworthy, so fixing contact makes every other number in your session mean something.',
         setup: [
-          'Open the Practice Range and select the club.',
+          'Open Range and select the club.',
           'Spray the face or apply impact tape before every fifth shot.',
           'Hit in sets of five at roughly 70% effort — speed hides strike problems rather than fixing them.',
           'Photograph the face after each set so you can see the pattern move.',
@@ -358,7 +362,7 @@ const TEMPLATES: Template[] = [
         minutes: 20,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['foot-spray-strike', 'toe-heel-gate', 'tempo-ratio']),
+        drills: drillsFor(['foot-spray-strike', 'strike-map', 'toe-heel-gate', 'tempo-ratio']),
       };
     },
   },
@@ -373,8 +377,8 @@ const TEMPLATES: Template[] = [
         rationale:
           'Your low point is the reason contact varies. It is also one of the fastest things in golf to change, because the feedback can be made physical.',
         setup: [
-          'Practice Range, ball on the mat rather than a tee.',
-          'Place a towel one clubhead-width behind the ball.',
+          'Range, ball on the mat rather than a tee.',
+          'Lay a flat towel four to six inches behind the ball, or spray a line of powder across the mat just behind it.',
           'Hit shots at three-quarter length, ball first, without touching the towel.',
           'Watch the Low Point number rather than the ball flight — that is the number you are moving.',
         ],
@@ -385,7 +389,7 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['towel-behind-ball', 'tempo-ratio', 'tee-forward-low-point']),
+        drills: drillsFor(['powder-line-low-point', 'towel-behind-ball', 'step-change-tempo', 'tempo-ratio']),
       };
     },
   },
@@ -400,7 +404,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'This is distance available without swinging harder — smash factor is a strike and spin-loft story, not a speed one.',
         setup: [
-          'Practice Range, club selected, impact tape on the face.',
+          'Range, club selected, impact tape on the face.',
           'Hit ten shots at 80% effort and note the smash factor for each.',
           'Then ten more consciously trying to strike the centre rather than hit it far.',
           'Compare the two sets. Centre strikes at 80% usually beat toe strikes at 100%.',
@@ -412,7 +416,11 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['one-flight', 'spin-loft-control', 'foot-spray-strike']),
+        drills: drillsFor(
+          club === 'Dr'
+            ? ['driver-strike-height', 'foot-spray-strike']
+            : ['foot-spray-strike', 'strike-map', 'one-flight'],
+        ),
       };
     },
   },
@@ -441,7 +449,7 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['target-window', 'lead-arm-only', 'split-hands-face']),
+        drills: drillsFor(['target-window', 'lead-arm-only', 'grip-check']),
       };
     },
   },
@@ -456,7 +464,7 @@ const TEMPLATES: Template[] = [
         title: `Square the face to the path with the ${club}`,
         rationale: `Your face sits consistently ${open ? 'open' : 'closed'} to your path, which is what curves the ball. Because it is consistent, it is trainable — you are not fighting randomness, you are moving one relationship.`,
         setup: [
-          'Practice Range, club selected, Face to Path visible on screen.',
+          'Range, club selected, Face to Path visible on screen.',
           `Hit five shots deliberately exaggerating the opposite — ${open ? 'a hard hook feel' : 'a hard cut feel'}.`,
           'Then five trying to land Face to Path between -1° and +1°.',
           'Alternate the two. Exaggeration in both directions finds the middle faster than aiming for it.',
@@ -469,8 +477,8 @@ const TEMPLATES: Template[] = [
         addresses: [finding.id],
         targets: [],
         drills: drillsFor(open
-          ? ['split-hands-face', 'lead-arm-only', 'target-window']
-          : ['target-window', 'aim-reset', 'gate-path']),
+          ? ['split-hands-face', 'grip-check', 'exaggerate-both-ways']
+          : ['exaggerate-both-ways', 'grip-check', 'aim-reset']),
       };
     },
   },
@@ -485,7 +493,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'Path this far from neutral limits which shapes are available to you and forces the face to compensate to hit anything straight.',
         setup: [
-          'Practice Range with a physical gate — two headcovers or alignment sticks.',
+          'Practice Range with a soft gate — a headcover or a rolled towel, never alignment sticks near the ball.',
           'Angle the gate along the path you want, not the path you have.',
           'Half swings first, full speed only once you are through it cleanly five times.',
         ],
@@ -496,26 +504,35 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['gate-path', 'aim-reset', 'exaggerate-both-ways']),
+        drills: drillsFor(['gate-path', 'stance-path', 'exaggerate-both-ways']),
       };
     },
   },
   // ----------------------------------------------------------------- driver
   {
-    matches: (id) => id === 'driver-negative-aoa' || (id === 'spin-too-high'),
-    build(finding, profiles) {
+    /*
+     * One block, two findings, and a different first drill for each. A downward
+     * strike and too much spin share a setup but not a cure: ball position and
+     * tilt fix the first, tee height and where on the face you meet it fix the
+     * second. Ball-back-hands-forward is the iron fix and makes a driver's
+     * attack angle steeper, so it is not offered here.
+     */
+    matches: (id) => id === 'driver-negative-aoa' || id === 'spin-too-high',
+    build(finding) {
       if (finding.club !== 'Dr') return null;
+      const aoa = finding.id === 'driver-negative-aoa';
       return {
         id: 'rx-driver-launch',
         mode: PRACTICE_MODES.range,
         title: 'Driver launch conditions',
-        rationale:
-          'You are hitting down on it and spinning it too much, which is the classic high-spin low-carry driver. This is mostly a setup change, and it is usually worth more carry than any speed work.',
+        rationale: aoa
+          ? 'You are hitting down on the driver, which adds spin and costs carry. This is mostly a setup change, and it is usually worth more carry than any speed work.'
+          : 'Your driver spin is higher than it needs to be, which costs carry. It comes from attack angle and from where on the face you meet the ball, and both are mostly setup — usually worth more carry than any speed work.',
         setup: [
-          'Practice Range, driver, teed so half the ball sits above the crown.',
-          'Ball forward, off the lead heel. Shoulders slightly tilted away from the target.',
-          'Watch Attack Angle only. Ignore distance for the first fifteen swings.',
-          'Once attack angle is positive, check that spin has come down with it.',
+          'Range, driver, teed so half the ball sits above the crown.',
+          'Ball forward, off the lead heel. Spine tilted slightly away from the target, head behind the ball.',
+          'Watch Attack Angle and Spin together. Ignore distance for the first fifteen swings.',
+          'Once attack angle is up, check that spin has come down with it and the face spray is not climbing toward the crown.',
         ],
         success: 'Attack angle at or above 0° and spin under 3,000 rpm on the majority of swings.',
         club: 'Dr',
@@ -524,7 +541,46 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['tee-height-aoa', 'shaft-lean-irons']),
+        drills: drillsFor(
+          aoa
+            ? ['tee-height-aoa', 'driver-setup-ladder']
+            : ['driver-strike-height', 'driver-setup-ladder'],
+        ),
+      };
+    },
+  },
+  {
+    /*
+     * Spin that is too high on an iron. This used to return nothing for any club
+     * but the driver, so the finding appeared on Fix and then never reached the
+     * plan. Spin follows spin loft, so the block is about reading delivered loft
+     * and attack angle rather than about where on the face the ball is struck.
+     */
+    matches: (id) => id === 'spin-too-high',
+    build(finding, profiles) {
+      const club = finding.club;
+      if (club === null || club === 'Dr') return null;
+      const carry = carryOf(profiles, club);
+      return {
+        id: `rx-spin-high-${club}`,
+        mode: PRACTICE_MODES.range,
+        title: `Bring the ${club} spin down`,
+        rationale:
+          'Spin follows spin loft — the loft you deliver minus your attack angle. Too much spin on an iron means too much delivered loft or too little downward strike, and both come from setup and hand position rather than from effort.',
+        setup: [
+          'Range, club selected, Spin Loft, Dynamic Loft and Attack Angle on screen next to Spin Rate.',
+          'Hit five from your normal setup, then five with the ball half a ball back and your hands slightly ahead.',
+          'Watch which of the three numbers moves spin, not the ball flight.',
+          'Keep the version that lowers spin without costing carry.',
+        ],
+        success: 'Spin inside the window for the club on seven of ten, with carry unchanged.',
+        club,
+        targetDistance: carry,
+        shots: 23,
+        minutes: 15,
+        addresses: [finding.id],
+        targets: [],
+        drills: drillsFor(['spin-loft-window', 'spin-loft-control']),
       };
     },
   },
@@ -555,7 +611,7 @@ const TEMPLATES: Template[] = [
         minutes: 12,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['random-practice-block', 'pressure-nine']),
+        drills: drillsFor(['call-the-number', 'clock-wedges', 'random-practice-block', 'pressure-nine']),
       };
     },
   },
@@ -585,7 +641,7 @@ const TEMPLATES: Template[] = [
         minutes: 25,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['ladder-gapping', 'call-the-number']),
+        drills: drillsFor(['ladder-gapping', 'choke-down-fill', 'call-the-number']),
       };
     },
   },
@@ -641,7 +697,7 @@ const TEMPLATES: Template[] = [
         minutes: 15,
         addresses: [finding.id],
         targets: [],
-        drills: drillsFor(['random-practice-block', 'pressure-nine']),
+        drills: drillsFor(['call-the-number', 'wedge-ladder', 'pressure-nine']),
       };
     },
   },
@@ -655,7 +711,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'Your carry lands in a wide band around the target. Scoring every shot is what makes that band shrink — unscored range balls let you ignore the misses, and Bullseye will not.',
         setup: [
-          'Virtual Golf → Games → Bullseye.',
+          'TPS → Games → Bullseye.',
           'Pick a distance you face often on the course.',
           'Full pre-shot routine on every ball, and no re-hits.',
         ],
@@ -681,7 +737,7 @@ const TEMPLATES: Template[] = [
         rationale:
           'Your mishit rate is high enough that it is costing you shots on the course rather than just yards on the range. Mishits under a scoreboard are the honest measure — they usually rise the moment a shot counts.',
         setup: [
-          'Virtual Golf → Games → Capture the Flag.',
+          'TPS → Games → Capture the Flag.',
           'Change target every shot so no two swings in a row are the same.',
           'Commit to a full pre-shot routine on every ball.',
         ],
@@ -726,10 +782,14 @@ export function prescribePractice(
 
   for (const finding of findings) {
     if (candidates.length >= workingSlots) break;
-    const template = TEMPLATES.find((t) => t.matches(finding.id));
-    if (!template) continue;
-
-    const rx = template.build(finding, profiles);
+    // The first template that matches and produces a block wins; a template may
+    // decline (return null) for a club it does not cover.
+    let rx: Prescription | null = null;
+    for (const template of TEMPLATES) {
+      if (!template.matches(finding.id)) continue;
+      rx = template.build(finding, profiles);
+      if (rx) break;
+    }
     if (!rx) continue;
 
     const existing = candidates.find((b) => b.id === rx.id);
@@ -979,7 +1039,7 @@ function warmUp(profiles: ClubProfile[]): Prescription {
     rationale:
       'Cold measurements are worthless, and the first ten balls of a session are not your golf. Practising on them teaches you to fix a fault you do not have once you are warm.',
     setup: [
-      'Practice Range. Start with a wedge at half speed.',
+      'Range. Start with a wedge at half speed.',
       'Work up through the bag — five shots per club, no target, no swing thoughts.',
       `Finish the warm-up on the ${mid?.club ?? '7i'} at full speed before anything below counts.`,
     ],

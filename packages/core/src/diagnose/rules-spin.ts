@@ -74,7 +74,7 @@ export const spinWindowRule: Rule = {
           { label: 'Attack angle', value: round(profile.attackAngle.median, 1), unit: '°' },
           { label: 'Shots', value: s.n, unit: '' },
         ],
-        drills: high ? ['spin-loft-control', 'foot-spray-strike'] : ['foot-spray-strike'],
+        drills: ['spin-loft-window', 'spin-loft-control'],
       },
     ];
   },
@@ -128,7 +128,7 @@ export const carryConsistencyRule: Rule = {
           { label: 'Longest', value: round(c.max, 0), unit: 'yds' },
           { label: 'Shots', value: c.n, unit: '' },
         ],
-        drills: ['call-the-number', 'ladder-gapping', 'one-flight'],
+        drills: ['call-the-number', 'clock-wedges', 'one-flight'],
       },
     ];
   },

@@ -84,7 +84,7 @@ export const launchWindowRule: Rule = {
           { label: 'Highest', value: round(l.max, 1), unit: '°' },
           { label: 'Shots', value: l.n, unit: '' },
         ],
-        drills: ['one-flight', 'spin-loft-control', 'tee-forward-low-point'],
+        drills: ['one-flight', 'spin-loft-control', 'powder-line-low-point'],
       },
     ];
   },
@@ -184,7 +184,7 @@ export const lateralDispersionRule: Rule = {
           { label: 'Widest left', value: round(side.min, 0), unit: 'yds' },
           { label: 'Widest right', value: round(side.max, 0), unit: 'yds' },
         ],
-        drills: ['target-window', 'aim-reset', 'gate-path'],
+        drills: ['target-window', 'aim-reset', 'strike-map'],
       },
     ];
   },
@@ -246,7 +246,7 @@ export const speedAdjustedEfficiencyRule: Rule = {
           { label: 'Ball speed left', value: round(adj.ballSpeedGap, 1), unit: 'mph' },
           { label: 'Carry at tour strike', value: round(adj.expectedCarry, 0), unit: 'yds' },
         ],
-        drills: ['foot-spray-strike', 'towel-behind-ball', 'spin-loft-control'],
+        drills: ['foot-spray-strike', 'strike-map', 'one-flight'],
       },
     ];
   },

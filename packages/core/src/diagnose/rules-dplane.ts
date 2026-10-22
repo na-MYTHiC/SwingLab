@@ -54,8 +54,8 @@ export const faceToPathRule: Rule = {
           { label: 'Shots', value: f.n, unit: '' },
         ],
         drills: open
-          ? ['exaggerate-both-ways', 'split-hands-face', 'target-window']
-          : ['exaggerate-both-ways', 'target-window', 'gate-path'],
+          ? ['split-hands-face', 'grip-check', 'exaggerate-both-ways']
+          : ['exaggerate-both-ways', 'grip-check', 'aim-reset'],
       },
     ];
   },
@@ -89,7 +89,7 @@ export const pathRule: Rule = {
           { label: 'Shot-to-shot spread', value: round(p.mad, 1), unit: '°' },
           { label: 'Shots', value: p.n, unit: '' },
         ],
-        drills: ['gate-path', 'aim-reset', 'exaggerate-both-ways'],
+        drills: ['gate-path', 'stance-path', 'exaggerate-both-ways'],
       },
     ];
   },
@@ -132,7 +132,7 @@ export const faceConsistencyRule: Rule = {
           { label: 'Most closed', value: round(f.min, 1), unit: '°' },
           { label: 'Shots', value: f.n, unit: '' },
         ],
-        drills: ['target-window', 'split-hands-face', 'lead-arm-only'],
+        drills: ['target-window', 'lead-arm-only', 'grip-check'],
       },
     ];
   },

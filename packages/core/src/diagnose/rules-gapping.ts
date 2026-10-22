@@ -120,7 +120,7 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
           { label: `${longer.club} carry`, value: round(longer.carry.median, 0), unit: 'yds' },
           { label: `${shorter.club} carry`, value: round(shorter.carry.median, 0), unit: 'yds' },
         ],
-        drills: ['ladder-gapping'],
+        drills: ['ladder-gapping', 'choke-down-fill'],
       });
     }
   }

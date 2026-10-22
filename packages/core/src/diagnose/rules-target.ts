@@ -78,7 +78,7 @@ export function distanceBiasFindings(shots: Shot[]): Finding[] {
         { label: 'Worst short', value: round(stats.min, 0), unit: 'yds' },
         { label: 'Worst long', value: round(stats.max, 0), unit: 'yds' },
       ],
-      drills: ['call-the-number', 'pressure-nine'],
+      drills: ['call-the-number', 'wedge-ladder', 'pressure-nine'],
     });
   }
 

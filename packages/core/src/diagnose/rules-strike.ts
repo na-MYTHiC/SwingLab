@@ -42,7 +42,7 @@ export const smashRule: Rule = {
           { label: 'Ball speed', value: round(profile.ballSpeed.median, 1), unit: 'mph' },
           { label: 'Shots', value: s.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'towel-behind-ball', 'spin-loft-control'],
+        drills: ['foot-spray-strike', 'strike-map'],
       },
     ];
   },
@@ -80,7 +80,7 @@ export const attackAngleRule: Rule = {
             { label: 'Spin rate', value: round(profile.spinRate.median, 0), unit: 'rpm' },
             { label: 'Shots', value: a.n, unit: '' },
           ],
-          drills: ['tee-height-aoa'],
+          drills: ['tee-height-aoa', 'driver-setup-ladder'],
         },
       ];
     }
@@ -102,7 +102,7 @@ export const attackAngleRule: Rule = {
             { label: 'Low point', value: round(profile.lowPointDistance.median, 1), unit: 'in' },
             { label: 'Shots', value: a.n, unit: '' },
           ],
-          drills: ['shaft-lean-irons', 'tee-forward-low-point', 'towel-behind-ball'],
+          drills: ['shaft-lean-irons', 'powder-line-low-point', 'step-change-tempo'],
         },
       ];
     }
@@ -142,7 +142,7 @@ export const lowPointRule: Rule = {
           { label: 'Attack angle', value: round(profile.attackAngle.median, 1), unit: '°' },
           { label: 'Shots', value: lp.n, unit: '' },
         ],
-        drills: ['towel-behind-ball', 'tee-forward-low-point'],
+        drills: ['powder-line-low-point', 'towel-behind-ball', 'step-change-tempo'],
       });
     } else if (lp.mad >= 2.0) {
       findings.push({
@@ -160,7 +160,7 @@ export const lowPointRule: Rule = {
           { label: 'Low point', value: round(lp.median, 1), unit: 'in' },
           { label: 'Shots', value: lp.n, unit: '' },
         ],
-        drills: ['tee-forward-low-point', 'towel-behind-ball', 'tempo-ratio'],
+        drills: ['powder-line-low-point', 'tempo-ratio', 'step-change-tempo'],
       });
     }
 
@@ -201,7 +201,7 @@ export const impactLocationRule: Rule = {
           { label: 'Smash factor', value: round(profile.smashFactor.median, 2), unit: '' },
           { label: 'Shots', value: off.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'toe-heel-gate'],
+        drills: ['foot-spray-strike', 'strike-map', 'toe-heel-gate'],
       });
     }
 
@@ -220,7 +220,7 @@ export const impactLocationRule: Rule = {
           { label: 'Strike spread', value: round(off.mad, 1), unit: 'mm', reference: 9 },
           { label: 'Shots', value: off.n, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'tempo-ratio', 'toe-heel-gate'],
+        drills: ['foot-spray-strike', 'strike-map', 'tempo-ratio'],
       });
     }
 
@@ -261,7 +261,7 @@ export const mishitRateRule: Rule = {
           { label: 'Mishits', value: profile.mishitCount, unit: '' },
           { label: 'Shots', value: profile.shotCount, unit: '' },
         ],
-        drills: ['foot-spray-strike', 'toe-heel-gate', 'tempo-ratio'],
+        drills: ['foot-spray-strike', 'strike-map', 'toe-heel-gate'],
       },
     ];
   },

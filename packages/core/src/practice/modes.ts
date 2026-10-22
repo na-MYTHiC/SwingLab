@@ -50,8 +50,8 @@ export interface PracticeMode {
 export const PRACTICE_MODES: Record<PracticeModeId, PracticeMode> = {
   range: {
     id: 'range',
-    name: 'Practice Range',
-    location: 'TPS → Practice → Driving Range',
+    name: 'Range',
+    location: 'TPS → Range',
     what: 'Free hitting with full shot data and no target scoring.',
     trains:
       'Building a mechanical change with immediate numeric feedback. Weakest at telling you whether the change survives outside the bay — range numbers flatter everyone.',
@@ -109,7 +109,7 @@ export const PRACTICE_MODES: Record<PracticeModeId, PracticeMode> = {
   bullseye: {
     id: 'bullseye',
     name: 'Bullseye',
-    location: 'TrackMan Virtual Golf → Games → Bullseye',
+    location: 'TPS → Games → Bullseye',
     what: 'Concentric rings around a target; closer shots score more.',
     trains:
       'Precision under a scoreboard. The scoring makes you commit to a target, which is the thing most range practice never asks for.',
@@ -120,7 +120,7 @@ export const PRACTICE_MODES: Record<PracticeModeId, PracticeMode> = {
   'capture-the-flag': {
     id: 'capture-the-flag',
     name: 'Capture the Flag',
-    location: 'TrackMan Virtual Golf → Games → Capture the Flag',
+    location: 'TPS → Games → Capture the Flag',
     what: 'Claim flags by landing shots closest to each target.',
     trains:
       'Shot-by-shot commitment with changing targets, so no two swings in a row are the same. Good pressure without a full round.',
@@ -131,7 +131,7 @@ export const PRACTICE_MODES: Record<PracticeModeId, PracticeMode> = {
   'closest-to-pin': {
     id: 'closest-to-pin',
     name: 'Closest to the Pin',
-    location: 'TrackMan Virtual Golf → Games → Closest to the Pin',
+    location: 'TPS → Games → Closest to the Pin',
     what: 'One target, scored on proximity.',
     trains: 'Single-shot execution. Useful for wedge distance control when the number matters.',
     producesKind: 'target',
@@ -140,8 +140,8 @@ export const PRACTICE_MODES: Record<PracticeModeId, PracticeMode> = {
   },
   'longest-drive': {
     id: 'longest-drive',
-    name: 'Longest Drive',
-    location: 'TrackMan Virtual Golf → Games → Longest Drive',
+    name: 'Hit It (longest drive)',
+    location: 'TPS → Games → Hit It',
     what: 'Driver only, scored on total distance.',
     trains:
       'Speed and launch conditions, with the honesty of a scoreboard. Handle with care — it rewards swinging harder, which is the opposite of what most driver problems need.',

@@ -39,6 +39,8 @@ const EVERY_FINDING: { id: string; club: Club; evidence?: Finding['evidence'] }[
   { id: 'launch-window-wide', club: '7i' },
   { id: 'spin-inconsistent', club: '7i' },
   { id: 'spin-too-high', club: 'Dr' },
+  // Irons used to get no block at all for this; the driver-only case hid it.
+  { id: 'spin-too-high', club: '7i' },
   { id: 'spin-too-low', club: '7i' },
   { id: 'carry-inconsistent', club: '7i' },
   { id: 'gap-oversized', club: '7i' },
@@ -123,5 +125,42 @@ describe('practice coverage', () => {
     const block = planFor({ id: 'dispersion-wide', club: '7i' })[0];
     expect(block).toBeDefined();
     expect(block!.drills.length).toBeGreaterThan(0);
+  });
+
+  it('gives every block at least one drill for the fault it was built for', () => {
+    // fitDrillList keeps only drills whose family matches the first one, so a
+    // block whose candidates were all filtered away would show a plan with
+    // nothing to do in it.
+    for (const entry of EVERY_FINDING) {
+      for (const block of planFor(entry)) {
+        expect(block.drills.length, `${entry.id}/${entry.club} has no drills`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('keeps the transfer drill that is meant to follow the mechanical one', () => {
+    const withTransfer = EVERY_FINDING.filter((e) =>
+      planFor(e).some((b) => b.drills.some((d) => d.treats === 'transfer')),
+    );
+    expect(withTransfer.length).toBeGreaterThan(0);
+  });
+
+  it('never offers the iron fix for a driver', () => {
+    // Ball back and hands forward steepens the attack angle: right for an iron
+    // hitting up, the opposite of what a driver hitting down needs.
+    for (const id of ['driver-negative-aoa', 'spin-too-high']) {
+      const ids = planFor({ id, club: 'Dr' })[0]?.drills.map((d) => d.id) ?? [];
+      expect(ids, id).not.toContain('shaft-lean-irons');
+    }
+  });
+
+  it('puts spin loft, not strike height, behind iron spin', () => {
+    const block = planFor({ id: 'spin-too-high', club: '7i' })[0];
+    expect(block?.drills.map((d) => d.id)).toContain('spin-loft-window');
+  });
+
+  it('does not tell anyone to catch a low-spin iron higher on the face', () => {
+    const text = JSON.stringify(planFor({ id: 'spin-too-low', club: '7i' }));
+    expect(text).not.toMatch(/groove higher/i);
   });
 });
