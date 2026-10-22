@@ -106,11 +106,12 @@ export function PriorityView({ report }: { report: SessionReport }) {
         <p className="eyebrow">On the table</p>
         <div className="num-display fix-num">
           {shots(report.strokesAvailable)}
-          <small>shots a round</small>
+          <small>shots a round, roughly</small>
         </div>
         <p className="fix-sub">
-          Everything found in this session, added up. Work down the list: the top item is the
-          fastest improvement, not simply the worst number.
+          Everything found in this session, added up and capped, because the fixes overlap. It is
+          a size, not a prediction: the real figure could be half this or double it. Work down the
+          list: the top item is the fastest improvement, not simply the worst number.
         </p>
       </section>
 

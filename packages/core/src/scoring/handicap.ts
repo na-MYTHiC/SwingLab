@@ -8,7 +8,7 @@ import {
  * An estimated handicap from ball-striking data.
  *
  * WHAT THIS IS, AND MORE IMPORTANTLY WHAT IT IS NOT. A handicap is a scoring
- * measure, and roughly 45% of scoring happens inside 100 yards — chipping,
+ * measure, and a large share of scoring happens inside 100 yards — chipping,
  * bunkers and putting, none of which a range session can see. Course
  * management, nerve and the ability to avoid one blow-up hole are invisible
  * here too.
@@ -68,12 +68,23 @@ export interface HandicapEstimate {
  * Falls back to the single-club behaviour when there is only one club, which
  * is the common case and gives exactly the same answer.
  */
+/** Below this carry the proximity scale stops being comparable across clubs. */
+const MIN_CARRY_FOR_ESTIMATE = 100;
+
 export function estimateHandicapAcrossBag(
   profiles: ClubProfile[],
   strike: StrikeBreakdown,
   blowUpRate: number | null = null,
 ): HandicapEstimate | null {
-  const usable = profiles.filter((p) => p.representativeCount >= 10);
+  /*
+   * Full-swing clubs only. The scale is anchored to tour proximity at 100-200
+   * yards; as a share of distance a tour wedge from 60 yards finishes much
+   * further out than a tour 7-iron does (about 9% against 6%), so a wedge
+   * pattern reads many strokes worse at the same real skill.
+   */
+  const usable = profiles.filter(
+    (p) => p.representativeCount >= 10 && p.carry.median >= MIN_CARRY_FOR_ESTIMATE,
+  );
   if (usable.length === 0) return null;
   if (usable.length === 1) return estimateHandicap(usable[0] as ClubProfile, strike, blowUpRate);
 
@@ -88,7 +99,8 @@ export function estimateHandicapAcrossBag(
 
   const estimate = mean((x) => x.estimate.estimate);
   const shots = parts.reduce((sum, x) => sum + x.profile.representativeCount, 0);
-  const spreadBand = shots >= 45 ? 2.5 : shots >= 30 ? 3 : 4;
+  // Wide on purpose: the two datasets behind the scale disagree by about a factor of two.
+  const spreadBand = shots >= 45 ? 4 : shots >= 30 ? 5 : 6;
   const clubs = parts.map((x) => x.profile.club).join(', ');
 
   return {
@@ -103,7 +115,8 @@ export function estimateHandicapAcrossBag(
       strikeQuality: strike.qualityShare,
     },
     // More clubs is a better sample of a player than more shots with one club.
-    confidence: parts.length >= 3 && shots >= 40 ? 'high' : shots >= 25 ? 'medium' : 'low',
+    // Never 'high': a launch monitor session cannot see the short game, and the scale is a model.
+    confidence: shots >= 25 ? 'medium' : 'low',
     band: skillBand(estimate),
     headline: estimate <= 0
       ? 'Your ball-striking is at scratch level or better'
@@ -111,8 +124,8 @@ export function estimateHandicapAcrossBag(
         `${Math.round(estimate + spreadBand)} handicap`,
     caveat:
       `Averaged across ${parts.length} clubs (${clubs}), weighted by how many shots you hit with ` +
-      `each. Ball-striking only — around 45% of scoring happens inside 100 yards and none of it ` +
-      `shows up on a range.`,
+      `each. Ball-striking only — a large share of scoring happens inside 100 yards and none of ` +
+      `it shows up on a range. Treat the range as a rough guide, not a rating.`,
   };
 }
 
@@ -152,7 +165,7 @@ function buildCaveat(
     );
   }
   parts.push(
-    'Ball-striking only — around 45% of scoring happens inside 100 yards and none of it shows ' +
+    'Ball-striking only — a large share of scoring happens inside 100 yards and none of it shows ' +
     'up on a range, so a sharp short game plays better than this and a shaky one plays worse.',
   );
   return parts.join(' ');
@@ -166,6 +179,7 @@ export function estimateHandicap(
   if (!profile) return null;
 
   const carry = profile.carry.median;
+  if (Number.isFinite(carry) && carry < MIN_CARRY_FOR_ESTIMATE) return null;
   const sigmaSide = profile.side.mad;
   const sigmaCarry = profile.carry.mad;
   if (!Number.isFinite(carry) || carry <= 0) return null;
@@ -221,8 +235,8 @@ export function estimateHandicap(
    * either side at a good sample size is roughly that gap; thinner samples
    * widen it further.
    */
-  const spreadBand = shots >= 30 ? 3 : shots >= 18 ? 4 : 5.5;
-  const confidence = shots >= 30 ? 'high' : shots >= 18 ? 'medium' : 'low';
+  const spreadBand = shots >= 30 ? 5 : shots >= 18 ? 6 : 7;
+  const confidence = shots >= 18 ? 'medium' : 'low';
 
   const low = Math.round((handicap - spreadBand) * 10) / 10;
   const high = Math.round((handicap + spreadBand) * 10) / 10;

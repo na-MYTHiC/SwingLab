@@ -1,6 +1,6 @@
 import { SPIN_WINDOW } from '../benchmarks/tour.js';
 import { personalOptimals } from '../benchmarks/personal.js';
-import { downgrade, spinIsModelled } from './types.js';
+import { downgrade, spinIsModelled, confidenceForSpread } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
 /**
@@ -105,15 +105,22 @@ export const carryConsistencyRule: Rule = {
     // Express spread as a fraction of carry so the threshold works for a
     // wedge and a driver alike.
     const relative = c.mad / c.median;
-    if (relative < 0.045) return [];
+    /*
+     * Fire at about a single-figure handicap's spread, not at tour spread.
+     *
+     * The old 4.5% sat below the app's own tour standard (4.6%, TOUR_AXIS_PCT),
+     * so a tour-level player was told their carry was unpredictable. 6.5% is
+     * roughly a 5 handicap on the same scale and 9.5% roughly an 18.
+     */
+    if (relative < 0.065) return [];
 
     return [
       {
         id: 'carry-inconsistent',
         club: profile.club,
-        severity: relative >= 0.075 ? 'major' : 'minor',
+        severity: relative >= 0.095 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
-          ? downgrade(confidenceFor(c.n))
+          ? downgrade(confidenceForSpread(c.n))
           : confidenceFor(c.n),
         title: `Your ${profile.club} carry distance is unpredictable`,
         detail:

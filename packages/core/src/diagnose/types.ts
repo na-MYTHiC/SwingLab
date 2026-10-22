@@ -71,6 +71,20 @@ export function confidenceFor(n: number): Confidence {
 }
 
 /**
+ * Confidence for a finding that is about a spread rather than a median.
+ *
+ * A spread is a much noisier estimate than a centre: the standard error of a
+ * robust spread is about 40% of its value at 8 shots and 30% at 15, so a spread
+ * finding that deserves "medium" on a median deserves "low" here. Roughly 25
+ * shots before a spread is worth calling high-confidence.
+ */
+export function confidenceForSpread(n: number): Confidence {
+  if (n >= 25) return 'high';
+  if (n >= 12) return 'medium';
+  return 'low';
+}
+
+/**
  * One step down the confidence ladder.
  *
  * For findings built on a number the launch monitor modelled rather than

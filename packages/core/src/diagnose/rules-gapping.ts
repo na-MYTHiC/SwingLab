@@ -13,11 +13,25 @@ import type { Club } from '../schema.js';
  * change their set on the strength of it.
  */
 
-const MIN_SHOTS_PER_CLUB = 4;
-/** Adjacent full-swing clubs closer than this are effectively duplicates. */
-const OVERLAP_YARDS = 6;
-/** Wider than this and there is a distance the player simply cannot hit. */
-const OVERSIZED_YARDS = 20;
+/** TrackMan's Map My Bag asks for at least six per club; three or four is a median that one mishit moves. */
+const MIN_SHOTS_PER_CLUB = 6;
+/**
+ * Gaps as a share of the longer club's carry, not fixed yards. Six yards is a
+ * lot between two wedges and nothing between a 5-wood and a hybrid (the PGA
+ * Tour's own 5-wood to hybrid gap is 5), so a flat threshold flagged tour bags.
+ * About 4% is effectively a duplicate; about 13% (20 yards at 150) is a number
+ * the player cannot hit.
+ */
+const OVERLAP_SHARE = 0.04;
+const OVERSIZED_SHARE = 0.13;
+/** A verdict on a gap has to clear the noise in the two medians that make it. */
+const NOISE_MULTIPLE = 2;
+
+/** Standard error of the difference between two median carries. */
+function gapNoise(a: ClubProfile, b: ClubProfile): number {
+  const se = (p: ClubProfile) => (1.25 * (Number.isFinite(p.carry.mad) ? p.carry.mad : 0)) / Math.sqrt(p.carry.n);
+  return Math.hypot(se(a), se(b));
+}
 
 /**
  * Are these two clubs actually next to each other in a real bag?
@@ -64,7 +78,13 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
     const gap = longer.carry.median - shorter.carry.median;
     const n = Math.min(longer.carry.n, shorter.carry.n);
 
+    const noise = gapNoise(longer, shorter);
+    const overlapYards = OVERLAP_SHARE * longer.carry.median;
+    const oversizedYards = OVERSIZED_SHARE * longer.carry.median;
+
     if (gap < 0) {
+      // A reversed pair inside its own noise is two clubs that carry the same distance, not a fault.
+      if (-gap < NOISE_MULTIPLE * noise) continue;
       findings.push({
         id: 'gap-inverted',
         club: longer.club,
@@ -86,7 +106,7 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
       continue;
     }
 
-    if (gap < OVERLAP_YARDS) {
+    if (gap < overlapYards) {
       findings.push({
         id: 'gap-overlap',
         club: longer.club,
@@ -98,17 +118,17 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
           `${round(shorter.carry.median, 0)} yards). Two clubs covering one number means a gap ` +
           `somewhere else in the bag is doing double duty.`,
         evidence: [
-          { label: 'Gap', value: round(gap, 0), unit: 'yds', reference: OVERLAP_YARDS },
+          { label: 'Gap', value: round(gap, 0), unit: 'yds', reference: round(overlapYards, 0) },
           { label: `${longer.club} carry`, value: round(longer.carry.median, 0), unit: 'yds' },
           { label: `${shorter.club} carry`, value: round(shorter.carry.median, 0), unit: 'yds' },
         ],
         drills: ['ladder-gapping'],
       });
-    } else if (gap > OVERSIZED_YARDS && areAdjacentInBag(longer.club, shorter.club)) {
+    } else if (gap > oversizedYards && gap - oversizedYards > noise && areAdjacentInBag(longer.club, shorter.club)) {
       findings.push({
         id: 'gap-oversized',
         club: longer.club,
-        severity: gap > OVERSIZED_YARDS * 1.5 ? 'major' : 'minor',
+        severity: gap > oversizedYards * 1.5 ? 'major' : 'minor',
         confidence: confidenceFor(n),
         title: `There is a ${round(gap, 0)}-yard hole between your ${longer.club} and ${shorter.club}`,
         detail:
@@ -116,7 +136,7 @@ export function gappingFindings(profiles: ClubProfile[]): Finding[] {
           `${round(shorter.carry.median, 0)}. Any approach that lands in between forces you to ` +
           `manufacture a shot, which is where big misses come from.`,
         evidence: [
-          { label: 'Gap', value: round(gap, 0), unit: 'yds', reference: OVERSIZED_YARDS },
+          { label: 'Gap', value: round(gap, 0), unit: 'yds', reference: round(oversizedYards, 0) },
           { label: `${longer.club} carry`, value: round(longer.carry.median, 0), unit: 'yds' },
           { label: `${shorter.club} carry`, value: round(shorter.carry.median, 0), unit: 'yds' },
         ],

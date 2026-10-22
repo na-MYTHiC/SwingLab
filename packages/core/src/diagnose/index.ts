@@ -102,8 +102,19 @@ export function estimateStrokesAvailable(priorities: Prioritised[]): number {
       total += i === 0 ? cost : cost * 0.35;
     });
   }
-  return total;
+  /*
+   * Findings overlap and every one of these figures is a rough estimate, so the
+   * sum saturates instead of adding up without limit. Broadie's tour-to-bogey
+   * numbers put the whole approach game at about four strokes of a ten-stroke
+   * gap between a 90 and an 80 shooter, which is the scale a session's worth of
+   * ball-striking findings has to live inside. Six is the ceiling; small totals
+   * barely move (2 reads as 1.7) and a pile of findings flattens toward it.
+   */
+  return STROKES_CEILING * (1 - Math.exp(-total / STROKES_CEILING));
 }
+
+/** The most a session's findings can plausibly be worth together, in shots a round. */
+const STROKES_CEILING = 6;
 
 /**
  * Your measured medians against your own speed-adjusted targets.

@@ -13,7 +13,7 @@ import { median, percentile, pluck } from '../stats/robust.js';
  * The signatures used are the ones that separate cleanly in launch monitor
  * data:
  *
- *   - A **thin** strike catches the ball above centre: it launches lower and
+ *   - A **thin** strike catches the ball low on the face: it launches lower and
  *     spins less than usual, both at once. Either alone is just a variation.
  *   - A **heavy** strike loses energy to the ground before the ball: ball
  *     speed and carry drop while launch stays roughly normal.
@@ -43,7 +43,7 @@ export interface StrikeBreakdown {
 const META: Record<StrikeClass, { label: string; description: string }> = {
   flush: { label: 'Flushed', description: 'Best ball speed you produced for the effort.' },
   solid: { label: 'Solid', description: 'Normal contact for you — nothing wrong with it.' },
-  thin: { label: 'Thin', description: 'Caught above centre: launched low and spun low.' },
+  thin: { label: 'Thin', description: 'Caught low on the face: launched low and lost ball speed.' },
   heavy: { label: 'Heavy', description: 'Ground first: lost ball speed and came up short.' },
   'off-centre': { label: 'Off centre', description: 'Missed the middle of the face.' },
 };
@@ -197,8 +197,15 @@ function classifyOne(
    * Millimetres from centre. Roughly a dime's width vertically is the band
    * inside which a strike stops costing ball speed.
    */
+  /*
+   * Low on the face is the thin strike. High on the face is not "heavy": heavy
+   * means the ground was struck first, and a ball struck high on the face is
+   * off the middle but clear of the turf (on a driver it is close to ideal). So
+   * a high-face strike is off-centre, and heavy stays an inference from lost
+   * ball speed and carry below.
+   */
   if (impactHeight !== null && Math.abs(impactHeight) > 9) {
-    return impactHeight < 0 ? 'thin' : 'heavy';
+    return impactHeight < 0 ? 'thin' : 'off-centre';
   }
   if (impactOffset !== null && Math.abs(impactOffset) > 12) return 'off-centre';
   if (impactHeight !== null && impactOffset !== null

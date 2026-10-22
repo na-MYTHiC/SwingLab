@@ -35,17 +35,23 @@ export interface ConsistencyScore {
 interface Band {
   label: string;
   unit: string;
-  /** Spread at or below this scores 100. */
+  /** Spread at or below this scores 100. A share of the median when `relative`. */
   tight: number;
-  /** Spread at or above this scores 0. */
+  /** Spread at or above this scores 0. A share of the median when `relative`. */
   loose: number;
+  /**
+   * Judge the spread as a share of the typical value rather than in raw units.
+   * A fixed 400 rpm band is 16% of driver spin and 4% of wedge spin, and 14 yards
+   * of carry is a wide miss with a wedge and a tight one with a driver.
+   */
+  relative?: boolean;
   read: (profile: ClubProfile) => Summary;
   soWhat: string;
 }
 
 const BANDS: Record<string, Band> = {
   carry: {
-    label: 'Carry distance', unit: 'yds', tight: 3, loose: 14,
+    label: 'Carry distance', unit: 'yds', tight: 0.02, loose: 0.095, relative: true,
     read: (p) => p.carry,
     soWhat: 'Decides whether you can commit to a club and a number.',
   },
@@ -75,7 +81,7 @@ const BANDS: Record<string, Band> = {
     soWhat: 'A window this wide means the ball flies differently every time.',
   },
   spinRate: {
-    label: 'Spin rate', unit: 'rpm', tight: 400, loose: 1600,
+    label: 'Spin rate', unit: 'rpm', tight: 0.06, loose: 0.22, relative: true,
     read: (p) => p.spinRate,
     soWhat: 'Changes how far it carries and how hard it stops.',
   },
@@ -104,7 +110,9 @@ export function consistencyScores(profile: ClubProfile): ConsistencyScore[] {
     const spread = summary.mad;
     // Linear between the two anchors, clamped. Simple on purpose: a curve
     // here would imply a precision these bands do not have.
-    const raw = (band.loose - spread) / (band.loose - band.tight);
+    const measured = band.relative ? spread / Math.abs(summary.median) : spread;
+    if (!Number.isFinite(measured)) continue;
+    const raw = (band.loose - measured) / (band.loose - band.tight);
     const score = Math.round(Math.max(0, Math.min(1, raw)) * 100);
 
     out.push({

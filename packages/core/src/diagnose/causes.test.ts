@@ -189,12 +189,25 @@ describe('total strokes available', () => {
     expect(many).toBeLessThan(single * 2.5);
   });
 
-  it('keeps genuinely different faults additive', () => {
+  it('keeps genuinely different faults close to additive, below a ceiling', () => {
     const total = estimateStrokesAvailable(
       prioritise([finding('target-short-bias', null), finding('gap-oversized', '8i')]),
     );
     const bias = estimateStrokesAvailable(prioritise([finding('target-short-bias', null)]));
     const gap = estimateStrokesAvailable(prioritise([finding('gap-oversized', '8i')]));
-    expect(total).toBeCloseTo(bias + gap, 5);
+    // Saturating, so the sum is a little under the straight addition, never over it.
+    expect(total).toBeLessThanOrEqual(bias + gap);
+    expect(total).toBeGreaterThan((bias + gap) * 0.85);
+  });
+
+  it('cannot claim more than the ceiling however many faults pile up', () => {
+    const many = estimateStrokesAvailable(
+      prioritise([
+        finding('high-mishit-rate', '7i'), finding('strike-scattered', '8i'),
+        finding('target-short-bias', null), finding('carry-inconsistent', '9i'),
+        finding('face-inconsistent', 'PW'), finding('low-point-behind-ball', '6i'),
+      ]),
+    );
+    expect(many).toBeLessThan(6);
   });
 });

@@ -98,7 +98,12 @@ describe('handicap from ball-striking', () => {
     const few = estimateHandicap(profile({ sideMad: 14, n: 12 }), strike(0.85))!;
     expect(few.high - few.low).toBeGreaterThan(many.high - many.low);
     expect(few.confidence).toBe('low');
-    expect(many.confidence).toBe('high');
+    // Never 'high': a range session cannot see the short game and the scale is a model.
+    expect(many.confidence).toBe('medium');
+  });
+
+  it('declines to rate a wedge pattern against a scale built for full swings', () => {
+    expect(estimateHandicap(profile({ sideMad: 6, n: 30, carry: 70 }), strike(0.85))).toBeNull();
   });
 
   it('refuses to estimate from too few shots', () => {

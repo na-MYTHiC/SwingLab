@@ -135,7 +135,8 @@ export function personalOptimals(
   const row: TourRow = {
     clubSpeed,
     attackAngle: blend(slow.row, fast.row, 'attackAngle', tSafe),
-    smashFactor: blend(slow.row, fast.row, 'smashFactor', tSafe),
+    // Smash plateaus: a ratio does not keep rising because the line was extended.
+    smashFactor: blend(slow.row, fast.row, 'smashFactor', Math.max(0, Math.min(1, t))),
     launchAngle: blend(slow.row, fast.row, 'launchAngle', tSafe),
     spinRate: blend(slow.row, fast.row, 'spinRate', tSafe),
     apexHeight: blend(slow.row, fast.row, 'apexHeight', tSafe),
@@ -149,7 +150,14 @@ export function personalOptimals(
   const magnitudeScale = inside ? 1 : clubSpeed / nearer.speed;
   if (!inside) {
     row.spinRate = nearer.row.spinRate;
-    row.carry = nearer.row.carry;
+    /*
+     * Carry follows ball speed, which is a line with a negative intercept
+     * rather than a proportion: scaling the LPGA driver down to 80 mph gave
+     * 186 yards where the published figures for that speed are 160-180. Extend
+     * the line through the two anchors instead, and let `build` skip its
+     * proportional scale for carry.
+     */
+    row.carry = Math.max(0, slow.row.carry + (fast.row.carry - slow.row.carry) * t);
   }
 
   return build(
@@ -175,8 +183,20 @@ function build(
       ? `Interpolated between the two tours, who swing this club at ${slowSpeed} and ${fastSpeed} mph.`
       : `Your speed is outside both tour averages (${slowSpeed}-${fastSpeed} mph), so this extends the trend rather than reading it off. Treat it as a direction.`;
 
-  const spin = row.spinRate * scale;
-  const carry = row.carry * scale;
+  const driver = club === 'Dr';
+  /*
+   * The driver is the one club where "what the tour does" is not the target.
+   * TrackMan's own optimiser puts a 94 mph swing at about 13.6° launch and
+   * 2,770 rpm, and a 120 mph swing hitting up 5° at 12.6° and 2,340 rpm — so
+   * spin sits in a band near 2,400-2,700 across speeds rather than shrinking
+   * with them, and attack angle up to about +5° is rewarded, not penalised.
+   * Scaling the tour rows (which hit down slightly) gave an 80 mph player a
+   * 2,090 rpm target and a 120 mph player a downward-attack one.
+   */
+  const rawSpin = row.spinRate * scale;
+  const spin = driver ? Math.min(2700, Math.max(2400, rawSpin)) : rawSpin;
+  // Outside the anchors carry arrives already extended along its own line.
+  const carry = basis === 'extrapolated' && slowSpeed !== fastSpeed ? row.carry : row.carry * scale;
   const ballSpeed = clubSpeed * row.smashFactor;
 
   const windows: OptimalWindow[] = [
@@ -185,7 +205,7 @@ function build(
       label: 'Attack angle',
       target: row.attackAngle,
       min: row.attackAngle - 1.5 * slack,
-      max: row.attackAngle + 1.5 * slack,
+      max: driver ? Math.max(row.attackAngle + 1.5 * slack, 5) : row.attackAngle + 1.5 * slack,
       unit: '°',
       basis,
       why:
@@ -208,7 +228,8 @@ function build(
       label: 'Launch angle',
       target: row.launchAngle,
       min: row.launchAngle - 2 * slack,
-      max: row.launchAngle + 2 * slack,
+      // Hitting up on a driver launches it higher at the same speed, so the top of the window is wider.
+      max: row.launchAngle + (driver ? 4 : 2) * slack,
       unit: '°',
       basis,
       why: `Slower swings need a higher launch to hold the same flight — the two tours differ by over two degrees with a 7-iron. ${anchorNote}`,

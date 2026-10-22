@@ -109,6 +109,27 @@ const SPECS: Record<string, Spec> = {
   },
 };
 
+/**
+ * How big a change in a *spread* has to be before it is more than the noise.
+ *
+ * A lower-is-better metric here is a robust spread (carry spread, face control,
+ * low point control, loft control), and a spread from six shots is a loose
+ * estimate: its standard error is about 1.2/sqrt(n) of its value. A fixed floor
+ * of two yards on a six-yard spread is smaller than the error of the
+ * difference, so most "meaningful" changes between two six-shot sessions were
+ * the draw. One and a half standard errors of the difference is the bar.
+ * Medians and ratios keep their fixed floors.
+ */
+function noiseFloor(
+  direction: MetricDelta['direction'],
+  p: { value: number; n: number },
+  c: { value: number; n: number },
+): number {
+  if (direction !== 'lower-better') return 0;
+  const se = (v: { value: number; n: number }) => Math.abs(v.value) * Math.sqrt(1.36 / v.n);
+  return 1.5 * Math.hypot(se(p), se(c));
+}
+
 function improvedBy(
   direction: MetricDelta['direction'],
   prev: number,
@@ -160,7 +181,7 @@ export function compareSessions(
       previous: p.value,
       current: c.value,
       change,
-      meaningful: Math.abs(change) >= spec.floor,
+      meaningful: Math.abs(change) >= Math.max(spec.floor, noiseFloor(spec.direction, p, c)),
       improved: improvedBy(spec.direction, p.value, c.value),
       direction: spec.direction,
     });

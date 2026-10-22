@@ -1,6 +1,6 @@
 import { widthPctForHandicap } from '../benchmarks/skill.js';
 import { speedAdjusted } from '../benchmarks/tour.js';
-import { downgrade, spinIsModelled } from './types.js';
+import { downgrade, spinIsModelled, confidenceForSpread } from './types.js';
 import { confidenceFor, round, type Finding, type Rule } from './types.js';
 
 /** A signed offset from the target line, said the way a golfer would say it. */
@@ -35,7 +35,7 @@ export const dynamicLoftConsistencyRule: Rule = {
         club: profile.club,
         severity: d.mad >= 4 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
-          ? downgrade(confidenceFor(d.n))
+          ? downgrade(confidenceForSpread(d.n))
           : confidenceFor(d.n),
         title: `You deliver a different loft on every ${profile.club}`,
         detail:
@@ -70,7 +70,7 @@ export const launchWindowRule: Rule = {
         club: profile.club,
         severity: l.mad >= 3.2 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
-          ? downgrade(confidenceFor(l.n))
+          ? downgrade(confidenceForSpread(l.n))
           : confidenceFor(l.n),
         title: `Your ${profile.club} launches through a very wide window`,
         detail:
@@ -106,7 +106,7 @@ export const spinConsistencyRule: Rule = {
         club: profile.club,
         severity: relative >= 0.22 ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
-          ? downgrade(confidenceFor(s.n))
+          ? downgrade(confidenceForSpread(s.n))
           : confidenceFor(s.n),
         title: `Your ${profile.club} spin is all over the place`,
         detail:
@@ -167,7 +167,7 @@ export const lateralDispersionRule: Rule = {
         club: profile.club,
         severity: relative >= majorAt ? 'major' : 'minor',
         confidence: spinIsModelled(profile.spinMeasuredShare)
-          ? downgrade(confidenceFor(side.n))
+          ? downgrade(confidenceForSpread(side.n))
           : confidenceFor(side.n),
         title: `Your ${profile.club} pattern is ${round(d.width, 0)} yards wide`,
         detail:
@@ -200,6 +200,9 @@ export const lateralDispersionRule: Rule = {
  * at 92 mph or 75, and the carry that efficiency would buy them at their own
  * speed is a number they can genuinely go and claim.
  */
+/** Carry yards per mph of ball speed: about 2.1 for a driver and 1.9 for a 7-iron (TrackMan tour tables). */
+const YARDS_PER_BALL_MPH = 2;
+
 export const speedAdjustedEfficiencyRule: Rule = {
   id: 'speed-adjusted-efficiency',
   minShots: 8,
@@ -222,6 +225,18 @@ export const speedAdjustedEfficiencyRule: Rule = {
     const shortfall = 1 - adj.efficiency;
     if (shortfall < 0.05) return [];
 
+    /*
+     * The yards come from the ball speed that is missing, not from a gap between
+     * two carries. A carry gap blames the strike for everything — launch, spin,
+     * the model's own error, and the thinner air of a bay at altitude, which
+     * makes a raw carry look long next to a sea-level tour number — and it can
+     * go negative. Ball speed is a ratio, so none of that touches it. Roughly
+     * two yards of carry per mph of ball speed holds across drivers and irons.
+     */
+    const yardsAvailable = Math.round(adj.ballSpeedGap * YARDS_PER_BALL_MPH);
+    if (!Number.isFinite(yardsAvailable) || yardsAvailable < 1) return [];
+    const carryAtTourStrike = carry.median + yardsAvailable;
+
     return [
       {
         id: 'below-tour-efficiency',
@@ -230,21 +245,21 @@ export const speedAdjustedEfficiencyRule: Rule = {
         confidence: spinIsModelled(profile.spinMeasuredShare)
           ? downgrade(confidenceFor(speed.n))
           : confidenceFor(speed.n),
-        title: `You are leaving ${round(adj.expectedCarry - carry.median, 0)} yards in the strike, not the swing`,
+        title: `You are leaving about ${yardsAvailable} yards in the strike, not the swing`,
         detail:
           `You swing the ${profile.club} at ${round(speed.median, 1)} mph against a tour average of ` +
           `${round(adj.tourClubSpeed, 0)}, so raw distance comparisons are not the point. What is ` +
           `comparable is efficiency: your smash factor is ${round(smash.median, 3)} against ` +
           `${round(smash.median / adj.efficiency, 2)} for a tour-quality strike — you are at ` +
           `${round(adj.efficiency * 100, 0)}% of it. At your current club speed, striking it that ` +
-          `well would carry about ${round(adj.expectedCarry, 0)} yards rather than ` +
+          `well would carry about ${round(carryAtTourStrike, 0)} yards rather than ` +
           `${round(carry.median, 0)}. That distance is available without swinging any harder.`,
         evidence: [
           { label: 'Strike efficiency', value: round(adj.efficiency * 100, 0), unit: '%', reference: 100 },
           { label: 'Your club speed', value: round(speed.median, 1), unit: 'mph' },
           { label: 'Tour club speed', value: round(adj.tourClubSpeed, 0), unit: 'mph' },
           { label: 'Ball speed left', value: round(adj.ballSpeedGap, 1), unit: 'mph' },
-          { label: 'Carry at tour strike', value: round(adj.expectedCarry, 0), unit: 'yds' },
+          { label: 'Carry at tour strike', value: round(carryAtTourStrike, 0), unit: 'yds' },
         ],
         drills: ['foot-spray-strike', 'strike-map', 'one-flight'],
       },

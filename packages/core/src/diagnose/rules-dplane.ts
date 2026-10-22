@@ -1,5 +1,5 @@
 import { clubFamily } from '../clubs.js';
-import { confidenceFor, round, signed, type Finding, type Rule } from './types.js';
+import { confidenceFor, round, signed, type Finding, type Rule, confidenceForSpread } from './types.js';
 
 /**
  * D-plane rules: where the ball starts and which way it curves.
@@ -119,7 +119,7 @@ export const faceConsistencyRule: Rule = {
         id: 'face-inconsistent',
         club: profile.club,
         severity: f.mad >= threshold * 1.6 ? 'major' : 'minor',
-        confidence: confidenceFor(f.n),
+        confidence: confidenceForSpread(f.n),
         title: `Face angle varies a lot shot to shot with the ${profile.club}`,
         detail:
           `Face angle swings about ±${round(f.mad, 1)}° around its median across ${f.n} shots, ` +

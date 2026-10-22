@@ -29,7 +29,10 @@ describe('what aiming is worth', () => {
     expect(v.worthSaying).toBe(true);
     expect(v.worst!.moveSide).toBe('left');
     expect(v.worst!.moveYards).toBeCloseTo(12.5, 1);
-    expect(v.strokesFromAim).toBeGreaterThan(3);
+    // A big offset is worth a lot, but never more than the cap: a quarter of the
+    // rating change, at most two strokes (the raw reading was 8+).
+    expect(v.strokesFromAim).toBeGreaterThan(1);
+    expect(v.strokesFromAim).toBeLessThanOrEqual(2);
   });
 
   it('mirrors for a pattern that sits left', () => {

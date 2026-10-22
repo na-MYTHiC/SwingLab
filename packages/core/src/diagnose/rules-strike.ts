@@ -1,6 +1,6 @@
 import { clubFamily, isOffTheDeck } from '../clubs.js';
 import { SMASH_CEILING } from '../benchmarks/tour.js';
-import { confidenceFor, round, type Finding, type Rule } from './types.js';
+import { confidenceFor, round, type Finding, type Rule, confidenceForSpread } from './types.js';
 
 /**
  * Strike-quality rules: attack angle, low point, face contact, smash factor.
@@ -149,7 +149,7 @@ export const lowPointRule: Rule = {
         id: 'low-point-inconsistent',
         club: profile.club,
         severity: lp.mad >= 3.0 ? 'major' : 'minor',
-        confidence: confidenceFor(lp.n),
+        confidence: confidenceForSpread(lp.n),
         title: `Your low point moves around with the ${profile.club}`,
         detail:
           `Low point varies by about ±${round(lp.mad, 1)} inches shot to shot even though its average ` +
@@ -210,7 +210,7 @@ export const impactLocationRule: Rule = {
         id: 'strike-scattered',
         club: profile.club,
         severity: off.mad >= 14 ? 'major' : 'minor',
-        confidence: confidenceFor(off.n),
+        confidence: confidenceForSpread(off.n),
         title: `Your strike location is scattered with the ${profile.club}`,
         detail:
           `Contact moves about ±${round(off.mad, 1)} mm across the face shot to shot. Scattered contact ` +

@@ -176,8 +176,8 @@ function SessionHero({
           <p className="eyebrow eyebrow-action">Work on this next</p>
           <h3>{top.finding.title}</h3>
           <p>
-            Worth about <strong>{shots(top.leverageStrokes)} shots a round</strong> and the highest
-            leverage thing in this session. Fix has the detail; Practice has the plan.
+            Worth roughly <strong>{shots(top.leverageStrokes)} shots a round</strong> (a size, not a
+            prediction) and the highest leverage thing in this session. Fix has the detail; Practice has the plan.
           </p>
         </div>
       )}

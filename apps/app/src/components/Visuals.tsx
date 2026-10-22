@@ -436,7 +436,7 @@ export function StreakBadge({ streak }: { streak: Streak }) {
  * Estimated handicap.
  *
  * Shown as a range and never without its caveat. A range session sees
- * ball-striking and nothing else, and roughly 45% of scoring happens inside
+ * ball-striking and nothing else, and a large share of scoring happens inside
  * 100 yards — so a single confident number here would be the most quotable
  * thing in the app and also the least defensible.
  */

@@ -67,6 +67,20 @@ const MIN_OFFSET_YARDS = 4;
 /** Fewer shots than this and the pattern centre is not established. */
 const MIN_SHOTS = 8;
 
+/**
+ * Turns a change in one club's handicap-scale rating into strokes a round.
+ *
+ * The rating describes a shot pattern, not a round: a player hits any one iron
+ * a handful of times a game, and a driver thirteen. Reading the rating change
+ * straight off as strokes turned an ordinary 8-yard offset on a 7-iron into
+ * "8.8 strokes", which is more than the whole approach game is worth between a
+ * 90 and an 80 shooter (Broadie). A quarter, capped at two, keeps it the right
+ * order of magnitude. Treat the result as a size, not a prediction.
+ */
+const RATING_TO_STROKES = 0.25;
+const MAX_STROKES_FROM_AIM = 2;
+const toStrokes = (rating: number) => Math.min(MAX_STROKES_FROM_AIM, Math.max(0, rating) * RATING_TO_STROKES);
+
 function forClub(profile: ClubProfile): ClubAim | null {
   const carry = profile.carry.median;
   const offset = profile.side.median;
@@ -110,8 +124,9 @@ export function aimValue(profiles: ClubProfile[]): AimValue {
   if (clubs.length === 0) return empty;
 
   const weight = clubs.reduce((sum, c) => sum + c.shots, 0);
-  const strokesFromAim =
+  const ratingFromAim =
     clubs.reduce((sum, c) => sum + (c.asPlayed - c.aimed) * c.shots, 0) / weight;
+  const strokesFromAim = toStrokes(ratingFromAim);
 
   /*
    * Cost is measured against scratch rather than against zero, because a
@@ -119,10 +134,10 @@ export function aimValue(profiles: ClubProfile[]): AimValue {
    * and dividing by it would produce a nonsense share.
    */
   const totalCost = clubs.reduce((sum, c) => sum + Math.max(0, c.asPlayed) * c.shots, 0) / weight;
-  const shareOfCost = totalCost > 0 ? Math.min(1, strokesFromAim / totalCost) : 0;
+  const shareOfCost = totalCost > 0 ? Math.min(1, ratingFromAim / totalCost) : 0;
 
   const worst = clubs[0] as ClubAim;
-  const worthSaying = worst.moveYards >= MIN_OFFSET_YARDS && strokesFromAim >= 0.5;
+  const worthSaying = worst.moveYards >= MIN_OFFSET_YARDS && strokesFromAim >= 0.15;
 
   if (!worthSaying) {
     return {
@@ -148,7 +163,7 @@ export function aimValue(profiles: ClubProfile[]): AimValue {
       `${worst.moveSide} by that much and the same swing, with the same spread, holds ` +
       `${Math.round(worst.greenAimed * 100)}% of greens instead of ` +
       `${Math.round(worst.greenNow * 100)}% — worth roughly ` +
-      `${(worst.asPlayed - worst.aimed).toFixed(1)} strokes on its own. That is ${pct}% of what ` +
+      `${toStrokes(worst.asPlayed - worst.aimed).toFixed(1)} strokes on its own. That is ${pct}% of what ` +
       `your pattern is costing you, available without changing anything about how you swing. ` +
       `Confirm it holds over a second session before you rebuild your alignment around it: one ` +
       `session can be one day's aim rather than a habit.`,
