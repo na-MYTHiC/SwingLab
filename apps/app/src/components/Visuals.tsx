@@ -319,30 +319,57 @@ export function ScorePanel({ score }: { score: SessionScore }) {
 export function AchievementPanel({ achievements }: { achievements: Achievement[] }) {
   if (achievements.length === 0) return null;
 
-  // Earned, plus the two nearest. A wall of things you have not done yet is
-  // discouraging rather than motivating, and the far-off ones are not
-  // information you can act on this week.
   const earned = achievements.filter((a) => a.earned);
-  const near = achievements.filter((a) => !a.earned).slice(0, 2);
-  const rest = achievements.filter((a) => !a.earned).slice(2);
+  const unearned = achievements.filter((a) => !a.earned);
+  // The two nearest. A wall of things you have not done yet is discouraging
+  // rather than motivating, and the far-off ones cannot be acted on this week.
+  const near = unearned.slice(0, 2);
 
+  /*
+   * Eighteen full tiles ran to a thousand pixels, most of them saying the same
+   * thing ("earned"). The count, what is next, and what is already banked as a
+   * row of chips say all of it in a third of the space; every requirement is
+   * still one tap away.
+   */
   return (
     <>
-      <ul className="achievements">
-        {[...earned, ...near].map((a) => (
-          <AchievementCard key={a.id} achievement={a} />
-        ))}
-      </ul>
-      {rest.length > 0 && (
-        <details className="more-ach">
-          <summary>{rest.length} more to aim at</summary>
+      <p className="ach-count">
+        <strong>{earned.length}</strong> of {achievements.length} earned
+      </p>
+
+      {near.length > 0 && (
+        <>
+          <h4 className="block-sub">Next up</h4>
           <ul className="achievements">
-            {rest.map((a) => (
+            {near.map((a) => (
               <AchievementCard key={a.id} achievement={a} />
             ))}
           </ul>
-        </details>
+        </>
       )}
+
+      {earned.length > 0 && (
+        <>
+          <h4 className="block-sub">Earned</h4>
+          <ul className="ach-chips">
+            {earned.map((a) => (
+              <li key={a.id} className="ach-chip">
+                <i className={`ach-dot ach-dot-${a.tier}`} aria-hidden="true" />
+                {a.name}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <details className="more-ach">
+        <summary>All {achievements.length}, and what each takes</summary>
+        <ul className="achievements">
+          {achievements.map((a) => (
+            <AchievementCard key={a.id} achievement={a} />
+          ))}
+        </ul>
+      </details>
     </>
   );
 }

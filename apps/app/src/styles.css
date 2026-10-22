@@ -527,6 +527,8 @@ select { font-size: var(--fs-sm); }
   color: var(--text-faint);
 }
 .eyebrow-action { color: var(--brand); }
+.quiet-title { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+.quiet-body { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); color: var(--text-dim); }
 
 /* The two number treatments. A display number is the one a screen is about;
    a figure is a headline inside a card. Both are plain ink, tabular. */
@@ -1286,7 +1288,23 @@ tbody tr:hover { background: var(--surface-2); }
 .ellipse { fill: color-mix(in srgb, var(--data) 10%, transparent); stroke: color-mix(in srgb, var(--data) 50%, transparent); stroke-width: 1.5; }
 .centre-dot { fill: var(--text); stroke: var(--bg); stroke-width: 2; }
 
-.trend-grid { display: grid; gap: var(--gap); }
+.trend-grid { display: grid; gap: var(--sp-2); }
+@media (max-width: 719px) {
+  .trend {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 116px;
+    column-gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) var(--card-pad);
+    box-shadow: none;
+  }
+  .trend-head { grid-column: 1; grid-row: 1; flex-direction: column; align-items: flex-start; gap: 0; margin: 0; }
+  .trend svg { grid-column: 2; grid-row: 1 / span 2; width: 116px; height: 44px; }
+  /* The one-line state sits next to the number ("-3.6° · better"), so the
+     explanatory sentence is redundant here and doubled each row's height. */
+  .trend-note { display: none; }
+  .trend svg { grid-row: 1; }
+}
 @media (min-width: 720px) {
   .trend-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 }
@@ -1666,8 +1684,10 @@ tbody tr:hover { background: var(--surface-2); }
   margin-top: var(--sp-4); padding-top: var(--sp-4);
   border-top: 1px solid var(--line);
 }
+.standing .eyebrow { margin-bottom: var(--sp-2); }
+.standing .hcp { margin-top: 0; }
 .streak-figure { display: flex; align-items: baseline; gap: var(--sp-1); flex: none; }
-.streak-figure strong { font-size: 26px; color: var(--warn); letter-spacing: -0.03em; }
+.streak-figure strong { font-size: 28px; color: var(--text); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .streak-figure span { font-size: var(--fs-xs); color: var(--text-faint); }
 .streak-detail { display: flex; flex-direction: column; min-width: 0; }
 .streak-detail strong { font-size: var(--fs-sm); }
@@ -1703,7 +1723,22 @@ tbody tr:hover { background: var(--surface-2); }
 .ach-fill { height: 100%; background: var(--text-faint); border-radius: 999px; }
 .ach-req { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); color: var(--text-dim); }
 
-.more-ach { margin-top: var(--sp-3); }
+.ach-foot { margin: var(--sp-2) 0 0; }
+.ach-count { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--text-dim); }
+.ach-count strong { font-size: var(--fs-figure); font-weight: 650; line-height: 1; color: var(--text); margin-right: var(--sp-1); letter-spacing: -0.03em; }
+.ach-chips { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ach-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: 32px; padding: 0 var(--sp-3);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--good) 8%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--good) 30%, var(--line));
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+}
+.ach-chip .ach-dot-bronze { background: #c98a55; }
+.ach-chip .ach-dot-silver { background: #c3ccd4; }
+.ach-chip .ach-dot-gold { background: var(--warn); }
+.more-ach { margin-top: var(--sp-3); border-top: 1px solid var(--line); padding-top: var(--sp-1); }
 .more-ach > summary { min-height: var(--tap); display: flex; align-items: center; font-size: var(--fs-sm); color: var(--brand); cursor: pointer; }
 
 /* --- handicap ----------------------------------------------------------- */
@@ -1719,18 +1754,15 @@ tbody tr:hover { background: var(--surface-2); }
   display: flex;
   align-items: baseline;
   gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-5);
-  border-radius: var(--radius);
-  background: linear-gradient(140deg, color-mix(in srgb, var(--brand) 18%, var(--surface-2)), var(--surface-2));
-  border: 1px solid var(--brand-soft);
 }
 .hcp-figure strong {
-  font-size: 36px; line-height: 1; letter-spacing: -0.04em;
+  font-size: var(--fs-figure); font-weight: 650; line-height: 1;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
   color: var(--text);
 }
-.hcp-figure span { font-size: var(--fs-sm); color: var(--text-dim); }
-.hcp-detail { flex: 1; min-width: 200px; }
-.hcp-detail p { margin: 0; font-size: var(--fs-xs); color: var(--text-faint); }
+.hcp-figure span { font-size: var(--fs-md); color: var(--text-dim); }
+.hcp-detail { flex: 1 1 240px; min-width: 0; }
+.hcp-detail p { margin: 0; font-size: var(--fs-xs); color: var(--text-dim); }
 .hcp-conf {
   display: inline-block;
   margin-bottom: var(--sp-1);

@@ -35,10 +35,10 @@ import { applyTheme, loadTheme, type Theme } from './theme.js';
 import { SAMPLE_SESSIONS, isSampleSession } from './sample.js';
 import { buildStamp, VERSION } from './version.js';
 import { plural, sessionKindLabel, shortDate } from './format.js';
-import { ClubsView, PracticeView, PriorityView, TrendsView } from './components/Views.js';
+import { ClubsView, PracticeView, PriorityView, ProgressView } from './components/Views.js';
 import { OverviewView } from './components/Overview.js';
 
-export type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'trends';
+export type Tab = 'overview' | 'priority' | 'practice' | 'clubs' | 'progress';
 
 /*
  * Tab order follows the order the questions are actually asked: how did I do,
@@ -50,7 +50,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'priority', label: 'Fix' },
   { id: 'practice', label: 'Practice' },
   { id: 'clubs', label: 'Clubs' },
-  { id: 'trends', label: 'Trends' },
+  { id: 'progress', label: 'Progress' },
 ];
 
 export default function App() {
@@ -366,7 +366,7 @@ export default function App() {
                 onClick={() => setTab(t.id)}
               >
                 <span className="nav-label">{t.label}</span>
-                {t.id === 'trends' && trends.some((x) => x.significant) && (
+                {t.id === 'progress' && trends.some((x) => x.significant) && (
                   <span className="nav-dot" />
                 )}
               </button>
@@ -417,7 +417,6 @@ export default function App() {
                 report={report}
                 session={cloned}
                 comparison={comparison}
-                streak={streak}
                 targets={targetResults}
               />
             )}
@@ -432,11 +431,14 @@ export default function App() {
             {tab === 'clubs' && cloned && (
               <ClubsView report={report} session={cloned} zone={zone} />
             )}
-            {tab === 'trends' && (
-              <TrendsView
+            {tab === 'progress' && (
+              <ProgressView
                 trends={trends}
                 sessionCount={stored.length}
                 windows={windows}
+                handicap={report.handicap}
+                streak={streak}
+                achievements={report.achievements}
               />
             )}
           </section>

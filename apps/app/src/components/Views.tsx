@@ -1,4 +1,5 @@
 import type {
+  Achievement, HandicapEstimate, Streak,
   Prioritised, SessionReport, Prescription, ClubProfile, Shot, ShotSession, Trend,
   PracticeDuration, FormRead, WindowProfile, SelfPercentile, ScoringZone,
 } from '@swinglab/core';
@@ -6,7 +7,9 @@ import { DispersionChart, TrendChart } from './Charts.js';
 import { Runner } from './Runner.js';
 import { fresh, loadRun, saveRun } from '../runState.js';
 import { useEffect, useState } from 'react';
-import { ConsistencyBars, OptimalBands } from './Visuals.js';
+import {
+  AchievementPanel, ConsistencyBars, HandicapPanel, OptimalBands, StreakBadge,
+} from './Visuals.js';
 import { carryFactor, trackManIndices } from '@swinglab/core';
 import { minutes, num, plural, shots, speedLabel } from '../format.js';
 
@@ -941,27 +944,44 @@ function Cell({
   );
 }
 
-/** The Trends view — the only thing a single session cannot tell you. */
-export function TrendsView({
-  trends, sessionCount, windows,
+/**
+ * Whether the six-minute-a-fortnight version of you is getting better.
+ *
+ * This is the only tab about the player rather than about a session or a
+ * club: where the handicap sits, how often you practise, what has moved over
+ * weeks, what milestones are banked. It used to be the thinnest tab in the app
+ * while the Session tab carried the handicap, the streak and eighteen
+ * milestone tiles below the shot-by-shot detail — a layout telling you the
+ * information was in the wrong room.
+ */
+export function ProgressView({
+  trends, sessionCount, windows, handicap, streak, achievements,
 }: {
   trends: Trend[];
   sessionCount: number;
   windows: {
     windows: WindowProfile[]; form: FormRead[]; percentiles: SelfPercentile[];
   } | null;
+  handicap: HandicapEstimate | null;
+  streak: Streak;
+  achievements: Achievement[];
 }) {
-  /*
-   * Form and percentiles live here rather than on Clubs.
-   *
-   * Both answer "how am I changing", which is what this tab is for — Clubs is
-   * reference data about the equipment in your hands. It also stops Clubs from
-   * running to five and a half thousand pixels while this tab sat almost
-   * empty, which is a layout telling you the information is in the wrong room.
-   */
-  const extras = windows && (windows.form.length > 0 || windows.percentiles.length > 0) ? (
-    <>
-      {windows.form.length > 0 && (
+  const hasForm = windows !== null && windows.form.length > 0;
+  const hasPercentiles = windows !== null && windows.percentiles.length > 0;
+  const significant = trends.filter((t) => t.significant);
+  const rest = trends.filter((t) => !t.significant);
+
+  return (
+    <div className="stack">
+      {(handicap || streak.totalDays > 0) && (
+        <section className="card card-hero standing">
+          <p className="eyebrow">Where you stand</p>
+          {handicap && <HandicapPanel handicap={handicap} />}
+          <StreakBadge streak={streak} />
+        </section>
+      )}
+
+      {windows && hasForm && (
         <>
           <h2 className="section-head">
             Form
@@ -970,7 +990,8 @@ export function TrendsView({
           <FormCard form={windows.form} windows={windows.windows} />
         </>
       )}
-      {windows.percentiles.length > 0 && (
+
+      {windows && hasPercentiles && (
         <>
           <h2 className="section-head">
             Against yourself
@@ -979,58 +1000,73 @@ export function TrendsView({
           <PercentileCard rows={windows.percentiles} />
         </>
       )}
-    </>
-  ) : null;
 
-  if (sessionCount < 3) {
-    return (
-      <div className="stack">
-        {extras}
-        <div className="empty-state">
-          <h2>
-            Import {3 - sessionCount} more session{3 - sessionCount === 1 ? '' : 's'} for trends
-          </h2>
-          <p>
+      {sessionCount < 3 ? (
+        <div className="card-quiet">
+          <p className="quiet-title">
+            Import {3 - sessionCount} more session{3 - sessionCount === 1 ? '' : 's'} for trend lines
+          </p>
+          <p className="quiet-body">
             Trend lines need at least three sessions with the same club before they mean anything.
             Two points is a line through noise, not a direction.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  const significant = trends.filter((t) => t.significant);
-  const rest = trends.filter((t) => !t.significant);
-
-  return (
-    <div className="stack">
-      {extras}
-      {significant.length === 0 && (
-        <p className="plan-note">
-          Nothing has moved further than your shot-to-shot noise yet. That is not a failure — most
-          real changes take several sessions to show up above the scatter.
-        </p>
+      ) : (
+        <>
+          {significant.length > 0 ? (
+            <>
+              <h2 className="section-head">
+                Moving
+                <span>further than your shot-to-shot noise</span>
+              </h2>
+              <div className="trend-grid">
+                {significant.slice(0, 4).map((t) => (
+                  <TrendChart key={`${t.club}-${t.metric}`} trend={t} />
+                ))}
+              </div>
+              {significant.length > 4 && (
+                <details className="more-findings">
+                  <summary>Show {significant.length - 4} more that are moving</summary>
+                  <div className="trend-grid">
+                    {significant.slice(4).map((t) => (
+                      <TrendChart key={`${t.club}-${t.metric}`} trend={t} />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </>
+          ) : (
+            <p className="plan-note">
+              Nothing has moved further than your shot-to-shot noise yet. That is not a failure —
+              most real changes take several sessions to show up above the scatter.
+            </p>
+          )}
+          {rest.length > 0 && (
+            <details className="more-findings">
+              <summary>{rest.length} holding steady</summary>
+              <div className="trend-grid">
+                {rest.map((t) => (
+                  <TrendChart key={`${t.club}-${t.metric}`} trend={t} />
+                ))}
+              </div>
+            </details>
+          )}
+        </>
       )}
-      {significant.length > 0 && (
-        <h2 className="section-head">
-          Moving
-          <span>further than your shot-to-shot noise</span>
-        </h2>
-      )}
-      <div className="trend-grid">
-        {significant.map((t) => (
-          <TrendChart key={`${t.club}-${t.metric}`} trend={t} />
-        ))}
-      </div>
-      {rest.length > 0 && (
-        <details className="more-findings">
-          <summary>{rest.length} holding steady</summary>
-          <div className="trend-grid">
-            {rest.map((t) => (
-              <TrendChart key={`${t.club}-${t.metric}`} trend={t} />
-            ))}
-          </div>
-        </details>
+
+      {achievements.length > 0 && (
+        <>
+          <h2 className="section-head">
+            Milestones
+            <span>thresholds that mean something in golf</span>
+          </h2>
+          <section className="card">
+            <AchievementPanel achievements={achievements} />
+            <p className="panel-sub ach-foot">
+              Nothing here rewards hitting more balls or one big swing.
+            </p>
+          </section>
+        </>
       )}
     </div>
   );

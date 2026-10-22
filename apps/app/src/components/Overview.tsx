@@ -1,11 +1,8 @@
 import type {
-  SessionComparison, SessionReport, ShotSession, Streak, TargetResult,
+  SessionComparison, SessionReport, ShotSession, TargetResult,
 } from '@swinglab/core';
 import { useState } from 'react';
-import {
-  AchievementPanel, HandicapPanel, ProgressionPanel, ScorePanel, ShapePanel, StreakBadge,
-  StrikePanel,
-} from './Visuals.js';
+import { ProgressionPanel, ScorePanel, ShapePanel, StrikePanel } from './Visuals.js';
 import { shareCard } from '../shareCard.js';
 import { DispersionChart } from './Charts.js';
 import { shots } from '../format.js';
@@ -20,12 +17,11 @@ import { shots } from '../format.js';
  * pushed below the things that are read every single time.
  */
 export function OverviewView({
-  report, session, comparison, streak, targets,
+  report, session, comparison, targets,
 }: {
   report: SessionReport;
   session: ShotSession;
   comparison: SessionComparison | null;
-  streak: Streak;
   targets: { results: TargetResult[]; since: Date | null } | null;
 }) {
   const [sharing, setSharing] = useState(false);
@@ -107,29 +103,6 @@ export function OverviewView({
         <h3 className="panel-title">How the session went</h3>
         <ProgressionPanel progression={report.progression} />
       </section>
-
-      {/*
-        The player, rather than the session. These are the numbers that make
-        somebody open the app on a day they did not practise, so they sit
-        together and away from the shot-by-shot detail above.
-      */}
-      {(report.handicap || streak.totalDays > 0 || report.achievements.length > 0) && (
-        <section className="card">
-          <h3 className="panel-title">Where you stand</h3>
-          {report.handicap && <HandicapPanel handicap={report.handicap} />}
-          <StreakBadge streak={streak} />
-          {report.achievements.length > 0 && (
-            <>
-              <h4 className="block-sub">Milestones</h4>
-              <p className="panel-sub">
-                Thresholds that mean something in golf. Nothing here rewards hitting more balls or
-                one big swing — those are easy to farm and neither makes anybody better.
-              </p>
-              <AchievementPanel achievements={report.achievements} />
-            </>
-          )}
-        </section>
-      )}
 
       {(report.discardedCount > 0 || report.dataNotes.length > 0) && (
         <details className="notes">

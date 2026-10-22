@@ -182,7 +182,8 @@ export function TrendChart({ trend }: { trend: Trend }) {
         </span>
         <span className="trend-change">
           {trend.significant
-            ? `${trend.change > 0 ? '+' : ''}${num(trend.change, trend.unit === '' ? 2 : 1)}${trend.unit}`
+            ? `${trend.change > 0 ? '+' : ''}${num(trend.change, trend.unit === '' ? 2 : 1)}${trend.unit}` +
+              ` \u00b7 ${trend.improving ? 'better' : 'worse'}`
             : 'no real change'}
         </span>
       </div>
