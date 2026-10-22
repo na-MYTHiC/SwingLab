@@ -271,47 +271,49 @@ function OptimalBand({ comparison }: { comparison: OptimalComparison }) {
   );
 }
 
-/** The session score: a grade, the components behind it, and where to gain. */
-export function ScorePanel({ score }: { score: SessionScore }) {
-  const tone = score.total >= 75 ? 'good' : score.total >= 55 ? 'mid' : 'bad';
+const toneOf = (score: number) => (score >= 68 ? 'good' : score >= 45 ? 'mid' : 'bad');
 
+/**
+ * The six components as a compact grid: a label, a number and a bar, nothing
+ * else. Each used to carry its own explanatory sentence, which made the
+ * score card the tallest thing on the page and buried the verdict it exists
+ * to give; the sentences are one tap away in `ScoreDetails`.
+ */
+export function ScoreGrid({ score }: { score: SessionScore }) {
   return (
-    <div className={`score score-${tone}`}>
-      <div className="score-head">
-        <div className="score-figure">
-          <strong>{score.total}</strong>
-          <span>/ 100</span>
-        </div>
-        <div className={`grade grade-${score.grade}`}>{score.grade}</div>
-      </div>
-      <p className="score-verdict">{score.verdict}</p>
+    <ul className="score-grid">
+      {score.components.map((c) => (
+        <li key={c.id} className={`sc sc-${toneOf(c.score)}`}>
+          <div className="sc-head">
+            <span>{c.label}</span>
+            <strong>{c.score}</strong>
+          </div>
+          <div className="sc-track">
+            <div className="sc-fill" style={{ width: `${c.score}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <ul className="score-components">
-        {score.components.map((c) => {
-          const t = c.score >= 68 ? 'good' : c.score >= 45 ? 'mid' : 'bad';
-          return (
-            <li key={c.id} className={`sc sc-${t}`}>
-              <div className="sc-head">
-                <span>{c.label}</span>
-                <strong>{c.score}</strong>
-              </div>
-              <div className="sc-track">
-                <div className="sc-fill" style={{ width: `${c.score}%` }} />
-              </div>
-              <p>{c.detail}</p>
-            </li>
-          );
-        })}
-      </ul>
-
-      {score.weakest && score.headroom > 0 && (
-        <p className="score-headroom">
-          <strong>+{score.headroom} points</strong> available from{' '}
-          {score.weakest.label.toLowerCase()} alone — the rest of the score is already close to
-          what it can be.
-        </p>
-      )}
-    </div>
+/** The same components, each with the sentence that explains its number. */
+export function ScoreDetails({ score }: { score: SessionScore }) {
+  return (
+    <ul className="score-components">
+      {score.components.map((c) => (
+        <li key={c.id} className={`sc sc-${toneOf(c.score)}`}>
+          <div className="sc-head">
+            <span>{c.label}</span>
+            <strong>{c.score}</strong>
+          </div>
+          <div className="sc-track">
+            <div className="sc-fill" style={{ width: `${c.score}%` }} />
+          </div>
+          <p>{c.detail}</p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
